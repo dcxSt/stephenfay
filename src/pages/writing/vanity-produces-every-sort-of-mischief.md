@@ -68,7 +68,7 @@ Herr. Lord Professor Dr. Phd. Wax McGill Drop-starch of Canterbury Hilltop
 
 ---
 
-Backstory: The first version of this riddle was made for a friend, unfortunately she didn't crack it so I re-purposed it as a reply to a poor student who had mistaken me for a prof and sent me an email asking to join my lab. He also failed to solve it so I re-re-purposed it for an english-teacher / redditor with whom I got into a fight with over how to write Haiku properly as an apology for my rude behaviour.
+Backstory: The first version of this riddle was made for a friend, unfortunately she didn't crack it so I re-purposed it as a reply to a poor student who had mistaken me for a prof and sent me an email asking to join my lab. He also failed to solve it so I re-re-purposed it for an english-teacher / redditor with whom I got into a fight with over how to write Haiku properly, I sent this as an apology for my rude behaviour.
 
 In the words of Keshav Dasgupta "there are many red herring in this problem"
 

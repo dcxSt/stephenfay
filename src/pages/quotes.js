@@ -8,6 +8,25 @@ export default function Quotes() {
             <div class="main">
                 <h1>Nuggets of gold</h1>
 								<pquote>
+									After all, if one is seeking peace one can find it very easily. One can devote oneself blindly to some kind of cause, to an idea, and take shelter there. Surely that does not solve the problem. Mere isolation in an enclosing idea is not a release from conflict. [...] <br/>
+									Self knowledge has no end - you don't come to an achievement, you don't come to a conclusion. It is an endless river. As one studies it, as one goes into it more and more, one finds peace. 
+								<br/><br/><b>J. Krishnamurti</b> in The first and last Freedom
+								</pquote>
+								<pquote>
+									<poem>Tomorow, and tomorow, and tomorow<br/>
+										Creeps in this petty pace from day to day <br/>
+										To the last syllable of recorded time.<br/>
+										And all our yesterdays have lighted fools<br/>
+										The way to dusty death. Out, out, brief candle.<br/>
+										Life's but a walking shadow, a poor player<br/>
+										That struts and frets his hour upon the stage,<br/>
+										And then is heard no more. It is a tale<br/>
+										Told by an idiot, full of sound and fury,<br/>
+										Signifying nothing.
+									</poem>
+									<br/><br/><b>Shakespere</b> in Macbeth
+								</pquote>
+								<pquote>
 									if the personal computer is truly a new medium then the use of it would actually change the thought patterns of an entire civilization<br/><br/><b>Alan Kay</b> 1989
 								</pquote>
                 <pquote>
