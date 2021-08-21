@@ -76,7 +76,7 @@ export default function Quotes() {
 				</pquote>
 				<pquote>
 				It's a game. It's the world of illusion. A tactic percieved is no tactic. I care but not <i>that</i> much.
-				<br/><br/><b>Herb Cohen</b>
+				<br/><br/><b>Herb Cohen</b> on negotiation
 				</pquote>
 				<pquote>
 				Nothing gives a person so much advantage over another as to remain always cool and unruffled under all circumstances.
@@ -97,10 +97,7 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote>
-				Definition: A bullshit job is a form of paid employment that is so completely pointless, unnecessary, or pernicious that even the employee cannot justify its existence even though, as part of the conditions of employment, the employee feels obliged to pretend that this is not the case.<br/><br/><b>David Graeber - Bullshit Jobs</b>
-				</pquote>
-
-				<pquote>
+				Definition: A bullshit job is a form of paid employment that is so completely pointless, unnecessary, or pernicious that even the employee cannot justify its existence even though, as part of the conditions of employment, the employee feels obliged to pretend that this is not the case.[...]<br/><br/>
 				Most people who do a great deal of harm in the world are protected against th knowledge that they do so.<br/><br/><b>David Graeber - Bullshit Jobs</b>
 				</pquote>
 
@@ -109,7 +106,7 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote>
-				How long does it take to be good at something? To master a cognitively complex task whether it's playing chess at an elite level or being a brain surgeon or a classical music composer or a good computer programer requires, seemingly without exception, 10000 hours deliberate practice. 10000 hours is roughly four hours a day for 10 years. So you need to put in that kind of time before you can achieve an elite status.<br/><br/>Quick maths, this is equivalent to: <br/><br/>- 1h/day 5 days a week for 40 years<br/><br/>- 8h/day 5 days a week for 5 years<br/><br/>- 4h/day 5 days a week for 10 years<br/><br/>- 12h/day 5days a week for 3 years (Rosie's undergrad)<br/><br/>- 14h/day 7 days a week for 2 years (Josh Waitzkin learning Tai Che)<br/><br/>- 10h/week for 20 years<br/><br/><b>Malcolm Gladwell</b>
+				How long does it take to be good at something? To master a cognitively complex task whether it's playing chess at an elite level or being a brain surgeon or a classical music composer or a good computer programer requires, seemingly without exception, 10000 hours deliberate practice. 10000 hours is roughly four hours a day for 10 years. So you need to put in that kind of time before you can achieve an elite status.<br/><br/>Quick maths, this is equivalent to: <br/><br/>- 1h/day 5 days a week for 40 years<br/><br/>- 10h/week for 20 years<br/><br/>- 4h/day 5 days a week for 10 years<br/><br/>- 8h/day 5 days a week for 5 years<br/><br/>- 12h/day 5days a week for 3 years (Rosie's undergrad)<br/><br/>- 14h/day 7 days a week for 2 years (Josh Waitzkin learning Tai Che)<br/><br/><b>Malcolm Gladwell</b>
 				</pquote>
 
 				<pquote>
