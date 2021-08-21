@@ -1,14 +1,14 @@
 import React from "react"
 import { graphql } from "gatsby"
-import Sidenav from "../components/sidebar"
+import Layout from "../components/layout"
+/* import Sidenav from "../components/sidebar"
+import Flynav from "../components/flybar"*/
 import { Link } from "gatsby"
 
 export default function Writing({ data }) {
     console.log(data);
     return (
-        <div style={{ color:`black`,margin:`3rem auto`}}>
-            <Sidenav />
-            <div class="main">
+				<Layout>
                 <h1>Writing</h1>
                 {data.allMarkdownRemark.edges.map(({ node }) => {
                     if (node.fileAbsolutePath.includes('writing'))
@@ -20,8 +20,7 @@ export default function Writing({ data }) {
                         )
                         // seems to order by date by default!
                 })}
-            </div>
-        </div>
+        </Layout>
     );
 }
 

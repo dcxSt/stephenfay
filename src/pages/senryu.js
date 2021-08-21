@@ -1,5 +1,6 @@
 import React from "react"
 import Sidenav from "../components/sidebar"
+import Flynav from "../components/flybar"
 import {StaticImage} from 'gatsby-plugin-image';
 import "../index.css"
 
@@ -9,6 +10,7 @@ export default function Hokku() {
     return (
         <div style={{ color:`black`,margin:`3rem auto` }}>
             <Sidenav />
+						<Flynav />
             <div class="main">
                 <h1>Senryu</h1>
                 <p>Hokku, as R. H. Blyth wrote, tells the truth but not all of it. It excludes everything not useful or appropriate in its effort to take us beyong our everyday view of things. Senryu happily picks up those discards and does something witty with them. </p>

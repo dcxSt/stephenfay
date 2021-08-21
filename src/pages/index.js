@@ -1,36 +1,41 @@
 import React from "react"
 import "../index.css"
-import Sidenav from "../components/sidebar"
+import Layout from "../components/layout"
 
 export default function Home() {
     return (
-        <div style={{ color: `black`,margin:`3rem auto` }}>
-            <Sidenav />
-            <div class="main">
-                <h1>Stephen Fay</h1>
-                <pprint>
-                    Height ~ 1m85, <br/>
-                    Hair: brown, <br/>
-                    Eyes: grey,<br/>
-                    Weight ~ 70kg, <br/>
-                    Language: Python, <br/>
-                    Favourite math: stoke's theorem, the isomorphism theorems, <br/> 
-                    Favourite ensemble: the canonical ensemble,<br/> 
-                    Favourite distrubition: Gibbs, <br/> 
-                    Favourite physics: Classical physics, <br/> 
-                    Longest breath holding record: 3m+ epsilon seconds, <br/> 
-                    Unexpected talent: I play the Cello, <br/> 
-                    Text editor of choice: vim, vscode with vim keymappings, <br/> 
-                    Other hobbies: Jiu-Jitsu, Judo, hiking, running, biking, basking in the sun.<br/>
+				<Layout>
+						<h1>Stephen Fay</h1>
+            <pquote style={{ marginTop:'-16px' }}>
+                    <b>Height</b> ~ 1m85, <br/>
+                    <b>Hair:</b> brown, <br/>
+                    <b>Eyes:</b> grey,<br/>
+                    <b>Weight</b> ~ 70kg, <br/>
+                    <b>Language of choice:</b> Python, <br/>
+                    <b>Favourite math:</b> stoke's theorem, the isomorphism theorems, <br/> 
+                    <b>Favourite ensemble:</b> the canonical ensemble,<br/> 
+                    <b>Favourite distrubition:</b> Gibbs, <br/> 
+                    <b>Favourite physics (theory):</b> Classical physics, <br/> 
+                    <b>Longest breath holding record:</b> 3m + epsilon seconds, <br/> 
+                    <b>Unexpected talent:</b> I play the Cello, <br/> 
+                    <b>Text editor of choice:</b> vim, vscode with vim keymappings, <br/> 
+                    <b>Other hobbies:</b> Jiu-Jitsu, Judo, biking, basking in the sun.<br/>
                     <br/>Currently I'm making a digital filter for 
                     radio telescopes which should help us locate
                     pulsars. The current filters (polyphase filter 
                     banks) produce sharp spikes of noise at certain 
                     frequencies, I'm trying to find a different 
                     filter that will get rid of these spikes.
-                </pprint>
-            </div>
-        </div>
+										<br/><br/>
+										<b>Homies</b> <br/>
+										<a href="https://mar" styel={{ unerline:"none" }}>Marley</a>
+										<br/><br/>
+										<b>Self</b> <br/>
+										<a href="https://curius.app/stephen-fay">curious profile</a>
+                </pquote>
+								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
+						</Layout>
+								/* not very elegant solution for whitespace at bottom of page */
     );
 }
 

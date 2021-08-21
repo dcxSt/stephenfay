@@ -1,5 +1,5 @@
 import React from "react"
-import Sidenav from "../components/sidebar"
+import Layout from "../components/layout"
 import {StaticImage} from 'gatsby-plugin-image';
 import "../index.css"
 
@@ -8,9 +8,7 @@ console.log(hokku);
 
 export default function Hokku() {
     return (
-        <div style={{ color:`black`,margin:`3rem auto` }}>
-            <Sidenav />
-            <div class="main">
+						<Layout>
                 <h1>Hokku</h1>
                     {
                         hokku.map(el => <div>
@@ -23,15 +21,6 @@ export default function Hokku() {
                         </div>)
                     }
 
-            </div>
-            <div class="main">
-                <StaticImage
-                    src="../images/fly.png"
-                    width={40}
-                    alt="fly"
-                    className="fly"
-                />
-            </div>
-        </div>
+						</Layout>
     );
 }

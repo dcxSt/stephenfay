@@ -10,6 +10,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Swanky+and+Moo+Moo&display=swap');
 /* nice font */
 @import url('https://fonts.googleapis.com/css2?family=Itim&display=swap');
+/* old font, trying to copy https://coolguy.website/basic-html-competency-is-the-new-punk-folk-explosion/?curius=373 */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300&display=swap');
 
 p {
   font-size: 19px;
@@ -32,14 +34,16 @@ h2 {
 }
 
 h4 {
-  font-family:'Special Elite',sans-serif;
+  /* font-family:'Special Elite',sans-serif; */
+	font-family: 'IBM Plex Mono', monospace;
   font-size:25px;
   color:#000;
   margin-bottom:5px;
 }
 
 h5 {
-  font-family:'Special Elite',sans-serif;
+  /* font-family:'Special Elite',sans-serif; */
+	font-family: 'IBM Plex Mono', monospace;
   font-size:25px;
   color:#777;
   margin-bottom:5px;
@@ -51,7 +55,8 @@ blockquote {
 
 pquote {
   font-size: 17px;
-  font-family:'Special Elite',sans-serif;
+  /* font-family:'Special Elite',sans-serif; */ 
+	font-family: 'IBM Plex Mono', monospace;
   display:block;
   margin-top:60px;
   /* text-indent:25px; */
@@ -87,21 +92,20 @@ pagelinkActive {
 }
 
 
-.fly {
-  position:absolute;
-  top:100px;
-  left:140%;
-}
-
 /* sidebar block (build for fly) */
-.rightbar {
+.flynav {
   height:100%;
-  width:120px;
+  width:30px;
   position:fixed;
   z-index:1; /* stay ontop */
   top: 0;
-  right: 0;
+  left: 950px; 
+	/* left: 0px; */
+	background-color: #fff;
+	overflow-x: hidden;
+	padding-top: 350px;
 }
+
 
 /* The sidebar menu */
 .sidenav {
