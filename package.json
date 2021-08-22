@@ -25,6 +25,7 @@
     "gatsby-plugin-manifest": "^3.5.0",
     "gatsby-plugin-mdx": "^2.5.0",
     "gatsby-plugin-sharp": "^3.5.0",
+    "gatsby-plugin-verify-brave": "^1.0.5",
     "gatsby-remark-images": "^5.2.0",
     "gatsby-source-filesystem": "^3.5.0",
     "gatsby-transformer-remark": "^4.2.0",

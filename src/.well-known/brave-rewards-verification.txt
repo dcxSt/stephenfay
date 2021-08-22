@@ -1,4 +1,0 @@
-This is a Brave Rewards publisher verification file.
-
-Domain: stephenfay.xyz
-Token: 8fb44f2b1e685b7959e283a41431f2e9dfa9e607fce814f396b7e1aa8ba20200

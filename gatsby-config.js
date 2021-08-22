@@ -3,6 +3,13 @@ module.exports = {
     title: "gatsby-personal",
   },
   plugins: [
+		{
+			resolve:"gatsby-plugin-verify-brave",
+			options: {
+				token: "8fb44f2b1e685b7959e283a41431f2e9dfa9e607fce814f396b7e1aa8ba20200"
+				domain: "stephenfay.xyz"
+			},
+		},
     "gatsby-plugin-image",
     {
       resolve: "gatsby-plugin-manifest",
