@@ -23,7 +23,7 @@ export default function Quotes() {
 						Told by an idiot, full of sound and fury,<br/>
 						Signifying nothing.
 					</poem>
-					<br/><br/><b>Shakespere</b> in Macbeth
+					<br/><br/><b>Shakespere</b> in <i>Macbeth</i>
 				</pquote>
 				<pquote>
 					if the personal computer is truly a new medium then the use of it would actually change the thought patterns of an entire civilization<br/><br/><b>Alan Kay</b> 1989
