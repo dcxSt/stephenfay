@@ -3,6 +3,9 @@ import Sidenav from "../components/sidebar"
 import Flynav from "../components/flybar"
 import {StaticImage} from 'gatsby-plugin-image';
 import "../index.css"
+import {Disqus} from 'gatsby-plugin-disqus';
+import {DiscussionEmbed} from "disqus-react";
+import {graphql} from "gatsby";
 
 var senryu = require('../content/senryu.json');
 
@@ -27,6 +30,8 @@ export default function Hokku() {
                         </div>)
                     }
             </div>
+					<script defer src="https://cdn.commento.io/js/commento.js"></script>
+					<div id="commento"></div>
         </div>
     );
 }
