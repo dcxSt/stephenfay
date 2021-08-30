@@ -18,7 +18,7 @@ date: "2020-07-24"
 
 **Achillies** See here, many nights in a row now, for the last say 40 odd years, I have been having a reaccuring dream, it is of a very strange nature you know, every night it's the same. 
 
-**Tortoise** T'is so? I myself am no stranger to reoccuring dreams, I once had a reoccuring dream that I was a snake on the hunt for Tortoises and I would find my sleeping self and wake up upon biting my own tail. But please do tell me what this dream is I am most intrigued that you should have the same one fourty years in a row, even for my kind this is quite a long time you know. 
+**Tortoise** T'is so? I myself am no stranger to reoccuring dreams, I once had a reoccuring dream that I was a snake on the hunt for Tortoises and I would find my sleeping self and wake up upon biting my own tail. But please do tell me what this dream is I am most intrigued that you should have the same one fourty years in a row. Even for my kind this is quite a long time you know. 
 
 **Achillies** Ahoy! This dream I speak of is most curious indeed; more so for me not having noticed that I was dreaming the same dream my entire life. 
 
