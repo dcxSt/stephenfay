@@ -28,7 +28,7 @@ export default function Home() {
                     filter that will get rid of these spikes.
 										<br/><br/>
 										<b>Homies</b> <br/>
-										<a href="https://mar" styel={{ unerline:"none" }}>Marley</a>
+										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>
