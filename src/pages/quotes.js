@@ -8,7 +8,7 @@ export default function Quotes() {
 				<pquote>
 					After all, if one is seeking peace one can find it very easily. One can devote oneself blindly to some kind of cause, to an idea, and take shelter there. Surely that does not solve the problem. Mere isolation in an enclosing idea is not a release from conflict. [...] <br/>
 					Self knowledge has no end - you don't come to an achievement, you don't come to a conclusion. It is an endless river. As one studies it, as one goes into it more and more, one finds peace. [...]<br/>
-					&nbsp;&nbsp;If I want to understand somebody, I cannot condemn him: I must observe, study him. I must love the very thing I am studying. If you want to understand a child, you must love and not condemn him. You must play with him, watch his movements, his idiosyncrasies, his ways of behaviour; but if you merely condemn, resist or blam him, there is no comprehension of the child. Similarly to understand what is, one must observe what one thinks, feels and does from moment to moment. That is the actual. Any other action, any ideal or ideological action, is not the actual; it is merely a wish, a fictitious desire to be something other than what is. <br/>&nbsp;&nbsp; To understand what is requires a state of mind in which there is no identification or condemnation, which means a mind that is alert and yet passive. We are in that state when we really desire to understand something; when the intensity of interest is there, that state of mind comes into being. When one is interested in understanding what is, the actual state of the mind, one does not need to force, discipline, or control it; on the contrary, there is passive alertness, watchfulness. This state of awareness comes when there is interest, the intention to understand. 
+					&nbsp;&nbsp;If I want to understand somebody, I cannot condemn him: I must observe, study him. I must love the very thing I am studying. If you want to understand a child, you must love and not condemn him. You must play with him, watch his movements, his idiosyncrasies, his ways of behaviour; but if you merely condemn, resist or blame him, there is no comprehension of the child. Similarly to understand what is, one must observe what one thinks, feels and does from moment to moment. That is the actual. Any other action, any ideal or ideological action, is not the actual; it is merely a wish, a fictitious desire to be something other than what is. <br/>&nbsp;&nbsp; To understand what is requires a state of mind in which there is no identification or condemnation, which means a mind that is alert and yet passive. We are in that state when we really desire to understand something; when the intensity of interest is there, that state of mind comes into being. When one is interested in understanding what is, the actual state of the mind, one does not need to force, discipline, or control it; on the contrary, there is passive alertness, watchfulness. This state of awareness comes when there is interest, the intention to understand. 
 				<br/><br/><b>J. Krishnamurti</b> in The <i>first and last Freedom</i>
 				</pquote>
 				<pquote>
@@ -29,7 +29,7 @@ export default function Quotes() {
 					if the personal computer is truly a new medium then the use of it would actually change the thought patterns of an entire civilization<br/><br/><b>Alan Kay</b> 1989
 				</pquote>
 				<pquote>
-				Zen is the essence of all that is good in the daily life of ordinary people. But that does not mean that we are not to smash it flat if we get the slightest opportunity. And we are not going to attack foxy (false) Zen, or the hypocrites and time-servers who support it, but Zen itself in its highest and sublimest forms. Nothing is sacred but one's own foolish and contradictory induitions. By "induition" is meant here that which I myself find in common with all so-called "great men" without exception, and with a good many "little" men. It is thus purely subjective, dangerous, and indeed variable, but the great thing is to have courage, and say again and again, "All that can be shaken shall be shaken!" and if nothing remains, let it be so.<br/><br/><b>R. H. Blyth</b> 27 Aug. 1959
+				Zen is the essence of all that is good in the daily life of ordinary people. But that does not mean that we are not to smash it flat if we get the slightest opportunity. And we are not going to attack foxy (false) Zen, or the hypocrites and time-servers who support it, but Zen itself in its highest and sublimest forms. Nothing is sacred but one's own foolish and contradictory intuitions. By "intuition" is meant here that which I myself find in common with all so-called "great men" without exception, and with a good many "little" men. It is thus purely subjective, dangerous, and indeed variable, but the great thing is to have courage, and say again and again, "All that can be shaken shall be shaken!" and if nothing remains, let it be so.<br/><br/><b>R. H. Blyth</b> 27 Aug. 1959
 				</pquote>
 				<pquote>
 				<i>Crab:</i> It seems to me that ants are free only within certain constraints. For example, they are free to wander, to brush against each other, to pick up small items, to work on trails, and so on. But they never step out of that small world, that ant-system, which they are in. It would never occur to them, for they don't have the mentality to imagine anything of the kind. Thus the ants are very reliable components, in the sense that you can depend on them to perform certain kinds of tasks in certain ways. <br/><br/> <i>Achilles:</i> But even so, within those limits they are still free, and they just act at random, running about incoherently without any regard for the thought mechanisms of a higher-level being which Dr. Anteater asserts they are merely components of.<br/><br/><b>Douglas Hofstadter (in GEB)</b>
@@ -42,8 +42,10 @@ export default function Quotes() {
 				A person of good intention looks to change the world. A person of good character looks within.
 				</pquote>
 				<pquote style={{ textAlign:`left` }}>
+				<i>On the Ads CFT correspondance</i><br/>
 				In the domain of high energy physics, the curvature of spacetime is so small it hardly matters. Well at least this is what people thought for a long time. Till Maldacena came up with his Ads CFT correspondance. Maldacena showed that a computation in high energy physics which is QFT, which has nothing to do with gravity, can alternatively be derived from Einstein theory. Which means that, people who thought they would never need gravity to understand quantum field theory where completely taken aback because you can either do a very hard computation in QFT, can be captured by a very simple computation in Einstein's theory. In fact an impossible question in the QFT side, can be done in one line on the gravity side. His version is called Ads / CFT correspondance, Ads is a very special gravity and CFT is a very special quantum field theory. But you can generalize it to guage theory and gravity correspondence. <br/><br/> So people who thought 'okay we'll never need einstein theory of gravity', and then they where stuck at very difficult questions in quantum field thoery that they couldn't figure out how to solve this thing. And out came this relationship where years and years where spent with no progress in QFT became a one line excersize on this side (puts mouse over ETh). So people who thought they would never need Einstein gravity had to go back and start learning GR, and you suddenly see in the ArXiv many of the people of QFT are now writing papers on GR, because they have now learned GR. So that you know that just because a subject is esoteric doesn't mean it's not useful. 
 				<br/><br/>
+				<i>On the ultraviolet catastrophe</i><br/>
 				According to the classical theory of radiation, if each Fourier mode of the equilibrium radiation (in an otherwise empty cavity with perfectly reflective walls) is considered as a degree of freedom capable of exchanging energy, then, according to the equipartition theorem of classical physics, there would be an equal amount of energy in each mode. Since there are an infinite number of modes, this would imply infinite heat capacity, as well as a nonphysical spectrum of emitted radiation that grows without bound with increasing frequency, a problem known as the ultraviolet catastrophe.
 				<br/><br/><b>Keshav Dasgupta</b>
 				</pquote>
@@ -68,7 +70,7 @@ export default function Quotes() {
 				</pquote>
 				<pquote style={{ textAlign:`left` }}>
 				<i>We must learn to love. </i>
-				This is our experience of music: we must first <i>learn to hear</i>, make out and distinguish a figure and a melody at all, to isolate and demarcate it as a living thing in its own right; then it requires a certain amount of effort and goodwill for us to tolerate it despite its strangeness; we need to exercise patience towards its aspect and expression, and generosity of spirit towards what is odd about it - finallythere comes a time when we are accustomed to it, have come to expect it, and we begin to suspect that we would miss it if it were gone; and now it continues to work its irresisteible magic on us more and more, and does not stop until we have become its abject and enraptured lovers, who want nothing more from the world than to experience it again and again. 
+				This is our experience of music: we must first <i>learn to hear</i>, make out and distinguish a figure and a melody at all, to isolate and demarcate it as a living thing in its own right; then it requires a certain amount of effort and goodwill for us to tolerate it despite its strangeness; we need to exercise patience towards its aspect and expression, and generosity of spirit towards what is odd about it - finally there comes a time when we are accustomed to it, have come to expect it, and we begin to suspect that we would miss it if it were gone; and now it continues to work its irresisteible magic on us more and more, and does not stop until we have become its abject and enraptured lovers, who want nothing more from the world than to experience it again and again. 
 				<br/><br/><b>Nietzsche (334)</b>
 				</pquote>
 				<pquote>
@@ -122,7 +124,7 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
-				The law that entropy always increases, holds, I think, the supreme position among laws of Nature. If someone points out to you that your pet theory of the universe is in disagreement with Maxell's equations - then so much the worse for Maxell's equations. If it is found to be contradicted by observation - wll, these experimentalists do bungle things sometimes. But if your theory is found to be against the Second Law of Thermodynamics I can give you no hope; there is nothing for it but to collapse in deepest humiliation.<br/><br/>
+				The law that entropy always increases, holds, I think, the supreme position among laws of Nature. If someone points out to you that your pet theory of the universe is in disagreement with Maxell's equations - then so much the worse for Maxell's equations. If it is found to be contradicted by observation - well, these experimentalists do bungle things sometimes. But if your theory is found to be against the Second Law of Thermodynamics I can give you no hope; there is nothing for it but to collapse in deepest humiliation.<br/><br/>
 				<b>Sir Arthur Eddington</b>
 				</pquote>
 
@@ -143,7 +145,7 @@ export default function Quotes() {
 				<haiku style={{margin:`85px`}}>A brushwood gate,<br/></haiku><haiku style={{margin:`105px`}}>And for a lock-<br/></haiku><haiku style={{margin:`125px`}}>This snail.</haiku><br/><br/>
 				<haiku style={{margin:`85px`}}>The woodpecker<br/></haiku><haiku style={{margin:`105px`}}>Keeps on in the same place:<br/></haiku><haiku style={{margin:`125px`}}>Day is closing.</haiku><br/><br/>
 				<haiku style={{margin:`85px`}}>Winter desolation;<br/></haiku><haiku style={{margin:`105px`}}>In the rain-water tub,<br/></haiku><haiku style={{margin:`125px`}}>Sparrows are walking.</haiku><br/><br/>
-				<i>Aware</i> is not quote grief, and not quite nostalgia in the usual sense of longing for the return of a beloved past. <i>Aware</i> is the echo of what has passed and of what was loved, giving them a resonance such as a great cathedral gives to a choir, so that they would be the poorer without it. <br/><br/>
+				<i>Aware</i> is not quite grief, and not quite nostalgia in the usual sense of longing for the return of a beloved past. <i>Aware</i> is the echo of what has passed and of what was loved, giving them a resonance such as a great cathedral gives to a choir, so that they would be the poorer without it. <br/><br/>
 				<haiku style={{margin:`85px`}}>No one lives at the Barrier of Fuha;<br/></haiku><haiku style={{margin:`85px`}}>The wooden penthouse is fallen away;<br/></haiku><haiku style={{margin:`85px`}}>All that remains<br/></haiku><haiku style={{margin:`85px`}}>Is the autumn wind.</haiku><br/><br/>
 				<haiku style={{margin:`85px`}}>The evening haze;<br/></haiku><haiku style={{margin:`105px`}}>Thinking of past things,<br/></haiku><haiku style={{margin:`125px`}}>How far-off they are!</haiku><br/><br/>
 				<i>Aware</i> is the moment of crisis between seeing the transience of the world with sorrow and regret, and seeing it as the very form of the Great Void.<br/><br/>
@@ -162,9 +164,9 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote>
-				<haiku style={{margin:`85px`}}>The wild geese do not intend to cast their reflection;</haiku><br/>
-				<haiku style={{margi:`85px`}}>The water has no mind to receive their image.</haiku><br/><br/>
-				<b>Zenrin poem</b>
+				<haiku style={{margin:`45px`}}>The wild geese do not intend to cast their reflection;</haiku><br/>
+				<haiku style={{margin:`45px`}}>The water has no mind to receive their image.</haiku><br/><br/>
+				<b>Poem</b>
 				</pquote>
 
 				<pquote>
@@ -197,7 +199,7 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
-				The finite-dimensional formulation of Hamiltonian systems of ordinary differential equations is well known, but in preparation for the more reent theory of Hamiltonian systems of evolution equations, we are required to take a slightly novel approach to the whole subject of Hamiltonian mechanics. Here we will de-emphasisze the use of canonical coordinates (the <i>p</i>'s and <i>q</i>'s of classical mechanics) and concentrate instead on the Poisson bracket as the cornerstone of the subject. The result is th emore general concept of a Poisson structure, which <i>is</i> easily extended to include the infinite-dimensional theory of Hamiltonian systems of evolution equations. [...]<br/><br/>
+				The finite-dimensional formulation of Hamiltonian systems of ordinary differential equations is well known, but in preparation for the more reent theory of Hamiltonian systems of evolution equations, we are required to take a slightly novel approach to the whole subject of Hamiltonian mechanics. Here we will de-emphasisze the use of canonical coordinates (the <i>p</i>'s and <i>q</i>'s of classical mechanics) and concentrate instead on the Poisson bracket as the cornerstone of the subject. The result is the more general concept of a Poisson structure, which <i>is</i> easily extended to include the infinite-dimensional theory of Hamiltonian systems of evolution equations. [...]<br/><br/>
 				It has been said that it is far easier to abstract a general mathematical theory from a single well-chosen example than it is to apply an existing abstract theory to a specific example.<br/><br/>
 				<b>Applications of Lie groups to differential equations. Peter J. Olver</b>
 				</pquote>
@@ -255,11 +257,11 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
-				I wonder whether fractal images are not touching the very structure of our brains. Is there a clue in the infinitely regressing character of such images that illuminates our perception of art? Could it be that a fractial image is of such extraordinary richness, that it is bound to resonate with our neuronal circuits and stimulate the pleasure I infer we all feel?<br/><br/><b>P. W. Atkins</b>
+				I wonder whether fractal images are not touching the very structure of our brains. Is there a clue in the infinitely regressing character of such images that illuminates our perception of art? Could it be that a fractal image is of such extraordinary richness, that it is bound to resonate with our neuronal circuits and stimulate the pleasure I infer we all feel?<br/><br/><b>P. W. Atkins</b>
 				</pquote>
 
 				<pquote>
-				In any field find the strangest thing and then explore it.<br/><br/><b>Wheeler</b>
+				In any field find the strangest thing and then explore it.<br/><br/><b>J. A. Wheeler</b>
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}> 
@@ -268,7 +270,10 @@ export default function Quotes() {
 
 
 				<pquote>
-				The west wind whispered,<br/><br/>And touched the eyelids of spring:<br/><br/>Her eyes, Primroses.<br/><br/><b>R. M. Hansard</b>
+				<haiku style={{margin:`45px`}}>The west wind whispered,</haiku><br/>
+				<haiku style={{margin:`20px`}}>And touched the eyelids of spring :</haiku><br/>
+				<haiku style={{margin:`65px`}}>Her eyes, Primroses.</haiku>
+				<br/><br/><b>R. M. Hansard</b>
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
@@ -277,32 +282,25 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote>
-				By attaining the height of abstraction we gain fullness of rest.
-				</pquote>
-
-				<pquote>
-				The great Tao flows, such as it may left and right.
-				</pquote>
-
-				<pquote>
-				Thirty spokes unite in one nave; but it is on the empty space for the axle, that the use of the wheel depends.<br/><br/>
-				Clay is fashioned into vessels; but it is on their empty hollowness, that thir use depends.<br/><br/>
-				The door and windows are cut out from the walls to form an apartment; but it is on the empty space within, that it's use depends.<br/><br/>
-				Therefore, what has a positive existence serves for profitable adaptation, and what has not that for actual usefulness.<br/><br/>
+				<haiku style={{margin:`0px`}}>The great Tao flows, such as it may left and right.</haiku><br/><br/><br/>
+				<haiku style={{margin:`0px`}}>Thirty spokes unite in one nave; but it is on the empty space for the axle, that the use of the wheel depends.</haiku><br/><br/>
+				<haiku style={{margin:`0px`}}>Clay is fashioned into vessels; but it is on their empty hollowness, that thir use depends.</haiku><br/><br/>
+				<haiku style={{margin:`0px`}}>The door and windows are cut out from the walls to form an apartment; but it is on the empty space within, that it's use depends.</haiku><br/><br/>
+				<haiku style={{margin:`0px`}}>Therefore, what has a positive existence serves for profitable adaptation, and what has not that for actual usefulness.</haiku><br/><br/>
 				<b>Tao Te Ching</b>
 				</pquote>
 
 				<pquote>
-				Act by means of inaction;<br/><br/>
-				Deal with matters by means of not being meddlesome;<br/><br/>
-				The big stems from the small;<br/><br/>
-				The many is based on the few.<br/><br/>
-				To overcome the difficult should begin with the easy;<br/><br/>
-				To accomplish what is big should begin with the small.<br/><br/>
-				The difficult things in the world must originate in the easy;<br/><br/>
-				The big things in the world must take root in the small.<br/><br/>
-				That is why the sage can accomplish what is great<br/><br/>
-				by never attempting to be great.<br/><br/>
+				<haiku style={{margin:`0px`}}>Act by means of inaction;</haiku><br/>
+				<haiku style={{margin:`0px`}}>Deal with matters by means of not being meddlesome;</haiku><br/>
+				<haiku style={{margin:`0px`}}>The big stems from the small;</haiku><br/>
+				<haiku style={{margin:`0px`}}>The many is based on the few.</haiku><br/>
+				<haiku style={{margin:`0px`}}>To overcome the difficult should begin with the easy;</haiku><br/>
+				<haiku style={{margin:`0px`}}>To accomplish what is big should begin with the small.</haiku><br/>
+				<haiku style={{margin:`0px`}}>The difficult things in the world must originate in the easy;</haiku><br/>
+				<haiku style={{margin:`0px`}}>The big things in the world must take root in the small.</haiku><br/>
+				<haiku style={{margin:`0px`}}>That is why the sage can accomplish what is great</haiku><br/>
+				<haiku style={{margin:`0px`}}>by never attempting to be great.</haiku><br/><br/>
 				<b>Tao Te Ching</b>
 				</pquote>
 
@@ -367,7 +365,7 @@ export default function Quotes() {
 				<pquote style={{ textAlign:`left` }}>
 				We who lived in concentration camps can remember the men who walked through the huts comforting others, giving away their last piece of bread. They may have been few in number, but they offer sufficient proof that everything can be taken from a man but one thing: the last of the human freedoms - to choose one's attitude in any given set of circumstances, to choose one's own way. <br/><br/> And there were always choices to make. Every day, every hour, offered the opportunity to make a decision, a decision which determined whether you would or would not submit to those powers which threatened to rob you of your very self, your inner freedom and dignity to become molded into the form of the typical inmate. [...] <br/><br/>Fundamentally, therefore, any man can, even under such circumstances, decide what shall become of him - mentally and spiritually. He may retain his human dignity even in a concentration camp. Dostoevski said once, "There is only on thing that I drea: not to be worthy of my sufferings." These words frequently came to my mind after I became acquainted with those martyrs whose behavior in camp, whos suffering and death, bore witness to the fact that the last inner freedom cannot be lost. It can be said that they were worthy of their sufferings; the way they bore their suffering was a genuine inner achievement. It is this spiritual freedom - which cannot be taken away - that makes life meaningful and purposeful.[...] <br/><br/>
 				We had to learn ourselves and, furthermore, we had to teach the despairing men, that it did not really matter what we expected from life but rather what life expected from us. We needed to stop asking about the meaning of life, and instead to think of ourselves as those who were being questioned by life - daily and hourly. Our answer must consist, not in talk and meditation, but in right action and in right conduct. Life ultimately means taking the resposibility to find the right answers to its problems and to fulfil the tasks which it constantly sets for each individual. <br/><br/>
-				These tasks, and therefore the meaning of life, differe from man to man, and from moment to moment. Thus it is imporssible to define the meaning of life in a general way.[...]
+				These tasks, and therefore the meaning of life, differ from man to man, and from moment to moment. Thus it is imporssible to define the meaning of life in a general way.[...]
 				<br/><br/>
 				Sunday neurosis: that kind of depression which afflicts people who become aware of the lack of content in their lives when the rush of the busy week is over and the void within themselves becomes mansifest. [...] Ultimately, man should not ask what the meaning of his life is, but rather he must recognize that it is he who is asked. In a word, each man is questioned by life; and he can only answer to life by *answering for* his own life;[...]
 				<br/><br/>
@@ -381,18 +379,18 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote>
-				I will arise and go now, for always night and day<br/><br/>
-				I hear lake water lapping with low sounds by the shore;<br/><br/>
-				While I stand on the roadway, or on the pavements grey,<br/><br/> 
-				I hear it in the deep heart's core.<br/><br/> 
+				<haiku style={{margin:`0px`}}>I will arise and go now, for always night and day</haiku><br/>
+				<haiku style={{margin:`0px`}}>I hear lake water lapping with low sounds by the shore;</haiku><br/>
+				<haiku style={{margin:`0px`}}>While I stand on the roadway, or on the pavements grey,</haiku><br/>
+				<haiku style={{margin:`0px`}}>I hear it in the deep heart's core.</haiku><br/><br/>
 				<b>W.B. Yeats</b>
 				</pquote>
 
 				<pquote>
-				The Worldly Hope men set their Hearts upon<br/><br/>
-				Turns Ashes - or it prospers; and anon,<br/><br/>
-				Like Snow upon the Desert's dusty Face<br/><br/>
-				Lighting a little Hour or two - is gone.<br/><br/> 
+				<haiku style={{margin:`0px`}}>The worldly hope men set their hearts upon</haiku><br/>
+				<haiku style={{margin:`0px`}}>Turns ashes - or it prospers ; and anon,</haiku><br/>
+				<haiku style={{margin:`0px`}}>Like snow upon the desert's dusty face</haiku><br/>
+				<haiku style={{margin:`0px`}}>Lighting a little hour or two - is gone.</haiku><br/><br/>
 				<b>Rubaiyat of Omar Khayyam</b>
 				</pquote>
 
