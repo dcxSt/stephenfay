@@ -52,7 +52,7 @@ Reality in it's rawness is richer than any model -- in other words: the *active 
 
 *Zen saying*
 
-Zen meditation is about touching base with the raw input every now and then, it's about being observant and allowing things to reveal themselves to you by means of inaction. But Zen is also about getting really confused about everything, just for fun.  
+Meditation or contemplation is just touching base with the raw input every now and then, it's about being observant and allowing things to reveal themselves to you by means of inaction. And this is central to capital zed Zen. But Zen is also about getting really confused about everything, just for fun.  
 
 If you're trying to put a shoe on but it's laces are already tied up in a knot there are several ways to proceed: you can untie the knot and put the shoe on, you can cut the knot like Alexander the great and weare a shoe with shorter laces, or you can keep tying more and more knots into the laces until there are no laces left and you have no option but to just walk around bare foot. All of these solutions are legitimate, and all of them are zen. Except that nothing which claims to be zen is truely zen.
 

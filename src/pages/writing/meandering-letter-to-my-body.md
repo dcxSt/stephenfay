@@ -1,23 +1,23 @@
 ---
 title: "A Meandering Letter to my Body"
-type: "essay"
+type: "letter"
 author: "Stephen Fay"
 date: "2021-04-23"
 ---
 
 Dear body,
 
-Thanks for carrying me around the place. Who am I to be carried by you? It seems presumptuous to think of myself, as a seperate enetity. Maybe you would object if you had the capacity to. 
+Thanks for carrying me around the place. Who am I to be carried by you? Perhaps it's presumptuous to think of us as seperate enetities. Maybe you would object if you had the capacity to. 
 
 Watching Robert Sapolsky's lectures has made me aware of just how much leverage you have over me. The ideal situation would be for us to get along, I take care of you and you take care of me. If I don't take care of you you'll react by limiting my physical performance and states of mind.
 
-Thinking about you as a seperate entity is quite strange. Are you an interface that allows me to take in sensory data from the outside world. Paraphrasing Alan Watts - the only things that I know, the only things I have ever experianced are states of my nervous system. Every experiance of mine corresponds to the state of a nervous system which presumably grew into me. 
+Are you an interface that allows me to take in sensory data from the outside world. Paraphrasing Alan Watts - the only things that I know, the only things I have ever experianced are states of my nervous system. Every experiance of mine corresponds to the state of a nervous system which presumably grew into me. 
 
 (a) how can I know that this current state was caused by something before it -- how can I know that there is a past or a future from the present moment? (b) how can I know that other people exist?
 
 It seems obvious to me that there is something wrong with these statements. Lets start with (a).
 
-(a) Because the present without the past or the future is meaningless. Unless you happen to know the hamiltonian, taking a spacelike chunk of your system tells you nothing! How can you have motion without time, how can you have anything without time. I don't know. On the one hand, time makes a lot of sense, we have atomic clocks and are able to use these instruments to build things. Every time a sattelite locates someone with GPS our ideas about the GR and time are validated. On the other hand time is fickle. Time flies, time births and destroys empires. Time makes you old and kills you in some sense. In modern culture we think of time as a resource to be used and spent wisely. This is an instrumental definition.
+(a) Because the present without the past or the future is meaningless. Unless you happen to know the hamiltonian, taking a spacelike slice of your system tells you nothing! How can you have motion without time, how can you have anything without time. I don't know. On the one hand, time makes a lot of sense, we have atomic clocks and are able to use these instruments to build things. Every time a sattelite locates someone with GPS our ideas about the GR and time are validated. On the other hand time is fickle. Time flies, time births and destroys empires. Time makes you old and kills you in some sense. In modern culture we think of time as a resource to be used and spent wisely. This is an instrumental definition.
 
 (b) Clarification: "state of my nervous system" is just a way of describing "state of mind". Somehow it feels more explicit. It implying the outside world. This kind of language implies that there are entities outside of yourself. 
 
