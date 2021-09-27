@@ -9,7 +9,7 @@ export default function Hidden({ data }) {
     console.log(data);
     return (
 				<Layout>
-                <h1>Writing</h1>
+                <h1>Hidden Writing</h1>
                 {data.allMarkdownRemark.edges.map(({ node }) => {
                     if (node.fileAbsolutePath.includes('hidden'))
                         return (
