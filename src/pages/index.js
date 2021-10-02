@@ -17,12 +17,7 @@ export default function Home() {
                     <b>Unexpected talent:</b> I play the Cello, <br/> 
                     <b>Text editor of choice:</b> vim, vscode with vim keymappings, <br/> 
                     <b>Other hobbies:</b> Jiu-Jitsu, Judo, biking, basking in the sun.<br/>
-                    <br/>Currently I'm making a digital filter for 
-                    radio telescopes which should help us locate
-                    pulsars. The current filters (polyphase filter 
-                    banks) produce sharp spikes of noise at certain 
-                    frequencies, I'm trying to find a different 
-                    filter that will get rid of these spikes.
+                    <br/>Currently I'm working on digital signal processing techniques for radio telescopes.  
 										<br/><br/>
 										<b>Homies</b> <br/>
 										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>, 
