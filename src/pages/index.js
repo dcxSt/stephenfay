@@ -7,10 +7,7 @@ export default function Home() {
 				<Layout>
 						<h1>Stephen Fay</h1>
             <pquote style={{ marginTop:'-16px' }}>
-                    <b>Height</b> ~ 1m85, <br/>
-                    <b>Hair:</b> brown, <br/>
-                    <b>Eyes:</b> grey,<br/>
-                    <b>Weight</b> ~ 70kg, <br/>
+                    <b>Eye color:</b> grey,<br/>
                     <b>Language of choice:</b> Python, <br/>
                     <b>Favourite math:</b> stoke's theorem, the isomorphism theorems, <br/> 
                     <b>Favourite ensemble:</b> the canonical ensemble,<br/> 
@@ -28,7 +25,9 @@ export default function Home() {
                     filter that will get rid of these spikes.
 										<br/><br/>
 										<b>Homies</b> <br/>
-										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>
+										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>, 
+										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
+										<a href="https://marcelgoh.ca/">Marcel</a>
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>
