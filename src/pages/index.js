@@ -19,13 +19,22 @@ export default function Home() {
                     <b>Other hobbies:</b> Jiu-Jitsu, Judo, biking, basking in the sun.<br/>
                     <br/>Currently I'm working on digital signal processing techniques for radio telescopes.  
 										<br/><br/>
+
+										<b>Little Fun things I built</b> <br/>
+										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
+										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
+										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
+										<a href="https://github.com/dcxSt/alien_wiki_chrome_extension">Alien Wikipedia</a> - a chrome extension that makes reading wikipedia more entertaining
+										
+										<br/><br/>
 										<b>Homies</b> <br/>
 										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>, 
+										<a href="https://marcelgoh.ca/">Marcel</a>,
 										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
-										<a href="https://marcelgoh.ca/">Marcel</a>
 										<br/><br/>
 										<b>Self</b> <br/>
-										<a href="https://curius.app/stephen-fay">curious profile</a>
+										<a href="https://curius.app/stephen-fay">curious profile</a>, 
+										<a href="https://projecteuler.net/profile/dcxStephen.png">project euler profile</a>
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
 						</Layout>

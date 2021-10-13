@@ -100,7 +100,7 @@ export default function Quotes() {
 
 				<pquote>
 				Definition: A bullshit job is a form of paid employment that is so completely pointless, unnecessary, or pernicious that even the employee cannot justify its existence even though, as part of the conditions of employment, the employee feels obliged to pretend that this is not the case.[...]<br/><br/>
-				Most people who do a great deal of harm in the world are protected against th knowledge that they do so.<br/><br/><b>David Graeber - Bullshit Jobs</b>
+				Most people who do a great deal of harm in the world are protected against the knowledge that they do so.<br/><br/><b>David Graeber - Bullshit Jobs</b>
 				</pquote>
 
 				<pquote>
@@ -208,7 +208,7 @@ export default function Quotes() {
 				Like the Holmes whom Watson had noted as lazing `for days on end' on the sofa, Gordon too could have spells of almost totally opting-out. In equatoria, when once there was acute danger of an attack on his camp and his deputy dared to ignore the hatchet placed as a `keep out' sign at his tent door, Gordon was found sitting with in front of him an open Bible and an equally open bottle of brandy and would say nothing more than `You are commander of the camp.'<br/><br/>
 				If Gordon from time to time succumbed to the brandy bottle, Watson was to find before he had been long acquainted with Holmes that his paragon was all to apt, in moments of boredom, to resort to hypodermic injections of cocaine or morphine. [...]<br/><br/>
 				Both men hated dining out. 'Met think giving dinners is conferring a favour on you,' snarled Gordon. 'Why not give dinners to those who need them?' And Holmes, almost as abrasive, spoke of 'those unwelcome social summonses which call upon a man either to be bored or to lie.'
-				<br/><br/><b>H.R.F Keating</b> [Comment: there are some interesting parallels to be drawn between Holmes / General 'Chinese' Gorton and Amos Tvasrki]
+				<br/><br/><b>H.R.F Keating</b> [Comment: there are some interesting similarities between Amos Tvasrki and the fictional characters S. Holmes + General 'Chinese' Gordon -Especially the element of gratiously and completely dis-regarding certain social pressures]
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
@@ -395,7 +395,7 @@ export default function Quotes() {
 				</pquote>
 
 				<pquote style={{ textAlign:`left` }}>
-				He was trying to use the mountain for his own purposes and the pilgrimage too. He regarded himself as the fixed entity, not the pilgrimage or the mountain, and thus wasn't ready for it. He spectulated that the other pilgrims, the ones who reached th emountain, probably sensed the holiness of the mountain so intensly that each footstep was an act of devotion, an act of submission to this holiness. The holiness of the mountain infused into their own spirits enabled them to endure far more than anything he, with his greater physical strength, could take. <br/><br/>
+				He was trying to use the mountain for his own purposes and the pilgrimage too. He regarded himself as the fixed entity, not the pilgrimage or the mountain, and thus wasn't ready for it. He spectulated that the other pilgrims, the ones who reached the emountain, probably sensed the holiness of the mountain so intensly that each footstep was an act of devotion, an act of submission to this holiness. The holiness of the mountain infused into their own spirits enabled them to endure far more than anything he, with his greater physical strength, could take. <br/><br/>
 				To the untrain eye ego-climbing and selfless climbing may appear identical. Both kinds of climbers place one foot in front of the other. Both breathe in and out at the same rate. Both stop when tired. Both go forward when rested. But what a difference!<br/><br/>
 				<b>Robert Piercig : Zen and the Art of Motorcycle Maintnance</b>
 				</pquote>
