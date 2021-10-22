@@ -6,6 +6,27 @@ export default function Quotes() {
 			<Layout>
 				<h1>Nuggets of gold</h1>
 				<pquote>
+					<poem>
+					Do not stand at my grave and weep,<br/>
+					I am not there, I do not sleep.<br/>
+					I am in a thousand winds that blow,<br/>
+					I am the softly falling snow.<br/>
+					I am the gentle showers of rain,<br/>
+					I am the fields of ripening grain.<br/>
+					I am in the morning hush,<br/>
+					I am in the graceful rush<br/>
+					Of beautiful birds in circling flight,<br/>
+					I am the starshine of the night.<br/>
+					I am in the flowers that bloom,<br/>
+					I am in the quiet room.<br/>
+					I am in the birds that sing,<br/>
+					I am in each lovely thing.<br/>
+					Do not stand at my grave bereft<br/>
+					I am not there. I have not left.
+					</poem>
+					<br/><br/><b>Mary Elizabeth Frye</b>
+				</pquote>
+				<pquote>
 					After all, if one is seeking peace one can find it very easily. One can devote oneself blindly to some kind of cause, to an idea, and take shelter there. Surely that does not solve the problem. Mere isolation in an enclosing idea is not a release from conflict. [...] <br/>
 					Self knowledge has no end - you don't come to an achievement, you don't come to a conclusion. It is an endless river. As one studies it, as one goes into it more and more, one finds peace. [...]<br/>
 					&nbsp;&nbsp;If I want to understand somebody, I cannot condemn him: I must observe, study him. I must love the very thing I am studying. If you want to understand a child, you must love and not condemn him. You must play with him, watch his movements, his idiosyncrasies, his ways of behaviour; but if you merely condemn, resist or blame him, there is no comprehension of the child. Similarly to understand what is, one must observe what one thinks, feels and does from moment to moment. That is the actual. Any other action, any ideal or ideological action, is not the actual; it is merely a wish, a fictitious desire to be something other than what is. <br/>&nbsp;&nbsp; To understand what is requires a state of mind in which there is no identification or condemnation, which means a mind that is alert and yet passive. We are in that state when we really desire to understand something; when the intensity of interest is there, that state of mind comes into being. When one is interested in understanding what is, the actual state of the mind, one does not need to force, discipline, or control it; on the contrary, there is passive alertness, watchfulness. This state of awareness comes when there is interest, the intention to understand. 
