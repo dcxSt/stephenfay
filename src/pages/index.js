@@ -23,6 +23,7 @@ export default function Home() {
 										<a href="https://marcelgoh.ca/">Marcel</a>,
 										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
                     <a href="http://luc.devroye.org/">Luc</a>,
+                    <a href="https://abrandenberger.github.io/">Anna</a>,
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>, 
