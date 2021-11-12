@@ -15,7 +15,7 @@ export default function Home() {
 										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
 										<a href="https://github.com/dcxSt/alien_wiki_chrome_extension">Alien Wikipedia</a> - a chrome extension that makes reading wikipedia more entertaining, <br/>
-                    <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some really pretty art!
+                    <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some pretty orbits!
 										
 										<br/><br/>
 										<b>Homies</b> <br/>

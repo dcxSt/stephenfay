@@ -12,7 +12,9 @@ The room we entered was a huge, the walls where jelly bean shaped and windowless
 
 We didn't notice that she wasn't moving, nor did we register consciously that she existed, and kept talking gloomily about whatever it is that two old friends talk about when they are in a big artificial space full of artificial surfaces and perfect white corners. There was no notion of the time as there was no notion of the outside. A friend of the girl emerged out of a door directly behind the gym that we hadn't yet seen. He ran to her in startled panic and lifted her off the hook. As he was attending to her either by shaking her or checking her for vital signs more friends of the girl ran on to the scene in confusion. His panicked vocal reaction must have alerted them. Zef and I sat calmly taking the scene in at a distance. It was striking enough to interupt our conversation. Dread was in the room but not in my body. Yet.
 
+<br/><br/><br/><br/>
+
 ---
 
-It's pretty clear to me what this dream is about. It was one of the more powerful dreams, and I remembered it startlingly well. Felt pretty kafkaresque. Later that morning I had a shower and spent some time listning to the water rushing over my ears with my head back, it was deeply calming. 
+It's pretty clear to me what this dream is about. It was one of the more powerful dreams I've had recently. I remembered it unusually well. Kafkaesque. Lynchian. Later that morning I had a shower and spent some time listning to the water rushing over my ears with my head back, it was deeply calming. 
 
