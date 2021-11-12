@@ -11,10 +11,10 @@ In his book <i>Godel Escher Bach</i>, Douglas Hofstadter introduces the notion o
 
 <i>D.H. -GEB</i>
 
-Thinking can be thought of as the interplay of potentially physically discernable active symbols in your brain. So when you think of cheese some cheesy patterns, i.e. active symbols, form in your mind and are represented in the circuitry of your brain. It's quite straight forward really. What makes them active as opposed to passive is that they interact / speak with other active symbols. They are always in flux rather than inert.
+Thinking can be thought of as the interplay of potentially physically discernable active symbols in your brain. So when you think of cheese some cheesy patterns, i.e. active symbols, form in your mind and are represented in the circuitry of your brain. What makes them active as opposed to passive is that they interact / speak with other active symbols. They are always in flux rather than inert.
 
 
-The concept of active symbol really pins down how many people think about their thoughts. Now that we have added 'active symbol' to our arsenal of known words lets use it to examine some zen sayings.
+The concept of active symbol pins down how many think about their thoughts. Now that we have added 'active symbol' to our arsenal of known words lets use it to examine some zen sayings.
 
 > <i>The five colours make people's eyes blind,\
 > The five sounds make people's ears deaf.</i> 
@@ -52,7 +52,7 @@ Reality in it's rawness is richer than any model -- in other words: the *active 
 
 *Zen saying*
 
-Meditation or contemplation is just touching base with the raw input every now and then, it's about being observant and allowing things to reveal themselves to you by means of inaction. And this is central to capital zed Zen. But Zen is also about getting really confused about everything, just for fun.  
+Contemplation can be touching base with the raw input every now and then, being observant and allowing things to reveal themselves to you by means of inaction. And this is central to capital zed Zen. But Zen is also about getting really confused about everything, just for fun.  
 
 If you're trying to put a shoe on but it's laces are already tied up in a knot there are several ways to proceed: you can untie the knot and put the shoe on, you can cut the knot like Alexander the great and weare a shoe with shorter laces, or you can keep tying more and more knots into the laces until there are no laces left and you have no option but to just walk around bare foot. All of these solutions are legitimate, and all of them are zen. Except that nothing which claims to be zen is truely zen.
 

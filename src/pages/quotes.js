@@ -6,6 +6,10 @@ export default function Quotes() {
 			<Layout>
 				<h1>Nuggets of gold</h1>
         <pquote>
+          Bears are just guys.
+          <br/><br/><b>Sig</b>
+        </pquote>
+        <pquote>
           Beautiful is better than ugly.<br/>
           Explicit is better than implicit.<br/>
           Simple is better than complex.<br/>

@@ -40,7 +40,7 @@ and must not let dust collect.<br/>
 
 <br/>
 
-It is my unapolagetic attempt at pointing to the deliciously paradoxical dust that has gathered in the classic Zen refutation of it's own doctrine.
+It is my attempt at pointing to how silly and stupid Zen is. 
 
 <br/><br/>
 <br/><br/>

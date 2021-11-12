@@ -1,7 +1,7 @@
 ---
 title: "On a Clear Summer Night"
 author: "Stephen Fay"
-type: "blogpost"
+type: "Dialogue"
 date: "2021-09-12"
 ---
 
@@ -86,6 +86,6 @@ date: "2021-09-12"
 
 ---
 
-Comment: The ideas above are under-developed. Make them more explicit. 
+Note to self: The ideas above are under-developed. Make them more explicit. 
 
 
