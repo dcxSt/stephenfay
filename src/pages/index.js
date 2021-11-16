@@ -24,6 +24,11 @@ export default function Home() {
 										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
                     <a href="http://luc.devroye.org/">Luc</a>,
                     <a href="https://abrandenberger.github.io/">Anna</a>,
+                    <a href="https://dkhoi148.repl.co/">Khoi</a>,
+                    <a href="https://tiffanyyong.github.io/">Tiffany</a>,
+                    <a href="https://diegolopez.me/">Diego</a>,
+                    <a href="https://shereenelaidi.github.io/">Shereen</a>,
+                    <a href="https://daocheny.github.io/">Dao Chen</a>,
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>, 
