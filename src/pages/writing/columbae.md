@@ -10,12 +10,12 @@ date: "2021-12-07"
 
 ### Cast
 
-Nancy Young - naive newlywed, married to Arpie
-Arpie Young - naive newlywed, married to Nancy
-Adonnis Young - brother of Arpie, married to Ellie
-Ellie - wife of Adonnis
-Jason - wayward professor, hopelessly in love with Nancy
-Tuesday - postman, bringer of good news
+<i>Nancy Young - naive newlywed, married to Arpie <br/>
+Arpie Young - naive newlywed, married to Nancy <br/>
+Adonnis Young - brother of Arpie, married to Ellie <br/>
+Ellie - wife of Adonnis <br/>
+Jason - wayward professor, hopelessly in love with Nancy <br/>
+Tuesday - postman, bringer of good news </i><br/>
 
 ### A subset of the people of Columbae in an alternate universe, 1937 UK
 
