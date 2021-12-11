@@ -37,17 +37,17 @@ It was an open secret that Jason was an old hand in the game of love and a shame
 
 Jason's letters had caught the attention of the postman, Tuesday, who was a terrible gossip. Word of Nancy's daily letters spread like wildfire throughout their neighbourhood, Columbae. 
 
-Nancy put yet another of her letters onto the large stack that she kept in the chest of draws. Rather than burn them, she kept them as evidence that she had not betrayed her husband, they where ridiculous. And there was no denying that she found comfort in his flattery. Jason sometimes included poems to add to his heartful outpourings of love. 
+Nancy put yet another of her letters onto the large stack that she kept in the chest of draws. Rather than burn them, she kept them as evidence that she had not betrayed her husband, they where ridiculous. And there was no denying that she found comfort in his flattery. Jason sometimes included poems to add to his heartful outpourings of love. <br/>
 
-*Sweet Nancy, fire of my soul, 
-I am a tree in the dezert and you are thirst-quenching moisture,
-Sweet Nancy, bringer of life, 
-I am lost at sea and you are the shore on the horizon,
-Sweet Nancy, you are my everything.*
+<poem>Sweet Nancy, fire of my soul, <br/>
+I am a tree in the dezert and you are thirst-quenching moisture, <br/>
+Sweet Nancy, bringer of life, <br/>
+I am lost at sea and you are the shore on the horizon, <br/>
+Sweet Nancy, you are my everything.</poem> <br/><br/>
 
-*I do not ask that you return my love, only that you accept it. Si tu pouvais lire dans mon coeur, tu verrais la place où je t’ai mis! Tu est ma mie, tu est mon espoir. Sans toi la vie serait sans sens.*
+<poem>I do not ask that you return my love, only that you accept it. Si tu pouvais lire dans mon coeur, tu verrais la place où je t’ai mis! Tu est ma mie, tu est mon espoir. Sans toi la vie serait sans sens.</poem> <br/>
 
-Nancy denied it but she did find comfort in his flattery. After all, everyone likes being wanted. 
+Nancy would deny it but she did find comfort in his flattery. After all, who doesn't like being wanted, even if only by a clown such as Jason. 
 
 That evening, Ellie and Adonis' shouting match could be heard from Nacy and Arpie's chamber. "How long can we possibly keep on tolerating these absurd love letters! I do not understand why you stick up for this shameless man." Ellie yelled at her husband. "He is a scoundrel! Flies are only attracted to cracked eggs. She's spoiling our good name --you think people haven't noticed that stupid postman walking up our drive every single day? We're the laughing stock of the neighbourhood."
 
