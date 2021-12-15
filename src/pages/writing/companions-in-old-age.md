@@ -20,7 +20,7 @@ And his long shaddow,<br/>
 Sit down beneath it. </poem><br/>
 
 <poem>A smiling young lady,<br/>
-In a blue and yellow dress, <br/>
+In a golden blue dress, <br/>
 Fluttering at the hems,<br/>
 Walks past the old pair,<br/>
 And the golden tree,<br/>
