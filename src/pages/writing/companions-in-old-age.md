@@ -8,29 +8,29 @@ date: "2021-11-29"
 <poem>A lady and a man,<br/>
 One white one brown,<br/>
 Both with hair white,<br/>
-Companions in old age. <br/><br/>
+Companions in old age. </poem><br/>
 
-Sharing a stroller,<br/>
+<poem>Sharing a stroller,<br/>
 They make their way,<br/>
 In the evening sunlight,<br/>
-To a golden tree.<br/><br/>
+To a golden tree.</poem><br/>
 
-The old man,<br/>
+<poem>The old man,<br/>
 And his long shaddow,<br/>
-Sit down beneath it. <br/><br/>
+Sit down beneath it. </poem><br/>
 
-A smiling young lady,<br/>
+<poem>A smiling young lady,<br/>
 In a blue and yellow dress, <br/>
 Fluttering at the hems,<br/>
 Walks past the old pair,<br/>
 And the golden tree,<br/>
-With gentle briskness.<br/><br/>
+With gentle briskness.</poem><br/>
 
-Time goes by,<br/>
+<poem>Time goes by,<br/>
 Youths whirl in and out,<br/>
-Of the frame;<br/><br/>
+Of the frame;</poem><br/>
 
-Eventually,<br/>
+<poem>Eventually,<br/>
 The old pair,<br/>
 Inch out of the frame,<br/>
 Companions in old age.</poem> <br/><br/><br/><br/><br/><br/><br/><br/>
