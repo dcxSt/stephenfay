@@ -6,7 +6,7 @@ layout: post
 date: "2021-11-17"
 ---
 
-Eddy was in his adult body. Next to him was his childhood friend Zefira, grown-up, tall, strong. They walked slowly in a vast white indoor artificial space with a high ceiling. Zafira was dejected; he didn't feel at home in that artificiality. Zefira likes earth, trees, sunlight.
+Eddy was in his adult body. Next to him was his childhood friend Zefira, grown-up, tall, strong. They sauntered into a vast white indoor artificial space with a high ceiling. Zafira was dejected; he didn't feel at home in that artificiality. Zefira likes earth, trees, sunlight.
 
 The room they had entered was huge in every dimension. The walls curved like a jelly bean, bright white, windowless. It resembled an enormous empty mall without shops. The room had no end, stretching beyond their horizon of awareness. They sat down on a couple of purposeless steps whose existence was just part of the inhumane design. On the other side, there was a fully equipped gym. A girl hung by the neck from a hook that was styled in the same way as the rest of the gym equipment. 
 
@@ -24,7 +24,7 @@ Wanting to change the subject, Eddy told her about his rent situation. He was fo
 
 "You *have* to pay your landlady." said the girl. "You signed the lease; she can take you to court if you don't pay." There was frustration in her voice, but Eddy was glad that the girl was no longer doubting herself. He nodded but remained unconvinced. 
 
-A large cylindrical tub of white powder sat on the desk next to the girl, about the same volume as two babies. Noticing from his gaze that Eddy's attention had moved from his rent situation to the tub, the girl said "I'm going to give it to old Gin." Her frustrated tone carried into the new context. His expression remained confused. "It's cough medicine," she added.
+A large cylindrical tub of white powder sat on the desk next to the girl, about the same volume as two babies. Noticing from his gaze that Eddy's attention had moved from his rent situation to the tub, the girl said, "I'm going to give it to old Gin." Her frustrated tone carried into the new context. His expression remained confused. "It's cough medicine," she added.
 
 Suddenly an intelligent-looking, middle-aged man with neatly combed dark brown hair and glasses entered through the double doors immediately behind them. He walked right past them without slowing down and bellowed "Hellew, Mr. Chandler!" in an overly enthusiastic Irish accent and disappeared around the corner. The harrowing exclamation caused Eddy's upper body to straighten out into an upright pose. The man was back. Wearing the same faint smile on his lips, he strode past them once more from the other direction. This time making direct eye contact with Eddy, he boomed "Hellew Ms. Qian!" with the same manic intensity as before and was gone. But his words resonated for a moment longer.
 
@@ -48,11 +48,10 @@ Ms. Fé had a kind face and wore a simple smile. They got up and left the buildi
 
 "That's just the way he is, my dear," she said. "you and I get pangs of hunger if we don't eat, don't we? Old Gin gets colds instead of hunger." Eddy looked at his mother's knees as her words radiated into him from above. 
 
-He continued rambling cheerfully, "I get hungry every day. Almost every day actually, some days I don't get hungry. Once I went the whole day without eating anything at all, until three, no! four o'clock." said Eddy. He looked up to see Ms. Fé's warm smile, which eclipsed the sun and filled him with boundless love.
+He continued rambling cheerfully, "I get hungry every day. Almost every day actually, some days I don't get hungry. Once I went the whole day without eating anything at all, until three, no! four o'clock." Eddy looked up to see Ms. Fé's warm smile, which eclipsed the sun and filled him with boundless love.
 
-To compensate for his size, Eddy had to take two steps for every step she made. He looked down at his little legs strutting beside this tremendous maternal presence. 
+Eddy had to take two steps for every step she made to compensate for his size. He looked down at his little legs strutting beside this tremendous maternal presence. 
 
 When they reached old Gin's, Eddy was given a treat as old Gin, and Ms. Fé sat down for a game of chess. He loved to watch them play chess even though he didn't understand the rules. There was something tremendously important about the game that captured his imagination. 
 
 TBC... 
-
