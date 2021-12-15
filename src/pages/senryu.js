@@ -29,6 +29,7 @@ export default function Hokku() {
                             <p style={{ marginBottom:`1cm` }} />
                         </div>)
                     }
+                <br/><br/><br/><br/><br/><br/>
             </div>
         </div>
     );
