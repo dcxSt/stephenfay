@@ -8,12 +8,11 @@ date: "2021-12-07"
 
 <b>Cast</b>
 
-<i>Nancy Young - naive newlywed, married to Arpie <br/>
-Arpie Young - naive newlywed, married to Nancy <br/>
-Adonnis Young - brother of Arpie, married to Ellie <br/>
-Jason - wayward professor, hopelessly in love with Nancy <br/>
-Tuesday - postman</i><br/>
-
+<i><b>Nancy Young:</b> naive newlywed, married to Arpie <br/>
+<b>Arpie Young:</b> naive newlywed, married to Nancy <br/>
+<b>Adonnis Young:</b> brother of Arpie<br/>
+<b>Jason:</b> wayward professor, hopelessly in love with Nancy <br/>
+<b>Tuesday:</b> postman</i><br/>
 <br/>
 
 
