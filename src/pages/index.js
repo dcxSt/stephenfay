@@ -11,6 +11,7 @@ export default function Home() {
 										<br/><br/>
 
 										<b>Fun things</b> <br/>
+                    <a href="https://github.com/dcxSt/minesweeper">Minesweeper</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
@@ -29,10 +30,15 @@ export default function Home() {
                     <a href="https://diegolopez.me/">Diego</a>,
                     <a href="https://shereenelaidi.github.io/">Shereen</a>,
                     <a href="https://daocheny.github.io/">Dao Chen</a>,
+                    <a href="https://aranguri.wordpress.com/">Santi</a>,
+                    <a href="https://dhruvikparikh.com/">Dhruvik</a>,
+                    <a href="https://noahtren.com/">Noah</a>,
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>, 
 										<a href="https://projecteuler.net/profile/dcxStephen.png">project euler profile</a>, 
+                    <a href="https://www.researchgate.net/profile/Stephen-Fay">Research gate</a>,
+                    <a href="https://scholar.google.com/citations?view_op=list_works&hl=en&user=eMRXnwUAAAAJ">google scholar</a>, 
                     <br/><br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
