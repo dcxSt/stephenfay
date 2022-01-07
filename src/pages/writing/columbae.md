@@ -24,9 +24,9 @@ They had met at an army dance. Arpie had brazenly stepped between Nancy and anot
 
 Arpie lived with his wealthy brother Adonnis and Adonnis' wife. Despite his humble upbringing, Adonis had successfully ascended the ranks of the railway industry after publishing a book that expounded the merits of cutting railway taxes. Adonis and Arpie were descendants of French protestant Huguenots who had fled France in the 1600s to escape Catholic persecution. After her marriage, Nancy moved in with her husband, brother, and brother's wife. 
 
-One day Mrs. Young overheard Nancy complaining about the food to her maid "This fish stinks! Did you just fry it in sunflower oil? There's no hint of wine or lemon juice." 
+One day Mrs. Young, Adonnis' wife, overheard Nancy complaining about the food to her maid "This fish stinks! Did you just fry it in sunflower oil? There's no hint of wine or lemon juice." 
 
-She became paranoid that Nancy was trying to take control of her domain. "I will not have her impetuously ordering my servant around," she complained to her husband. 
+Mrs. Young became paranoid that Nancy was trying to take control of her domain. "I will not have her impetuously ordering my servant around," she complained to her husband. 
 
 After that incident, Adonnis' wife had grown increasingly hostile toward Nancy. For her part, Nancy was desperately trying to convince Arpie to get a place of his own. But Arpie was a young man and had other things on his mind. Although he was married, he still felt and behaved like a bachelor, flirting with every girl he met. He told his wife that he would look for a house to rent but had made no attempt to find one. 
 
@@ -41,7 +41,7 @@ Nancy put yet another of her letters onto the large stack that she kept in the c
 <poem>Sweet Nancy, fire of my soul, <br/>
 I am a tree in the dezert, you are thirst-quenching moisture, <br/>
 Sweet Nancy, bringer of life, <br/>
-I am lost at seak, you are the shore on the horizon, <br/>
+I am lost at sea, you are the shore on the horizon, <br/>
 Sweet Nancy, you are my everything.</poem> <br/><br/>
 
 <poem>I do not ask that you return my love, only that you accept it. Si tu pouvais lire dans mon coeur, tu verrais la place où je t’ai mis! Tu est ma mie, tu est mon espoir. Sans toi la vie serait sans sens.</poem> <br/><br/>
@@ -52,7 +52,7 @@ That evening, Adonis and his wife's shouting match could be heard from Nacy and 
 
 Nancy could not contain her anger and made a beeline for the door; she would show her who the cracked egg was. Arpie held her back by the arm, "Don't you dare challenge your sister-in-law's authority in her own house!" he whispered threateningly. Nancy broke free of his grip and lunged for the door handle. Completely overcome by rage, she sprinted out of her chamber and burst into Adonnis' room, slamming the double doors open. 
 
-"You!" yelled Nancy pointing her index finger at Adonnis' wife. "How dare you slander me with such a foul tung! I don't have anything to do with that professor. I don't want anything to do with you or your servants.". 
+"You!" yelled Nancy pointing her index finger at Adonnis' wife. "How dare you slander me with such a foul tung! I don't have anything to do with that professor. I don't want anything to do with you or your servants."
 
 Arpie appeared beside her and grabbed her by the arm again, scolding her. "The guts you have, breaking into my brother's room, how can you be so shameless? You must apologize at once." Nancy was shocked and hurt that her husband had picked the other side. 
 
