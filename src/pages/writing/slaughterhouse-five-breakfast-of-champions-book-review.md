@@ -1,5 +1,5 @@
 ---
-title: *Slaughterhouse Five* and *Breakfast of Champions*, book review
+title: Slaughterhouse Five and Breakfast of Champions, book review
 author: Stephen Fay
 type: Essay 
 layout: post
