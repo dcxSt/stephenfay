@@ -143,6 +143,41 @@ pagelinkActive {
   padding: 0px 10px;
 }
 
+/* Comments style */
+.commentparent {
+  border-radius: 25px;
+  background-color:#EEE;
+  padding: 20px 20px 20px 20px; /* top right bottom left  */
+}
+
+.comment1 {
+  border-radius: 25px;
+  background-color:#ECC;
+  padding: 2px 10px 2px 10px;
+}
+
+.comment2 {
+  border-radius: 25px;
+  background-color:#DDD;
+  padding: 2px 10px 2px 10px;
+}
+
+.commentform {
+  border-radius: 15px;
+  background-color:#AB784E; /* Almond Brown */
+  padding: 10px 10px 10px 10px;
+}
+
+.inputemail {
+  border-radius: 5px;
+  font-size: 22px;
+}
+
+.inputtext {
+  border-radius: 5px;
+  font-size: 22px;
+}
+
 /* On smaller screens, where height is less than 450px, change the style of the sidebar (less padding and a smaller font size) */
 @media screen and (max-height: 450px) {
   .sidenav {padding-top: 15px;}
