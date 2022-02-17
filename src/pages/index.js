@@ -11,7 +11,7 @@ export default function Home() {
 										<br/><br/>
 
 										<b>Fun things</b> <br/>
-                    <a href="https://github.com/dcxSt/minesweeper">Minesweeper</a>, <br/>
+                    Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
