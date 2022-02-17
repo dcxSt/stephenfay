@@ -10,8 +10,10 @@ export default function Home() {
                     <b>Welcome to my website!</b>
 										<br/><br/>
 
-										<b>Fun things</b> <br/>
-                    Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
+										<b>Fun things I made</b> <br/>
+                    <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>, <br/>
+                    <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>, <br/>
+                    Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play on a HUGE board locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
@@ -36,7 +38,7 @@ export default function Home() {
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curious profile</a>, 
-										<a href="https://projecteuler.net/profile/dcxStephen.png">project euler profile</a>, 
+										Project Euler <a href="https://projecteuler.net/profile/dcxStephen.png">profile</a> and <a href="https://github.com/dcxSt/project-euler">solutions</a>, 
                     <a href="https://www.researchgate.net/profile/Stephen-Fay">Research gate</a>,
                     <a href="https://scholar.google.com/citations?view_op=list_works&hl=en&user=eMRXnwUAAAAJ">google scholar</a>, 
                     <br/><br/>send me an email: dcxstephen@gmail.com
