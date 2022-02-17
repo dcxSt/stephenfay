@@ -1,6 +1,8 @@
 import React from "react"
 import { graphql } from "gatsby"
 import Layout from "../components/layout"
+import CommentForm from "../components/commentForm"
+import Comments from "../components/comments"
 
 export default function BlogPost({ data }) {
   const post = data.markdownRemark
@@ -10,6 +12,12 @@ export default function BlogPost({ data }) {
       <h5 style={{ marginTop:"0px"}}>{post.frontmatter.date}</h5>
       <h5 style={{ marginTop:"3px"}}>Type : {post.frontmatter.type}</h5>
       <div dangerouslySetInnerHTML={{ __html: post.html }} />
+      <br/><br/><br/><br/><br/>
+      <div class="commentparent">
+        <CommentForm/>
+        <br/>
+        <Comments/>
+      </div>
     </Layout>
   )
 }
