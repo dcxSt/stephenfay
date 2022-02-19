@@ -41,6 +41,7 @@ export default function Home() {
 										Project Euler <a href="https://projecteuler.net/profile/dcxStephen.png">profile</a> and <a href="https://github.com/dcxSt/project-euler">solutions</a>, 
                     <a href="https://www.researchgate.net/profile/Stephen-Fay">Research gate</a>,
                     <a href="https://scholar.google.com/citations?view_op=list_works&hl=en&user=eMRXnwUAAAAJ">google scholar</a>, 
+                    <a href="https://dcxst.github.io/math-tutor/">my business card and teaching philosophy</a>,
                     <br/><br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
