@@ -40,15 +40,6 @@ export default function Sidenav() {
             </Link>
             <br></br>
             <Link
-            to="/projects/"
-            style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite" }}
-            activeStyle={{ color:"#000",textDecorationLine:"none",fontFamily:"Special Elite" }}
-            partiallyActive={true}
-            >
-                Projects
-            </Link>
-            <br></br>
-            <Link
             to="/quotes/"
             style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite" }}
             activeStyle={{ color:"#000",textDecorationLine:"none",fontFamily:"Special Elite" }}
