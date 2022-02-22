@@ -37,12 +37,13 @@ export default function Home() {
                     <a href="https://noahtren.com/">Noah</a>,
 										<br/><br/>
 										<b>Self</b> <br/>
-										<a href="https://curius.app/stephen-fay">curious profile</a>, <br/>
+										<a href="https://curius.app/stephen-fay">curius profile</a>, <br/>
 										Project Euler <a href="https://projecteuler.net/profile/dcxStephen.png">profile</a> and <a href="https://github.com/dcxSt/project-euler">solutions</a>, <br/>
                     <a href="https://www.researchgate.net/profile/Stephen-Fay">Research gate</a>,<br/>
                     <a href="https://scholar.google.com/citations?view_op=list_works&hl=en&user=eMRXnwUAAAAJ">google scholar</a>, <br/>
-                    <a href="https://dcxst.github.io/math-tutor/">my business card and teaching philosophy</a>,<br/>
-                    <a href="https://stephenfay.substack.com/">my Substack newsletter</a>
+                    <a href="https://dcxst.github.io/math-tutor/">tutoring business card + teaching philosophy</a>,<br/>
+                    <a href="https://stephenfay.substack.com/">Substack newsletter</a>,<br/>
+                    <a href="https://github.com/dcxSt">GitHub</a>
                     <br/><br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
