@@ -11,8 +11,9 @@ export default function Home() {
 										<br/><br/>
 
 										<b>Fun things I made</b> <br/>
-                    <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>, <br/>
-                    <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>, <br/>
+                    <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
+                    <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
+                    <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
                     Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play on a HUGE board locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
