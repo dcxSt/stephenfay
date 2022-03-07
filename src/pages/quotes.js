@@ -115,6 +115,8 @@ export default function Quotes() {
 
 				[...] So just try to try to think about the fact that death is simply part of a program that is already immortal, which is the theory of lineage. Whether it’s the lineage of your ideas or the lineage of your genes, these things matter to all of us while we’re here and it’s one of the most exciting things to think about
 				<br/><br/><b>Eric Weinstein</b>
+        <br/><br/>
+        Note: I don't really like Eric Weinstein, nor do I endorse his quote. I include it here because it's striking, and it introduced me to a novel perspective. 
 				</pquote>
 				<pquote style={{ textAlign:`left` }}>
 				Bohr has brought to my attention that the uncertainty in our observation does not arise exclusively from the occurrence of discontinuities, but is tied directly to the demand that we ascribe equal validity to the quite different experiments which show up in the particulate theory on one hand, and the wave theory on the other hand.<br/><br/><b>Heisenberg Paper, footnote</b><br/><br/>I like this quote because it reveals something about how physics was done back then.
