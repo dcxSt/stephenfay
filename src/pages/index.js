@@ -45,8 +45,16 @@ export default function Home() {
                     <a href="https://dcxst.github.io/math-tutor/">tutoring business card + teaching philosophy</a>,<br/>
                     <a href="https://stephenfay.substack.com/">Substack newsletter</a>,<br/>
                     <a href="https://www.goodreads.com/user/show/112474373-stephen-fay">Goodreads Profile</a>,<br/>
-                    <a href="https://github.com/dcxSt">GitHub</a>
-                    <br/><br/>send me an email: dcxstephen@gmail.com
+                    <a href="https://github.com/dcxSt">GitHub</a>, <br/>
+										<a href="https://twitter.com/dcxStep">Twitter</a>, <br/>
+
+
+										<br/><b>Communities</b> <br/>
+										<a href="https://bio.school2point0.com/">School2.0</a>, <br/>
+										<a href="https://www.recurse.com/">Recurse Center</a>, <br/>
+										McGill NeurotechX, <br/>
+
+                    <br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
 						</Layout>
