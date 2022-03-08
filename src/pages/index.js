@@ -58,6 +58,9 @@ export default function Home() {
 										<a href="https://www.recurse.com/">Recurse Center</a>, <br/>
 										McGill NeurotechX, <br/>
 
+                    <br/>
+                    <b>About</b><br/>
+                    I'm a Anglo-Belgian European person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry etc.<br/>
                     <br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
