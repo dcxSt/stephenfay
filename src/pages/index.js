@@ -11,6 +11,7 @@ export default function Home() {
 										<br/><br/>
 
 										<b>Fun things I made</b> <br/>
+                    <a href="https://www.overleaf.com/latex/templates/anti-cv/tztnqwvqsgvd">Overleaf template</a>,<br/>
                     <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
                     <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
                     <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
