@@ -1,5 +1,6 @@
 ---
-
+title: Stoke's Theorem
+tyep: math
 ---
 
 # Stokes Theorem

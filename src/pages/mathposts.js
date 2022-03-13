@@ -2,7 +2,6 @@ import React from "react"
 import { useStaticQuery , graphql } from "gatsby"
 import Layout from "../components/layout"
 import { Link } from "gatsby"
-import P153 from "../assets/p153.pdf"
 
 export default function MathPosts({ data }) {
     console.log(data);
@@ -13,7 +12,7 @@ export default function MathPosts({ data }) {
                 if (node.fileAbsolutePath.includes('mathposts'))
                     return (
                         <div key={node.id}>
-                            <Link to={node.fields.slug} style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}><h4>{node.frontmatter.date} {node.frontmatter.title} <span style={{color:"#777"}}> type : {node.frontmatter.type}</span></h4></Link>
+                            <Link to={node.fields.slug} style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}><h4>{node.frontmatter.date} {node.frontmatter.title}</h4></Link>
                             {node.excerpt}
                         </div>
                     )
@@ -21,7 +20,7 @@ export default function MathPosts({ data }) {
 
           <div key="p153">
             <Link to="./p153/" style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}>
-              <h4>Project Euler Problem 153</h4>
+              <h4>2019 Project Euler Problem 153</h4>
             </Link>
           </div>
 
