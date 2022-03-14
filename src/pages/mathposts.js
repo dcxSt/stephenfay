@@ -8,21 +8,34 @@ export default function MathPosts({ data }) {
     return (
         <Layout>
             <h1>Math</h1>
-            {data.allMarkdownRemark.edges.map(({ node }) => {
-                if (node.fileAbsolutePath.includes('mathposts'))
-                    return (
-                        <div key={node.id}>
-                            <Link to={node.fields.slug} style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}><h4>{node.frontmatter.date} {node.frontmatter.title}</h4></Link>
-                            {node.excerpt}
-                        </div>
-                    )
-            })}
+
+          <div key="pfb">
+            <Link to="./pfb/" style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}>
+              <h4>2021 Polyphase Filter Bank</h4>
+            </Link>
+          </div>
+
+          <div key="symplectic-integrators">
+            <Link to="./symplectic-integrators/" style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}>
+              <h4>2020 Symplectic Integrators</h4>
+            </Link>
+          </div>
 
           <div key="p153">
             <Link to="./p153/" style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}>
               <h4>2019 Project Euler Problem 153</h4>
             </Link>
           </div>
+
+          {data.allMarkdownRemark.edges.map(({ node }) => {
+              if (node.fileAbsolutePath.includes('mathposts'))
+                  return (
+                      <div key={node.id}>
+                          <Link to={node.fields.slug} style={{ color:"inherit",textDectoration:"none",textDecorationLine:"none"}}><h4>{node.frontmatter.date} {node.frontmatter.title}</h4></Link>
+                          {node.excerpt}
+                      </div>
+                  )
+          })}
 
         </Layout>
     );

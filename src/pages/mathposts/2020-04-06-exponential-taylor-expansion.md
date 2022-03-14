@@ -1,5 +1,6 @@
 ---
 title: Distribution of weight of each term in the exponential function.
+date: "2019"
 author: Steve
 type: blog
 layout: post
