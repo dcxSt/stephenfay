@@ -40,6 +40,14 @@ export default function Sidenav() {
             </Link>
             <br></br>
             <Link
+            to="/mathposts/"
+            style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite" }}
+            activeStyle={{ color:"#000",textDecorationLine:"none",fontFamily:"Special Elite" }}
+            >
+                Math
+            </Link>
+            <br></br>
+            <Link
             to="/quotes/"
             style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite" }}
             activeStyle={{ color:"#000",textDecorationLine:"none",fontFamily:"Special Elite" }}

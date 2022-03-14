@@ -1,6 +1,7 @@
 import React from "react"
 import { graphql } from "gatsby"
 import Layout from "../components/layout"
+import "katex/dist/katex.min.css" // katex math stylesheet
 
 export default function BlogPost({ data }) {
   const post = data.markdownRemark

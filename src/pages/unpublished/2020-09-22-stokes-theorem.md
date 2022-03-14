@@ -1,5 +1,5 @@
 ---
-
+title: Stoke's Theorem
 ---
 
 # Stokes Theorem
