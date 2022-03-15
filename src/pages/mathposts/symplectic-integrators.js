@@ -2,7 +2,7 @@ import React from "react"
 import { useStaticQuery , graphql } from "gatsby"
 import Layout from "../../components/layout"
 import { Link } from "gatsby"
-import symplectic_integrators from "../../assets/symplectic_integrators.pdf"
+import symplectic_integrators from "../../../static/symplectic_integrators.pdf"
 
 export default function Mathtest () {
     return (

@@ -2,7 +2,7 @@ import React from "react"
 import { useStaticQuery , graphql } from "gatsby"
 import Layout from "../../components/layout"
 import { Link } from "gatsby"
-import P153 from "../../assets/p153.pdf"
+import P153 from "../../../static/p153.pdf"
 
 export default function Mathtest () {
     return (
