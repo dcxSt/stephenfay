@@ -9,7 +9,9 @@ export default function Home() {
             <Sidenav /> 
 						<div class="main" style={{width:`12cm`}}>
 								<h1>Fly</h1>
-								<StaticImage src="../images/fly.png" />
+                <a href="https://dcxst.github.io/math-tutor/">
+                  <StaticImage src="../images/fly.png" />
+                </a>
 						</div>
         </div>
     );
