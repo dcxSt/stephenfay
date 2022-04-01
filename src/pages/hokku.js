@@ -12,12 +12,12 @@ export default function Hokku() {
                 <h1>Hokku</h1>
                     {
                         hokku.map(el => <div>
-                            <p style={{ marginBottom:`1cm` }} />
+                            <p style={{ marginBottom:`2cm` }} />
                             <haiku style={{ color:"white" }}>{el.date}<br/>{el.season}<br/></haiku>
                             <haiku style={{margin:`75px`}}>{el.l1}<br/></haiku>
                             <haiku style={{margin:`100px`}}>{el.l2}<br/></haiku>
                             <haiku style={{margin:`125px`}}>{el.l3}<br/></haiku>
-                            <p style={{ marginBottom:`1cm` }} />
+                            <p style={{ marginBottom:`2cm` }} />
                         </div>)
                     }
 
