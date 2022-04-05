@@ -5,10 +5,11 @@ date: "2020-04-21"
 ---
 
 
-> We life together, we act on, and react to, on another; but always and in all circumstances we are by ourselves. The martyres go hand in hand into the arena, they are crucified alone. Embraced, the loverse desperatley try to fuse their insulated extacies into a single self-transcendence; in vain.
+> We live together, we act on, and react to, on another; but always and in all circumstances we are by ourselves. The martyres go hand in hand into the arena, they are crucified alone. Embraced, the loverse desperatley try to fuse their insulated extacies into a single self-transcendence; in vain.
 
 
-A sentece containing beautiful words that I want in my lexica:
+The following is a sentece containing beautiful words that I want in my lexica.
+
 > And how can a man at the extreme limits of ectomorphy and cerebrotonia ever put himself in the place of one at the limits of *endomorphy* and *viscerotonia*, or, except within certain circumscribed areas, share the feelings of one who stands at the limits of *mesomorphy* and *somatotonia*?
 
 Page 22:

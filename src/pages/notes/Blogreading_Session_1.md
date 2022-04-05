@@ -1,5 +1,5 @@
 ---
-title: "Blogreading Session #1"
+title: "Blogreading Session 1"
 author: "Stephen Fay"
 date: "2022-02-27"
 ---
