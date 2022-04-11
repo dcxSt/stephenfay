@@ -6,17 +6,6 @@ import "../index.css"
 var hokku = require('../content/hokku.json');
 console.log(hokku);
 
-function hokkuStyle(hokku) {
-    if (hokku.style === "l301") {
-        console.log(hokku.style);
-        return (
-            <div>
-              <p>{hokku.l1}</p>
-            </div>
-        )
-    }
-}
-
 // Rendering helper function, 
 // indenting style 1 for three line hokku
 function L301Hokku(props) {
@@ -24,7 +13,7 @@ function L301Hokku(props) {
     return (
       <div>
         <p style={{ marginBottom:`4cm` }} />
-        <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.season}<br/></haiku>
+        <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.place}<br/>{hok.season}<br/></haiku>
         <haiku style={{margin:`75px`}}>{hok.l1}<br/></haiku>
         <haiku style={{margin:`100px`}}>{hok.l2}<br/></haiku>
         <haiku style={{margin:`125px`}}>{hok.l3}<br/></haiku>
@@ -40,7 +29,7 @@ function L302Hokku(props) {
   return (
     <div>
       <p style={{ marginBottom:`4cm` }} />
-      <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.season}<br/></haiku>
+      <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.place}<br/>{hok.season}<br/></haiku>
       <haiku style={{margin:`75px`}}>{hok.l1}<br/></haiku>
       <haiku style={{margin:`100px`}}>{hok.l2}<br/></haiku>
       <haiku style={{margin:`75px`}}>{hok.l3}<br/></haiku>
@@ -56,7 +45,7 @@ function L401Hokku(props) {
   return (
     <div>
       <p style={{ marginBottom:`4cm` }} />
-      <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.season}<br/></haiku>
+      <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.place}<br/>{hok.season}<br/></haiku>
       <haiku style={{margin:`75px`}}>{hok.l1}<br/></haiku>
       <haiku style={{margin:`120px`}}>{hok.l2}<br/></haiku>
       <haiku style={{margin:`120px`}}>{hok.l3}<br/></haiku>
@@ -72,7 +61,7 @@ function RenderHokku(props) {
     console.log("RenderHokku");
     if (hok.style === "l301") {
         return <L301Hokku hok={hok} />
-    } else if (hok.style === "l301") {
+    } else if (hok.style === "l302") {
         return <L302Hokku hok={hok} />
     } else if (hok.style === "l401") {
         return <L401Hokku hok={hok} />
