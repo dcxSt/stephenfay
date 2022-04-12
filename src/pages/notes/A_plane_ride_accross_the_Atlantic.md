@@ -24,7 +24,11 @@ I felt closer to the Africans than the Brits. Somehow we could communicate on th
 
 
 **Ectomorphy:** having a light body build
+
 **Endomorphy:** having a heavy rounded body build often with a marked tendency to become fat
+
 **Viscerotonia:** a pattern of temperament that is marked by predominance of social over intellectual or physical factors and exhibits conviviality, tolerance, complacency, and love of food
+
 **Mesomorphy:** having a husky muscular body build
+
 **Somatotonia:** a pattern of temperament that is marked by predominance of physical over social or intellectual factors, aggressiveness, love of physical activity, vigor, and alertness
