@@ -1,0 +1,83 @@
+---
+title: "Moonwalking with Einstein"
+author: "Stephen Fay"
+date: "2022-04-11"
+---
+
+
+**By Joshua Foer**
+
+**Notes and selected quotes**
+
+> "The general idea with most memory techniques is to change whatever boring thing is being inputted into your memory into something that is so colorful, so exciting, and so different from anything you’ve seen before that you can’t possibly forget it" Ed explained to me
+
+Memorizing a list of words or a deck of cards is just an excersise for getting a hold of the techiques. 
+
+[page ~65]
+
+> Virtually all the nitty-gritty details we have about classical memory training—indeed, nearly all the memory tricks in the mental athlete’s arsenal—were first described in a short, anonym- ously authored Latin rhetoric textbook called the **Rhetorica ad Herennium**, written sometime between 86 and 82 B.C. It is the only truly complete discussion of the memory techniques in- vented by Simonides to have survived into the Middle Ages. Though the intervening two thou- sand years have seen quite a few innovations in the art of memory, the basic techniques have remained fundamentally unchanged from those described in the Ad Herennium. “This book is our bible,” Ed told me.
+> 
+> Ed reads both Latin and ancient Greek (as well as speaking French and German fluently) and fancies himself an amateur classicist. The Ad Herennium was to be the first of several ancient texts he pressed upon me. Before I sampled Tony Buzan’s expansive oeuvre (he’s authored or coauthored over 120 books) or any of the self-help books put out by the top men- tal athletes, Ed wanted me to start my investigation with the classics. In addition to the Ad Herennium, there would be translated excerpts of Quintilian’s Institutio Oratoria and Cicero’s De Oratore for me to read, followed by a collection of medieval writings on memory by Thomas Aquinas, Albertus Magnus, Hugh of St. Victor, and Peter of Ravenna.
+
+> The Ad Herennium’s discussion of memory—“that treasure-house of inventions and the custodian of all parts of rhetoric”—is actually quite short, about ten pages embedded in a far longer treatise on rhetoric and oration. It begins by making a distinction between natural memory and artificial memory: “The natural memory is that memory which is embedded in our minds, born simultaneously with thought. The artificial memory is that memory which is strengthened by a kind of training and system of discipline.” In other words, natural memory is the hardware you’re born with. Artificial memory is the software you run on your hardware.
+> 
+> Artificial memory, the anonymous author continues, has two basic components: images and places. Images represent the contents of what one wishes to remember. Places—or loci, as they’re called in the original Latin—are where those images are stored.
+> 
+> The idea is to create a space in the mind’s eye, a place that you know well and can easily visualize, and then populate that imagined place with images representing whatever you want to remember. Known as the “method of loci” by the Romans, such a building would later come to be called a “memory palace.”
+>
+> Memory palaces don’t necessarily have to be palatial—or even buildings. They can be
+routes through a town—as they were for S—or station stops along a railway, or signs of the zodiac, or even mythical creatures. They can be big or small, indoors or outdoors, real or ima- ginary, so long as there’s some semblance of order that links one locus to the next, and so long as they are intimately familiar. The four-time U.S. memory champion Scott Hagwood uses luxury homes featured in Architectural Digest to store his memories. Dr. Yip Swee Chooi, the effervescent Malaysian memory champ, used his own body parts as loci to help him memorize the entire 56,000-word, 1,774-page Oxford Chinese-English dictionary. One might have dozens, hundreds, perhaps even thousands of memory palaces, each built to hold a different set of memories
+>
+> In Australia and the American Southwest, Aborigines and Apache Indians independently invented forms of the loci method. But instead of using buildings, they relied on the local topo- graphy to plot their narratives, and sang them across the landscape. Each hillock, boulder, and stream held a part of the story. “Myth and map became coincident,” says John Foley, a linguistic anthropologist at the University of Missouri who studies memory and oral traditions. One of the tragic consequences of embedding narrative into the landscape is that when Nat- ive Americans had land taken from them by the U.S. government, they lost not only their home but their mythology as well.
+>
+> “The thing to understand, Josh, is that humans are very, very good at learning spaces,” Ed remarked from his perch on the boulder. “Just to give an example, if you are left alone for five minutes in someone else’s house you’ve never visited before, and you’re feeling energetic and nosy, think about how much of that house could be fixed in your memory in that brief peri- od. You’d be able to learn not just where all the different rooms are and how they connect with each other, but their dimensions and decoration, the arrangement of their contents, and where the windows are. Without really noticing it, you’d remember the whereabouts of hun- dreds of objects and all sorts of dimensions that you wouldn’t even notice yourself noticing. If you actually add up all that information, it’s like the equivalent of a short novel. But we don’t ever register that as being a memory achievement. Humans just gobble up spatial information.”
+> 
+> The principle of the memory palace, he continued, is to use one’s exquisite spatial memory to structure and store information whose order comes less naturally—in this case, Ed’s to-do list. “What you’re going to find is that in the same way as it’s impossible to get con- fused about the order of rooms in that house, it will be equally obvious that immediately after I locate three hula hoops, a snorkel, and a dry ice machine, my next task will be e-mailing my friend Sophia.”
+> 
+> [...]
+> 
+> We can start at the foot of the driveway. I want you to close your eyes and try to visualize in as much detail as possible a large bottle of pickled gar- lic standing right where the car should be parked.”
+> 
+> I wasn’t entirely sure what I was supposed to be visualizing. “What is pickled garlic? Is that, like, an English delicacy?” I asked.
+> 
+> “Um, no, it’s just the sort of snack one brings along for a weekend out in the mountains.” He flashed another impish grin. “Now, it’s very important to try to remember this image multis- ensorily.” The more associative hooks a new piece of information has, the more securely it gets embedded into the network of things you already know, and the more likely it is to remain in memory. Just as S spontaneously and involuntarily turned every sound that passed through his ears into a chorus of colors and smells, the author of the Ad Herennium urged his readers to do the same with every image they wanted to remember.
+> 
+> “It’s important that you deeply process that image, so you give it as much attention as pos- sible,” Ed continued. “Things that grab our attention are more memorable, and attention is not something you can simply will. It has to be pulled in by the details. By laying down elaborate, engaging, vivid images in your mind, it more or less guarantees that your brain is going to end up storing a robust, dependable memory. So try to imagine the pleasant smell of the pickled garlic, and exaggerate its proportions. Imagine tasting it. Really let the flavor roll around on your tongue. And make sure you see yourself doing this at the foot of your driveway.” If I didn’t know what pickled garlic was, I was even less sure of how it tasted. Nevertheless, I imagined a large bottle of the stuff standing proudly at the foot of my parents’ driveway.
+> 
+> “Now that you’ve installed a complete multisensorial picture of pickled garlic, we’re going to walk up the path to your home and visualize the next item on our to-do list at the front door. It’s cottage cheese. I want you to close your eyes and see an enormous wading-pool-size tub of cottage cheese. Have you got it?
+> 
+> “Now I want you to imagine Claudia Schiffer swimming in this tub of cottage cheese. I
+want you to imagine her swimming in the buff, and dripping with dairy. Are you picturing this? I don’t want you to miss any of the details here.”
+>
+> The Ad Herennium advises readers at length about creating the images for one’s memory palace: the funnier, lewder, and more bizarre, the better. “When we see in everyday life things that are petty, ordinary, and banal, we generally fail to remember them, because the mind is not being stirred by anything novel or marvelous. But if we see or hear something exceptionally base, dishonorable, extraordinary, great, unbelievable, or laughable, that we are likely to remember for a long time.”
+> 
+> The more vivid the image, the more likely it is to cleave to its locus. What distinguishes a great mnemonist, I was learning, is the ability to create these sorts of lavish images on the fly, to paint in the mind a scene so unlike any that has been seen before that it cannot be forgot- ten. And to do it quickly. Which is why Tony Buzan tells anyone who will listen that the World Memory Championship is less a test of memory than of creativity.
+> 
+> When forming images, it helps to have a dirty mind. Evolution has programmed our brains to find two things particularly interesting, and therefore memorable: jokes and sex—and espe- cially, it seems, jokes about sex. (Do you remember what Rhea Perlman and Manute Bol were doing on the first page of this book?) Even memory treatises from comparatively prudish eras make this point. Peter of Ravenna, author of the most famous memory textbook of the fifteenth century, first asks the pardon of chaste and religious men before revealing “a secret which I have (through modesty) long remained silent about: if you wish to remember quickly, dispose the images of the most beautiful virgins into memory places; the memory is marvelously excited by images of women.”
+> 
+> [...]
+> 
+> I thought that was a funny image, and one sure to stick in my mind. But why? What makes six snooty, anthropomorphized wine bottles more memorable than the words “six bottles of wine”? Well, for one thing, visualizing such an outlandish image demanded more mental in- dulgence than simply reading four words. In the process of expending all that mental effort, I was forming more durable connections among the neurons that would encode that memory. But even more important, the memorableness of those talking wine bottles is a function of their novelty. While I have seen many wine bottles in my day, I have never seen one that talks before. Were I to simply try to remember the words “six bottles of wine,” that memory would soon blend in with all my other memories of wine bottles.
+
+[page 72]
+
+> This worldview owes a lot to the collection of ancient and medieval texts on memory that Ed had relentlessly tried to foist upon me. For those early writers, a trained memory wasn’t just about gaining easy access to information; it was about strengthening one’s personal eth- ics and becoming a more complete person. A trained memory was the key to cultivating “judgment, citizenship, and piety.” What one memorized helped shape one’s character. Just as the secret to becoming a chess grand master was to learn old games, the secret to be- coming a grand master of life was to learn old texts. In a tight spot, where could one look for guidance about how to act, if not the depths of memory? Mere reading is not necessarily learning—a fact that I am personally confronted with every time I try to remember the con- tents of a book I’ve just put down. To really learn a text, one had to memorize it. As the early- eighteenth-century Dutch poet Jan Luyken put it, “One book, printed in the Heart’s own wax / Is worth a thousand in the stacks.”
+> 
+> The ancient and medieval way of reading was totally different from how we read today. One didn’t just memorize texts; one ruminated on them—chewed them up and regurgitated them like cud—and in the process, became intimate with them in a way that made them one’s own. As Petrarch said in a letter to a friend, “I ate in the morning what I would digest in the evening; I swallowed as a boy what I would ruminate upon as an older man. I have thoroughly absorbed these writings, implanting them not only in my memory but in my marrow.” Au- gustine was said to be so steeped in the Psalms that they, as much as Latin itself, comprised the principle language in which he wrote.
+> 
+> This was an attractive fantasy: I imagined that if I could only learn to memorize like Simonides, I would be able to commit reams of poetry to heart. I could make a clean sweep through the best verse and really absorb it. I imagined becoming one of those admirable (if sometimes insufferable) individuals who always seem to have an apposite quotation to drop into conversation. I imagined becoming a walking repository of verse.
+> 
+> I decided to make memorizing a part of my daily routine. Like flossing. Except I was actually going to do it. Each morning, after waking up and having my coffee, but before reading the newspaper or showering or even putting on proper clothes, I sat down behind my desk and tried to spend ten to fifteen minutes working through a poem.
+
+[page 76]
+> Rod made a small fortune in the 1990s designing computer software, and retired at an
+early age to a life of leisure and eccentric pursuits. He is a practicing apiarist and gardener and would like to take the Mill Farm off the electrical grid by exercising his ancient water rights and installing a hydroelectric generator in the creek that runs by the house. Teen teaches de- velopmentally disabled kids at a local school and is an avid reader and tennis player. She is mostly tolerant of Ed’s eccentricities, but also cautiously hopeful that Ed might someday direct his considerable talents in a more focused, and perhaps even socially useful, direction.
+
+[page 77]
+> Memory championships can be pathologically competitive events, and Ed described his vanity T-shirt as part of a “campaign of pretend intimidation” with the aim of “generally upping the quality of banter between competitors—especially with the Germans.” To that end, he had showed up at the championship bearing copies of a cheeky onepage stats sheet that he was handing out to the press and fellow competitors. It described his character (in the third per- son)—“Irreverent, flamboyant, ready for anything (especially yesterday)”—and his training regime—“Early Rise, Yoga, Skipping, Superfoods (including blueberries and cod liver oil), Four hours training, two glasses of wine per day (from the potassium rich soil of the Langue-doc-Roussillon in Southern France), 30 minutes reflection period at sunset each evening, keeping a journal online.” It noted that his “unique abilities” include lucid dreaming and tantric sex. It also described Tony Buzan as “a champion ball-room dancer and a mentor for me throughout puberty,” and his thoughts on the future of competitive memory: “Hoping it will be an Olympic sport before 2020,” when he is “planning to retire to a life of synaesthesia and senility.” His plans for after the championship: “Revolutionizing Western Education.”
+
+[page 81]
+> Cicero agreed that the best way to memorize a speech is point by point, not word by word, by employing memoria rerum. In his De Oratore, he suggests that an orator delivering a speech should make one image for each major topic he wants to cover, and place each of those images at a locus. Indeed, the word “topic” comes from the Greek word topos, or place. (The phrase “in the first place” is a vestige from the art of memory.)
+
+[page 82]
+> Professional memorizers have existed in oral cultures throughout the world to transmit that heritage through the generations. In India, an entire class of priests was charged with memor- izing the Vedas with perfect fidelity. In pre-Islamic Arabia, people known as Rawis were often attached to poets as official memorizers. The Buddha’s teachings were passed down in an unbroken chain of oral tradition for four centuries until they were committed to writing in Sri Lanka in the first century B.C. And for centuries, a group of hired tape recorders called tan- naim (literally, “reciters”) memorized the oral law on behalf of the Jewish community.
