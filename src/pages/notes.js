@@ -3,11 +3,13 @@ import { graphql } from "gatsby"
 import Layout from "../components/layout"
 import { Link } from "gatsby"
 
+
+
 export default function Notes({ data }) {
     return (
 				<Layout>
                 <h1>Notes</h1>
-                <p>These are a few notes I take in my private journal which I've selected and decided to share publically. The content here is even less of a "finished product" as in /writing.</p><br/>
+                <p>These are a few notes I take in my private journal which I've selected and decided to share publically. The content here is even less of a "finished product" as in <Link to="/writing/" style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite"}} activeStyle={{ color:"#000",textDecorationLine:"none",fontFamily:"Special Elite"}}>writing</Link>.</p><br/>
                 {data.allMarkdownRemark.edges.map(({ node }) => {
                     if (node.fileAbsolutePath.includes('notes'))
                         return (

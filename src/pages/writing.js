@@ -6,10 +6,10 @@ import Flynav from "../components/flybar"*/
 import { Link } from "gatsby"
 
 export default function Writing({ data }) {
-    console.log(data);
     return (
 				<Layout>
                 <h1>Writing</h1>
+                <p>If this is the most exquisite prose you've ever laid eyes upon, you might like <a href="https://stephenfay.substack.com/">my newsletter</a>!</p><br/>
                 {data.allMarkdownRemark.edges.map(({ node }) => {
                     if (node.fileAbsolutePath.includes('writing'))
                         return (
