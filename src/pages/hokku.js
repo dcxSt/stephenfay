@@ -38,7 +38,7 @@ function L302Hokku(props) {
    )
 }
 
-// Rendering helper
+/// Rendering helper
 // indenting style for four line hokku (split-second line)
 function L401Hokku(props) {
   const hok = props.hok;
@@ -55,6 +55,23 @@ function L401Hokku(props) {
   )
 }
 
+/// Rendering helper
+// indenting style for four line hokku (split-second line)
+function L402Hokku(props) {
+  const hok = props.hok;
+  return (
+    <div>
+      <p style={{ marginBottom:`4cm` }} />
+      <haiku style={{ color:"white" }}>{hok.date}<br/>{hok.place}<br/>{hok.season}<br/></haiku>
+      <haiku style={{margin:`75px`}}>{hok.l1}<br/></haiku>
+      <haiku style={{margin:`120px`}}>{hok.l2}<br/></haiku>
+      <haiku style={{margin:`75px`}}>{hok.l3}<br/></haiku>
+      <haiku style={{margin:`120px`}}>{hok.l4}<br/></haiku>
+      <p style={{ marginBottom:`12cm` }} />
+    </div>
+  )
+}
+
 
 function RenderHokku(props) {
     const hok = props.hok;
@@ -65,6 +82,8 @@ function RenderHokku(props) {
         return <L302Hokku hok={hok} />
     } else if (hok.style === "l401") {
         return <L401Hokku hok={hok} />
+    } else if (hok.style === "l402") {
+      return <L402Hokku hok={hok} />
     }
 }
 
@@ -74,11 +93,6 @@ export default function Hokku() {
                 <h1>Hokku</h1>
                     {
                         hokku.map(el => 
-                          // if (el.style == "l301") {
-                          // console.log(el.style);
-                         // } else if (el.style === "l302") {
-                         // }else if (el.style === "l401") {
-                          // }
                           <RenderHokku hok={el} />
                         )
                     }
