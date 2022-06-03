@@ -1,8 +1,17 @@
 [  
   {
     "season": "Summer",
+    "date": "2022.06.03",
+    "l1": "My shadow leaves me",
+    "l2": "As night rises",
+    "l3": "Above the mountains.",
+    "place": "Lacoux, France",
+    "style": "l301"
+  },
+  {
+    "season": "Summer",
     "date": "2022.05.28",
-    "l1": "Under the blue summer sky",
+    "l1": "Under the blue summer sky;",
     "l2": "A dead branch falls—",
     "l3": "Where it will rot.",
     "place": "Lacoux, France",
