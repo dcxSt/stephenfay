@@ -6,6 +6,9 @@ export default function Quotes() {
 			<Layout>
 				<h1>Nuggets of gold</h1>
         <pquote>
+          Democracy may be a rickety old thing, but it truely is "the worst political system except for all the others." <br/><br/><b>Mum, quoting Churchill</b>
+        <pquote>
+        <pquote>
           In 1972, Chinese premier Zhou Enlai was asked about the impact of the French Revolution. “Too early to say,” he replied.          
       <br/><br/><b>Zhou Enlai</b>
         </pquote>
