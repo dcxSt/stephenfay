@@ -14,7 +14,7 @@ Smouldering ash, <br/>
 Devouring it's feast:<br/>
 Groud coffee grains. <br/>
 <br/>
-Amarthus hang's it's head,<br/>
+Amaranthus hang's it's head,<br/>
 My tea-cup deepens sip by sip<br/>
 The hot sun is our only witness<br/>
 Beating down—<br/>
