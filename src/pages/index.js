@@ -24,11 +24,19 @@ export default function Home() {
 
 										<br/><br/>
 										<b>Currently building</b> <br/>
-                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune, optimized for parallel computation on gpus. 
-										
+                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune 
+
+                    <br/><br/>
+                    <b>Links</b><br/>
+                    Favourite Wikipedia articles: 
+                    <a href="https://www.wikiwand.com/en/Wojtek_(bear)">Wojtek</a>, 
+                    <a href="https://www.wikiwand.com/en/Timothy_Dexter">Timothy Dexter</a>,
+                    <a href="https://www.wikiwand.com/en/Ludwig_Wittgenstein">Ludwig</a>
+                    <br/>
+
 										<br/><br/>
 										<b>Homies</b> <br/>
-										<a href="https://marleyx.com" styel={{ unerline:"none" }}>Marley</a>, 
+										<a href="https://marleyx.com" style={{ unerline:"none" }}>Marley</a>, 
 										<a href="https://marcelgoh.ca/">Marcel</a>,
 										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
                     <a href="http://luc.devroye.org/">Luc</a>,
@@ -41,6 +49,7 @@ export default function Home() {
                     <a href="https://aranguri.wordpress.com/">Santi</a>,
                     <a href="https://dhruvikparikh.com/">Dhruvik</a>,
                     <a href="https://noahtren.com/">Noah</a>,
+
 										<br/><br/>
 										<b>Self</b> <br/>
 										<a href="https://curius.app/stephen-fay">curius profile</a>, <br/>
