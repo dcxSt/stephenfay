@@ -6,6 +6,14 @@ export default function Quotes() {
 			<Layout>
 				<h1>Nuggets of gold</h1>
         <pquote>
+          For every subtel and compicated question, there is a perfectly simple and straightforward answer, which is wrong.
+        <br/><br/><b>H. L. Mecken (slightly rephrased)</b>
+        </pquote>
+        <pquote>
+          Growing specialization and diversification have brought a host of monographs and textboks on increasingly specialized topics. However, the 'tree' of knowledge of mathematics and related fields does not grow only by putting forth new branches. It also happens, quite often in fact, that branches which were thought to be completely different...
+          <br/><br/><b>Marian Vajtersic</b>, (in preface to Algorithms for Elliptic Problems)
+        </pquote>
+        <pquote>
           Democracy may be a rickety old thing, but it truely is "the worst political system except for all the others." <br/><br/><b>Mum, quoting Churchill</b>
         </pquote>
         <pquote>

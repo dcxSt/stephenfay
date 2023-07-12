@@ -8,31 +8,37 @@ export default function Home() {
 						<h1>Stephen Fay</h1>
             <pquote style={{ marginTop:'-16px' }}>
                     <b>Welcome to my website!</b>
+                    <br/><br/>
+
+                    <b>About</b><br/>
+                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, strange diets, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
 										<br/><br/>
 
-										<b>Fun things I made</b> <br/>
+										<b>Fun things I made on the internet</b> <br/>
+                    <a href="https://pypi.org/project/integer-fft/">integer_fft</a> - a python package (written in Rust) for computing integer-FFTs with limited bit-depth. The purpose of this package is to quickly test wierd behaviours that may occur in your FFT when you are bit-limited. If you have a feature request please send me a message. You're also welkome to submit a pull request. 
                     <a href="https://www.overleaf.com/latex/templates/anti-cv/tztnqwvqsgvd">LATEX Overleaf template</a>,<br/>
                     <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
                     <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
-                    <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
                     Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play on a HUGE board locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
-										<a href="https://atom-war.dcxst.repl.co/">Atom Wars</a> - a cookie clicker game built on the Rinkeby Etherium test-net, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
 										<a href="https://github.com/dcxSt/alien_wiki_chrome_extension">Alien Wikipedia</a> - a chrome extension that makes reading wikipedia more entertaining, <br/>
                     <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some pretty orbits!
+                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune 
+                    <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
 
 										<br/><br/>
 										<b>Currently building</b> <br/>
-                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune 
 
                     <br/><br/>
                     <b>Links</b><br/>
                     Favourite Wikipedia articles: 
                     <a href="https://www.wikiwand.com/en/Wojtek_(bear)">Wojtek</a>, 
                     <a href="https://www.wikiwand.com/en/Timothy_Dexter">Timothy Dexter</a>,
-                    <a href="https://www.wikiwand.com/en/Ludwig_Wittgenstein">Ludwig</a>
+                    <a href="https://www.wikiwand.com/en/Ludwig_Wittgenstein">Ludwig</a>,
+                    <a href="https://www.wikiwand.com/en/Eel_life_history">Eels</a>,
                     <br/>
+                    <a href="https://dkb.show/">DKB</a>
 
 										<br/><br/>
 										<b>Homies</b> <br/>
@@ -45,7 +51,6 @@ export default function Home() {
                     <a href="https://tiffanyyong.github.io/">Tiffany</a>,
                     <a href="https://diegolopez.me/">Diego</a>,
                     <a href="https://shereenelaidi.github.io/">Shereen</a>,
-                    <a href="https://daocheny.github.io/">Dao Chen</a>,
                     <a href="https://aranguri.wordpress.com/">Santi</a>,
                     <a href="https://dhruvikparikh.com/">Dhruvik</a>,
                     <a href="https://noahtren.com/">Noah</a>,
@@ -63,14 +68,12 @@ export default function Home() {
 										<a href="https://twitter.com/dcxStep">Twitter</a>, <br/>
 
 
-										<br/><b>Communities</b> <br/>
+										<br/><b>Communities I'm affilated with</b> <br/>
 										<a href="https://bio.school2point0.com/">School2.0</a>, <br/>
 										<a href="https://www.recurse.com/">Recurse Center</a>, <br/>
 										McGill NeurotechX, <br/>
 
                     <br/>
-                    <b>About</b><br/>
-                    I'm a Anglo-Belgian European person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry etc.<br/>
                     <br/>send me an email: dcxstephen@gmail.com
                 </pquote>
 								<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
