@@ -11,7 +11,7 @@ export default function Home() {
                     <br/><br/>
 
                     <b>About</b><br/>
-                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, strange diets, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
+                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, strange diets, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS radio telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
 										<br/><br/>
 
 										<b>Fun things I made on the internet</b> <br/>
