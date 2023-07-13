@@ -15,7 +15,7 @@ export default function Home() {
 										<br/><br/>
 
 										<b>Fun things I made on the internet</b> <br/>
-                    <a href="https://pypi.org/project/integer-fft/">integer_fft</a> - a python package (written in Rust) for computing integer-FFTs with limited bit-depth. The purpose of this package is to quickly test wierd behaviours that may occur in your FFT when you are bit-limited. If you have a feature request please send me a message. You're also welkome to submit a pull request. 
+                    <a href="https://pypi.org/project/integer-fft/">integer_fft</a> - a python package (written in Rust) for computing integer-FFTs with limited bit-depth. <br/>
                     <a href="https://www.overleaf.com/latex/templates/anti-cv/tztnqwvqsgvd">LATEX Overleaf template</a>,<br/>
                     <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
                     <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
@@ -26,9 +26,6 @@ export default function Home() {
                     <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some pretty orbits!
                     <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune 
                     <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
-
-										<br/><br/>
-										<b>Currently building</b> <br/>
 
                     <br/><br/>
                     <b>Links</b><br/>
