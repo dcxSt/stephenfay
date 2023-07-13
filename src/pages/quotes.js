@@ -6,6 +6,10 @@ export default function Quotes() {
 			<Layout>
 				<h1>Nuggets of gold</h1>
         <pquote>
+        The English language is like London: proudly barbaric yet deeply civilised, too, common yet royal, vulgar yet processional, sacred yet profane. Each sentence we produce, whether we know it or not, is a mongrel mouthful of Chaucerian, Shakespearean, Miltonic, Johnsonian, Dickensian and American. Military, naval, legal, corporate, criminal, jazz, rap and ghetto discourses are mingled at every turn. The French language, like Paris, has attempted, through its Academy, to retain its purity, to fight the advancing tides of Franglais and international prefabrication. English, by comparison, is a shameless whore.
+        <br/><br/><b>Stephen Fry</b>
+        </pquote>
+        <pquote>
           For every subtel and compicated question, there is a perfectly simple and straightforward answer, which is wrong.
         <br/><br/><b>H. L. Mecken (slightly rephrased)</b>
         </pquote>
