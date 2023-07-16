@@ -11,7 +11,7 @@ export default function Home() {
                     <br/><br/>
 
                     <b>About</b><br/>
-                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, strange diets, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS radio telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
+                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, unorthodox diets & fasting, encountering the strange, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS radio telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
 										<br/><br/>
 
 										<b>Fun things I made on the internet</b> <br/>
@@ -23,8 +23,8 @@ export default function Home() {
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
 										<a href="https://github.com/dcxSt/alien_wiki_chrome_extension">Alien Wikipedia</a> - a chrome extension that makes reading wikipedia more entertaining, <br/>
-                    <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some pretty orbits!
-                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune 
+                    <a href="https://github.com/dcxSt/attractors/blob/master/README.md">Strange Attractor orbits</a> - some pretty orbits!<br/>
+                    <a href="https://github.com/dcxSt/ising-lib">ising_lib</a> - a rust crate that makes Ising model simulations easy to tune <br/>
                     <a href="https://lastingdeeppinknetbsd.space-miner.repl.co/">Loxodromes</a>—a p5 js animation, <br/>
 
                     <br/><br/>
