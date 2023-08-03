@@ -67,3 +67,18 @@ What was life like under Qin rule? (p 81)
 > In the past few years, enormous quantities of documents from local Qin centers of administration have come to light. [...] There are cases about banditry, rape, robbery and grave robbing, a sexual consent case and even petitions for retrial. For all the reported ferocity of the Qin legal system, here we get an insight into legal procedures and even the conduct of local magistrates. These magistrates interviewed witnesses, listed carefully to evidence and had graded punishments, where discretion and mercy could, in theory, play a part. 
 > 
 > In practice, though, application of the law was severe. [... *Example* ...] Convicted of being soft on crime, indeed of being effectively a closet Confucian, Tui's sentence was to be 'shaved as a criminal and made a gatherer of fule'. (Higher up the list of Qin punishments were mutilations, cutting in half at the waist, beheading and 'slicing' - Death by a Thousand Cuts - a penalty only abolished in 1905.)
+ 
+---
+
+After the Han fell, there where 300 years of war between the Southern and Northern dynasties. Then Sui united China and introduced reforms, but was promptly replaced by the Tang. 
+
+---
+
+## Chapter 6, The Glory of the Tang
+
+> In the seventh century CE, the axis of China's history shifted as new elements came into Chinese civilization from other cultures, from the Near East, Persia and Central Asia, and from India. Japan, too, was now drawn into the Chinese orbit. The Tang dynasty created the largest Chinese empire before the eighteenth centure. Building on the administrative reforms of their Sui predecessors, they created a centralised empire, with a postal system and an extensive network of roads and canals, radiating from the capital to far westa nd the northeast. Their cultural achievements, in the arts, literature and history, were extraordinary; human and self-aware, full of empathy for the world and for people, their poetry is still regarded as China's greatest. The arrival of Buddhism was perhaps the most important and long-lasting of the foreign influences that came from the Tang opening up to the world. With Buddhism came trade, ideas, art and different conceptions of philosophy and spirituality, by sea and by land, but especially along the Silk Road from Central Asia and India. And there this part of the story begins with one of the most celebrated figures in the history of China, the monk Xuanzang. 
+
+
+
+
+

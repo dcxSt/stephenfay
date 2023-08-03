@@ -29,13 +29,31 @@ export default function Home() {
 
                     <br/><br/>
                     <b>Links</b><br/>
-                    Favourite Wikipedia articles: 
+                    <3 Wikipedia articles: 
                     <a href="https://www.wikiwand.com/en/Wojtek_(bear)">Wojtek</a>, 
                     <a href="https://www.wikiwand.com/en/Timothy_Dexter">Timothy Dexter</a>,
                     <a href="https://www.wikiwand.com/en/Ludwig_Wittgenstein">Ludwig</a>,
                     <a href="https://www.wikiwand.com/en/Eel_life_history">Eels</a>,
                     <br/>
-                    <a href="https://dkb.show/">DKB</a>
+                    Blogs: <a href="https://dkb.show/">DKB</a>
+                    <br/>
+                    Useful Software Megalist: 
+                    <a href="https://tunnelblick.net/">Tunnelblick</a>, 
+                    <a href="https://github.com/vim/vim">Vim</a>, 
+                    <a href="https://www.qbittorrent.org/">qbittorrent</a>,
+                    <a href="https://gqrx.dk/">gqrx</a>,
+                    <a href="https://www.wireshark.org/">wireshark</a>,
+                    <a href="https://code.visualstudio.com/">vscode</a>,
+                    <a href="https://github.com/BoostIO/BoostNote-Legacy">boostnote (legacy)</a>, 
+                    <a href="https://ohmyz.sh/">oh my zsh</a>, 
+                    <a href="https://app.grammarly.com/">grammarly</a>, 
+                    <a href="https://www.foobar2000.org/">foobar2000</a>, 
+                    <a href="https://ffmpeg.org/">ffmpeg</a>, 
+                    <a href="https://www.gimp.org/">gimp</a>, 
+                    <a href="https://imagemagick.org/">imagemagick</a>, 
+                    <a href="https://www.omnigroup.com/more">omnidisksweeper</a>, 
+                    <a href=""></a>, 
+                    <br/>
 
 										<br/><br/>
 										<b>Homies</b> <br/>
