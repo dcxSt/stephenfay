@@ -30,7 +30,10 @@ for bn_fname in [i for i in os.listdir(BN_NOTES_DIR) if i[-5:]==".cson"]:
 
             # delete first two lines of content
             # these are the title and the date
-            content = "\n".join(content.split("\n")[2:])
+            if "break-after-line" in cson_dict["tags"]: # add the tag "break-after-line" to add breaks after each line
+                content = "<br/>\n".join(content.split("\n")[2:])
+            else:
+                content = "\n".join(content.split("\n")[2:])
 
             # concat frontmatter and content for gatsby
             gatsby_formatted_content = frontmatter + content
@@ -45,7 +48,7 @@ for bn_fname in [i for i in os.listdir(BN_NOTES_DIR) if i[-5:]==".cson"]:
             f.write(gatsby_formatted_content)
             f.close()
     except:
-        print(f"something went wrong while parsing\n{bn_fname}")
+        print(f"something went wrong while parsing\n{bn_fname}, title={cson_dict['title']}")
 
 print("\n\nDONE, bye")
 
