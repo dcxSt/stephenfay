@@ -29,7 +29,7 @@ export default function Home() {
 
                     <br/><br/>
                     <b>Links</b><br/>
-                    <3 Wikipedia articles: 
+                    Wikipedia articles: 
                     <a href="https://www.wikiwand.com/en/Wojtek_(bear)">Wojtek</a>, 
                     <a href="https://www.wikiwand.com/en/Timothy_Dexter">Timothy Dexter</a>,
                     <a href="https://www.wikiwand.com/en/Ludwig_Wittgenstein">Ludwig</a>,
