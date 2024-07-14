@@ -11,11 +11,11 @@ export default function Home() {
                     <br/><br/>
 
                     <b>About</b><br/>
-                    Hi! I'm a Anglo-Belgian person who lives in Montreal. I like mountains, code, math, engineering projects, bjj, poetry, unorthodox diets & fasting, encountering the strange, and all the other things that make life worth living. I work on the real-time signal processing for the ALBATROS radio telescope. My journey to this point has been... akin to a high temperature brownian walk. I'm optimistic about the future. 
+                    Hi! I live in Montreal. I like mountains, active and passive symbols, encountering the strange. I work on the real-time signal processing for the ALBATROS radio telescope. Message me on twitter (link below). 
 										<br/><br/>
 
 										<b>Fun things I made on the internet</b> <br/>
-                    <a href="https://pypi.org/project/integer-fft/">integer_fft</a> - a python package (written in Rust) for computing integer-FFTs with limited bit-depth. <br/>
+                    <a href="https://pypi.org/project/integer-fft/">integer_fft</a> - a python package (written in Rust) for computing integer-FFTs (with limited bit-depth). <br/>
                     <a href="https://www.overleaf.com/latex/templates/anti-cv/tztnqwvqsgvd">LATEX Overleaf template</a>,<br/>
                     <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
                     <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
@@ -56,7 +56,7 @@ export default function Home() {
                     <br/>
 
 										<br/><br/>
-										<b>Homies</b> <br/>
+										<b>Homies (a subset)</b> <br/>
 										<a href="https://marleyx.com" style={{ unerline:"none" }}>Marley</a>, 
 										<a href="https://marcelgoh.ca/">Marcel</a>,
 										<a href="https://rosieyzh.github.io/" style={{ underline:"none" }}>Rosie</a>, 
