@@ -19,7 +19,7 @@ export default function Home() {
                     <a href="https://www.overleaf.com/latex/templates/anti-cv/tztnqwvqsgvd">LATEX Overleaf template</a>,<br/>
                     <a href="https://ising-2d-lattice.netlify.app/">Ising 2D lattice demo</a>—an interactive rust + wasm ising model simulator, <br/>
                     <a href="https://crates.io/crates/grateful-cli">Grateful CLI</a>—a command line interface built in rust, <br/>
-                    Minesweeper: <a href="https://minesweepervanillajs.dcxst.repl.co/">play online</a> (JS implementation), or play on a HUGE board locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
+                    Minesweeper: <a href="https://dcxst.github.io/minesweeper_js/">play online</a> (JS implementation), or play on a HUGE board locally with the <a href="https://github.com/dcxSt/minesweeper">python implementation</a>, <br/>
 										<a href="https://github.com/dcxSt/mcgill_physics_hackathon2020">Snowflake groth cellular automaton</a>, <br/>
 										<a href="https://github.com/dcxSt/lipschitz">H-Trees</a> - my first hackathon, <br/>
 										<a href="https://github.com/dcxSt/alien_wiki_chrome_extension">Alien Wikipedia</a> - a chrome extension that makes reading wikipedia more entertaining, <br/>
