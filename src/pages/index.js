@@ -83,7 +83,7 @@ export default function Home() {
 										<a href="https://twitter.com/dcxStep">Twitter</a>, <br/>
 
 
-										<br/><b>Communities I'm affilated with</b> <br/>
+										<br/><b>``Communities I'm affilated with''</b> <br/>
 										<a href="https://bio.school2point0.com/">School2.0</a>, <br/>
 										<a href="https://www.recurse.com/">Recurse Center</a>, <br/>
 										McGill NeurotechX, <br/>

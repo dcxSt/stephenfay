@@ -21,7 +21,15 @@ export default function Sidenav() {
             >
                 Hokku
             </Link>
-            <br></br>
+            
+        </div>
+    );
+}
+
+
+
+/*
+<br></br>
             <Link
             to="/senryu/"
             style={{ color:"#777",textDecorationLine:"none",fontFamily:"Special Elite" }}
@@ -64,6 +72,5 @@ export default function Sidenav() {
             >
                 Quotes
             </Link>
-        </div>
-    );
-}
+*/
+
