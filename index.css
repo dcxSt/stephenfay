@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+
+h1 {
+    font-family: 'Special Elite', cursive;
+    text-align: left;
+}
+
+h2, h3, h4, h5, p, ul, body {
+    font-family: 'IBM Plex Mono', monospace;
+    text-align: left;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.logo {
+    position: fixed;
+    top: 250px; /* Adjust position */
+    right: 50px; /* Adjust position */
+    width: 40px; /* Adjust size */
+    height: auto;
+    z-index: 1000; /* Ensures it's above other elements */
+}
