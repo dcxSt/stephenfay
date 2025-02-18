@@ -10,6 +10,16 @@ h2, h3, h4, h5, p, ul, body {
     text-align: left;
 }
 
+a {
+    color: #D9B382;
+    text-decoration: none;
+}
+
+a:visited {
+    color: #804d24;
+    text-decoration: none;
+}
+
 ul {
     list-style-type: none;
     padding: 0;
