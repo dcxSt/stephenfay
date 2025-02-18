@@ -26,9 +26,8 @@ ul {
 
 .text-container {
     max-width: 700px;  /* Limits width on desktops */
-    width: 100%;        /* Adapts to smaller screens */
+    width: 90%;        /* Adapts to smaller screens */
     margin: 0 auto;     /* Centers text */
-    padding: 0 20px;    /* Prevents text from touching edges */
 }
 
 @media (max-width: 768px) { /* Adjust for tablets and phones */
