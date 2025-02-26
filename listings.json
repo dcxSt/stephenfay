@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "title": "Bonsai",
+    "description": "Bonsai tree",
+    "price": 20,
+    "imageUrl": "./assets/stuff-to-pawn/bosai.png",
+    "images": [
+        "https://example.com/image1.jpg",
+        "https://example.com/image2.jpg",
+        "https://example.com/image3.jpg"
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Very good adhesive removable patches",
+    "description": "Little circular patches that can easily be removed",
+    "price": 5,
+    "imageUrl": "./assets/stuff-to-pawn/adhesive.png"
+  },
+  {
+    "id": 3,
+    "title": "Boxing Gloves",
+    "description": "Fairtex boxing gloves. Made in Thailand",
+    "price": 50,
+    "imageUrl": "./assets/stuff-to-pawn/boxing-gloves.png"
+  }
+]

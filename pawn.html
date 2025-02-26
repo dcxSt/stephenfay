@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="index.css">
+  <title>My Stuff</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    .listing { background: #fff; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .listing img { max-width: 100%; border-radius: 5px; }
+    .listing-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; }
+    .listing-price { color: green; margin-top: 5px; font-weight: bold; }
+  </style>
+</head>
+<body class="text-container">
+  <h1>My Stuff Is For Sale</h1>
+  <p>Feb 23. The other day I realised that the only reason I 
+    was hanging on to my stuff and was still living in a house 
+    was to maintain a "veneer of respectability" (as Eamon put 
+    it) to impress my girlfreind. But my girlfriend doesn't 
+    even live in Montreal anymore, so I don't need it. I'm 
+    pawning all but the most essential of my stuff. Help me 
+    get rid my stuff by purchasing it at discount rates $$.
+  </p>
+  <p>All prices are in CAD and are subject to change. If
+    you'd like to reserve an item, you must pay upfront and 
+    we must arange on a time to pick it up. To purchase/reserve 
+    an item, please message or call me. 
+  </p>
+  <div id="listings-container"></div>
+
+  <script>
+    async function loadListings() {
+      try {
+        const response = await fetch('listings.json');
+        const listings = await response.json();
+        const container = document.getElementById('listings-container');
+
+        listings.forEach(item => {
+          const listingElement = document.createElement('div');
+          listingElement.className = 'listing';
+          listingElement.innerHTML = `
+            <img src="${item.imageUrl}" alt="${item.title}">
+            <div class="listing-title">${item.title}</div>
+            <div>${item.description}</div>
+            <div class="listing-price">$${item.price}</div>
+          `;
+          container.appendChild(listingElement);
+        });
+      } catch (error) {
+        console.error('Error loading listings:', error);
+      }
+    }
+
+    loadListings();
+  </script>
+</body>
+</html>
+
