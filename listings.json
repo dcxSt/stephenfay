@@ -24,5 +24,173 @@
     "description": "Fairtex boxing gloves. Made in Thailand",
     "price": 50,
     "imageUrl": "./assets/stuff-to-pawn/boxing-gloves.png"
+  },
+  {
+    "id": 4,
+    "title": "Camera H35",
+    "description": "Half frame H35 Kodak Camera",
+    "price": 20,
+    "imageUrl": "./assets/stuff-to-pawn/camera-kodak-h35.png"
+  },
+  {
+    "id": 5,
+    "title": "Camera Mintola SR-7",
+    "description": "Mintola SR-7 Camera",
+    "price": 50,
+    "imageUrl": "./assets/stuff-to-pawn/camera-mintola.png"
+  },
+  {
+    "id": 6,
+    "title": "Candle in Jar",
+    "description": "A scented candel, mostly unused, in a jar.",
+    "price": 5,
+    "imageUrl": "./assets/stuff-to-pawn/candle-in-jar.png"
+  },
+  {
+    "id": 7,
+    "title": "Chair",
+    "description": "Rustic wooden chair, very nice.",
+    "price": 10,
+    "imageUrl": "./assets/stuff-to-pawn/chair1.png"
+  },
+  {
+    "id": 8,
+    "title": "Color decoraction strips",
+    "description": "Colored decoration strips, for free.",
+    "price": 0,
+    "imageUrl": "./assets/stuff-to-pawn/color-strips.png"
+  },
+  {
+    "id": 9,
+    "title": "Curtains",
+    "description": "Yellow curtains with wallpaper pattern, you can get them for free if you can identify which walpaper group the pattern belongs to. 2 x 120cm x 236cm.",
+    "price": 10,
+    "imageUrl": "./assets/stuff-to-pawn/curtains.png"
+  },
+  {
+    "id": 10,
+    "title": "Die",
+    "description": "Some die. Price tbd.",
+    "price": 1,
+    "imageUrl": "./assets/stuff-to-pawn/dice.png"
+  },
+  {
+    "id": 11,
+    "title": "Futon",
+    "description": "Comfortable footon for sleeping on the floor or on tatamis. Sleeps 2. Rolls up conveniently to make more space during the day. Second hand. Originally bought from futon d'or.",
+    "price": 90,
+    "imageUrl": "./assets/stuff-to-pawn/futon2.png"
+  },
+  {
+    "id": 12,
+    "title": "Guash paint set",
+    "description": "Lovely Guash paint set. Originally about $25, it's had some use but many of the colors are still unopened.",
+    "price": 10,
+    "imageUrl": "./assets/stuff-to-pawn/guash.png"
+  },
+  {
+    "id": 13,
+    "title": "Light bulbs",
+    "description": "Various light bulbs. Some black light, some warm yellow, some white LED.",
+    "price": 2,
+    "imageUrl": "./assets/stuff-to-pawn/light-bulbs.png"
+  },
+  {
+    "id": 14,
+    "title": "Light rope-wire",
+    "description": "For hanging lights from anywhere, plugs into outlets.",
+    "price": 10,
+    "imageUrl": "./assets/stuff-to-pawn/light2.png"
+  },
+  {
+    "id": 16,
+    "title": "Masks",
+    "description": "Two boxes full of masks.",
+    "price": 5,
+    "imageUrl": "./assets/stuff-to-pawn/masks.png"
+  },
+  {
+    "id": 17,
+    "title": "Microscope",
+    "description": "Microscope with three magnifications.",
+    "price": 20,
+    "imageUrl": "./assets/stuff-to-pawn/microscope.png"
+  },
+  {
+    "id": 18,
+    "title": "Microwave",
+    "description": "A normal microwave oven",
+    "price": 40,
+    "imageUrl": "./assets/stuff-to-pawn/microwave.png"
+  },
+  {
+    "id": 19,
+    "title": "Misc pills",
+    "description": "A miscellaneous ensemble of pills",
+    "price": 0,
+    "imageUrl": "./assets/stuff-to-pawn/misc-pills.png"
+  },
+  {
+    "id": 20,
+    "title": "Olive Oil",
+    "description": "Extra virgin olive oil",
+    "price": 5,
+    "imageUrl": "./assets/stuff-to-pawn/olive-oil.png"
+  },
+  {
+    "id": 21,
+    "title": "Outlet splitter",
+    "description": "From Dolarama for CAD 4.75",
+    "price": 2,
+    "imageUrl": "./assets/stuff-to-pawn/outlet-splitter.png"
+  },
+  {
+    "id": 22,
+    "title": "Memory Foam Pillow",
+    "description": "Fancy pillow",
+    "price": 30,
+    "imageUrl": "./assets/stuff-to-pawn/pillow-fancy.png"
+  },
+  {
+    "id": 23,
+    "title": "Shoes",
+    "description": "Lets get some shoes. These will be thrown out if nobody buys them.",
+    "price": 0,
+    "imageUrl": "./assets/stuff-to-pawn/shoes.png"
+  },
+  {
+    "id": 24,
+    "title": "Table, foldable",
+    "description": "A foldable table. 107cm x 737 cm, Height: 75 cm.",
+    "price": 20,
+    "imageUrl": "./assets/stuff-to-pawn/table-foldable.png"
+  },
+  {
+    "id": 25,
+    "title": "Tatamis",
+    "description": "2x tatamis, 1m x 2m. Also from Futon d'Or. Price is a piece.",
+    "price": 50,
+    "imageUrl": "./assets/stuff-to-pawn/tatamis.png"
+  },
+  {
+    "id": 26,
+    "title": "Tupperware",
+    "description": "Microwaveable glass tupperware set",
+    "price": 5,
+    "imageUrl": "./assets/stuff-to-pawn/tupperware.png"
+  },
+  {
+    "id": 27,
+    "title": "Typewriter",
+    "description": "Pretty good, in perfect condition. I've used it a bunch, it's fun.",
+    "price": 40,
+    "imageUrl": "./assets/stuff-to-pawn/typewriter.png"
+  },
+  {
+    "id": 28,
+    "title": "Weight, 20 pounds",
+    "description": "20 pound weight, single arm, steel no rubber.",
+    "price": 20,
+    "imageUrl": "./assets/stuff-to-pawn/weight.png"
   }
 ]
