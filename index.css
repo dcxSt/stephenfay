@@ -169,6 +169,213 @@ ul {
     }
 }
 
+/* Climbing animations */
+.climbing-right::before, .climbing-left::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Head & Body */
+    box-shadow: 
+        /* Head & hair */
+        8px 0 #000, 12px 0 #000,
+        8px 4px #FDB22A, 12px 4px #FDB22A,
+        8px 8px #FDB22A, 12px 8px #FDB22A,
+        /* Body */
+        8px 12px #FFFFFF, 12px 12px #FFFFFF,
+        8px 16px #0D6CBC, 12px 16px #0D6CBC,
+        8px 20px #0D6CBC, 12px 20px #0D6CBC;
+}
+
+.climbing-right {
+    animation: climb-right 0.5s steps(2) infinite;
+}
+
+.climbing-left {
+    transform: scaleX(-1);
+    animation: climb-left 0.5s steps(2) infinite;
+}
+
+.climbing-right::after, .climbing-left::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    animation: climb-limbs 0.5s steps(2) infinite;
+}
+
+@keyframes climb-limbs {
+    0%, 100% {
+        box-shadow:
+            /* Arms grabbing wall */
+            0px 12px #FDB22A, 20px 12px #FDB22A,
+            /* Legs pushing against wall */
+            4px 24px #0D6CBC, 16px 24px #0D6CBC,
+            4px 28px #FDB22A, 16px 28px #FDB22A;
+    }
+    50% {
+        box-shadow:
+            /* Arms reaching up */
+            4px 8px #FDB22A, 16px 8px #FDB22A,
+            /* Legs pushing */
+            8px 24px #0D6CBC, 12px 24px #0D6CBC,
+            4px 28px #FDB22A, 16px 28px #FDB22A;
+    }
+}
+
+/* Monkey bar animations */
+.swinging-right::before, .swinging-left::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Head & Body */
+    box-shadow: 
+        /* Head & hair */
+        8px 8px #000, 12px 8px #000,
+        8px 12px #FDB22A, 12px 12px #FDB22A,
+        8px 16px #FDB22A, 12px 16px #FDB22A,
+        /* Body */
+        8px 20px #FFFFFF, 12px 20px #FFFFFF,
+        8px 24px #0D6CBC, 12px 24px #0D6CBC,
+        8px 28px #0D6CBC, 12px 28px #0D6CBC;
+}
+
+.swinging-right::after, .swinging-left::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    animation: swing-limbs 0.5s steps(2) infinite;
+}
+
+.swinging-right {
+    animation: swing-body-right 1s ease-in-out infinite alternate;
+}
+
+.swinging-left {
+    transform: scaleX(-1);
+    animation: swing-body-left 1s ease-in-out infinite alternate;
+}
+
+@keyframes swing-limbs {
+    0%, 100% {
+        box-shadow:
+            /* Arms grabbing bar */
+            4px 0 #FDB22A, 16px 0 #FDB22A,
+            /* Legs swinging */
+            8px 32px #0D6CBC, 12px 32px #0D6CBC,
+            8px 36px #FDB22A, 12px 36px #FDB22A;
+    }
+    50% {
+        box-shadow:
+            /* Arms grabbing bar */
+            4px 4px #FDB22A, 16px 4px #FDB22A,
+            /* Legs swinging forward/back */
+            4px 32px #0D6CBC, 16px 32px #0D6CBC,
+            4px 36px #FDB22A, 16px 36px #FDB22A;
+    }
+}
+
+@keyframes swing-body-right {
+    0% {
+        transform: rotate(-5deg);
+    }
+    100% {
+        transform: rotate(5deg);
+    }
+}
+
+@keyframes swing-body-left {
+    0% {
+        transform: scaleX(-1) rotate(-5deg);
+    }
+    100% {
+        transform: scaleX(-1) rotate(5deg);
+    }
+}
+
+/* Parachuting animation */
+.parachuting-right::before, .parachuting-left::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Head & Body */
+    box-shadow: 
+        /* Head & hair */
+        8px 0 #000, 12px 0 #000,
+        8px 4px #FDB22A, 12px 4px #FDB22A,
+        8px 8px #FDB22A, 12px 8px #FDB22A,
+        /* Body */
+        8px 12px #FFFFFF, 12px 12px #FFFFFF,
+        8px 16px #0D6CBC, 12px 16px #0D6CBC,
+        8px 20px #0D6CBC, 12px 20px #0D6CBC,
+        /* Parachute canopy */
+        0px -4px #FF5555, 4px -8px #FF5555, 8px -10px #FF5555,
+        12px -10px #FF5555, 16px -8px #FF5555, 20px -4px #FF5555;
+}
+
+.parachuting-right::after, .parachuting-left::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    animation: parachute-limbs 0.5s steps(2) infinite;
+}
+
+.parachuting-right {
+    animation: parachute-float-right 0.8s ease-in-out infinite alternate;
+}
+
+.parachuting-left {
+    transform: scaleX(-1);
+    animation: parachute-float-left 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes parachute-limbs {
+    0%, 100% {
+        box-shadow:
+            /* Arms holding parachute strings */
+            0px 4px #FDB22A, 20px 4px #FDB22A,
+            /* Legs dangling */
+            8px 24px #0D6CBC, 12px 24px #0D6CBC,
+            8px 28px #FDB22A, 12px 28px #FDB22A;
+    }
+    50% {
+        box-shadow:
+            /* Arms holding parachute strings */
+            0px 8px #FDB22A, 20px 8px #FDB22A,
+            /* Legs kicking slightly */
+            4px 24px #0D6CBC, 16px 24px #0D6CBC,
+            4px 28px #FDB22A, 16px 28px #FDB22A;
+    }
+}
+
+@keyframes parachute-float-right {
+    0% {
+        transform: translateY(-2px) rotate(-2deg);
+    }
+    100% {
+        transform: translateY(2px) rotate(2deg);
+    }
+}
+
+@keyframes parachute-float-left {
+    0% {
+        transform: scaleX(-1) translateY(-2px) rotate(-2deg);
+    }
+    100% {
+        transform: scaleX(-1) translateY(2px) rotate(2deg);
+    }
+}
+
 @media (max-width: 768px) { /* Adjust for tablets and phones */
     .text-container {
         max-width: 100%; /* Use full width on small screens */

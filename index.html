@@ -23,61 +23,362 @@
         // Pixelated person animation
         const person = document.getElementById('pixelated-person');
         let personX = window.innerWidth / 2;
+        let personY = 0; // Y position (0 = bottom of screen)
         let targetX = window.innerWidth / 2;
         let direction = 'right';
         const speed = 5;
+        const climbSpeed = 3;
+        const swingSpeed = 8;
+        const parachuteSpeed = 2;
         let isFlipping = false;
+        let keyboardControlled = false;
+        let keysPressed = {};
+        let isClimbing = false;
+        let climbingDirection = null;
+        let isSwinging = false;
+        let swingingDirection = null;
+        let isParachuting = false;
+        let parachutingDirection = null;
         
         // Track cursor position
         document.addEventListener('mousemove', (e) => {
-            targetX = e.clientX;
-        });
-        
-        // Do a flip on any click
-        document.addEventListener('click', (e) => {
-            if (!isFlipping) {
-                isFlipping = true;
-                
-                // Add flip animation class
-                person.classList.add('flipping');
-                
-                // Remove flip animation class after animation completes
-                setTimeout(() => {
-                    person.classList.remove('flipping');
-                    isFlipping = false;
-                }, 600); // Match animation duration
+            if (!keyboardControlled) {
+                targetX = e.clientX;
             }
         });
         
+        // Map WASD keys to arrow keys for dual control
+        function mapKey(key) {
+            const keyMap = {
+                'a': 'ArrowLeft',
+                'A': 'ArrowLeft',
+                'w': 'ArrowUp',
+                'W': 'ArrowUp',
+                'd': 'ArrowRight',
+                'D': 'ArrowRight',
+                's': 'ArrowDown',
+                'S': 'ArrowDown'
+            };
+            
+            return keyMap[key] || key;
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            const mappedKey = mapKey(e.key);
+            keysPressed[mappedKey] = true;
+            
+            // Switch to keyboard control mode with any direction key
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(mappedKey)) {
+                keyboardControlled = true;
+            }
+            
+            // Space key for flip
+            if (e.key === ' ' && !isFlipping) {
+                triggerFlip();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            const mappedKey = mapKey(e.key);
+            keysPressed[mappedKey] = false;
+        });
+        
+        // Click to flip and toggle control mode
+        document.addEventListener('click', (e) => {
+            // Toggle control mode on click
+            keyboardControlled = !keyboardControlled;
+            
+            // Always do flip regardless of control mode
+            if (!isFlipping) {
+                triggerFlip();
+            }
+        });
+        
+        function triggerFlip() {
+            if (isClimbing) return; // No flipping while climbing
+            
+            isFlipping = true;
+            
+            // Add flip animation class
+            person.classList.add('flipping');
+            
+            // Remove flip animation class after animation completes
+            setTimeout(() => {
+                person.classList.remove('flipping');
+                isFlipping = false;
+            }, 600); // Match animation duration
+        }
+        
+        // Check if near edge of screen
+        function isNearLeftEdge() {
+            return personX < 30;
+        }
+        
+        function isNearRightEdge() {
+            return personX > window.innerWidth - 30;
+        }
+        
         // Animation loop
         function animatePerson() {
-            // Don't move horizontally if flipping
             if (!isFlipping) {
-                // Move toward cursor X position
-                const distanceToTarget = targetX - personX;
-                const shouldMove = Math.abs(distanceToTarget) > 5;
+                // Handle state transitions
+                const atLeftEdge = personX <= 12;
+                const atRightEdge = personX >= window.innerWidth - 12;
+                const atTop = personY >= window.innerHeight - 40;
                 
-                if (shouldMove) {
-                    if (personX < targetX) {
-                        personX += speed;
-                        direction = 'right';
-                    } else {
-                        personX -= speed;
-                        direction = 'left';
-                    }
-                    
-                    // Apply direction class
-                    if (!person.classList.contains('person-right') && direction === 'right') {
-                        person.classList.remove('person-left');
-                        person.classList.add('person-right');
-                    } else if (!person.classList.contains('person-left') && direction === 'left') {
-                        person.classList.remove('person-right');
-                        person.classList.add('person-left');
+                // Start climbing when at edge and proper conditions met
+                if (!isClimbing && !isSwinging) {
+                    if (atLeftEdge) {
+                        // Start climbing left wall if pressing left or cursor is at left edge
+                        if ((keyboardControlled && keysPressed['ArrowLeft']) || 
+                            (!keyboardControlled && targetX < 30)) {
+                            isClimbing = true;
+                            climbingDirection = 'left';
+                            personY = 0; // Reset to bottom
+                        }
+                    } else if (atRightEdge) {
+                        // Start climbing right wall if pressing right or cursor is at right edge
+                        if ((keyboardControlled && keysPressed['ArrowRight']) || 
+                            (!keyboardControlled && targetX > window.innerWidth - 30)) {
+                            isClimbing = true;
+                            climbingDirection = 'right';
+                            personY = 0; // Reset to bottom
+                        }
                     }
                 }
                 
-                // Update position (center character under cursor)
-                person.style.left = (personX - 12) + 'px';
+                // Handle monkey bar swinging
+                if (isSwinging) {
+                    // Update animation classes
+                    person.className = swingingDirection === 'right' ? 'swinging-right' : 'swinging-left';
+                    
+                    // Set vertical position to top of screen (hanging from ceiling)
+                    person.style.top = '0px';
+                    person.style.bottom = 'auto';
+                    
+                    // Swing left/right with arrow keys
+                    if (keyboardControlled) {
+                        if (keysPressed['ArrowLeft']) {
+                            personX -= swingSpeed;
+                            swingingDirection = 'left';
+                        } else if (keysPressed['ArrowRight']) {
+                            personX += swingSpeed;
+                            swingingDirection = 'right';
+                        }
+                        
+                        // Drop down with down arrow
+                        if (keysPressed['ArrowDown']) {
+                            isSwinging = false;
+                            personY = window.innerHeight - 40;
+                            person.style.top = 'auto';
+                            person.style.bottom = '0px';
+                        }
+                    }
+                    
+                    // Stop swinging at screen edges
+                    if (personX <= 12) {
+                        // Switch to climbing at left edge if pressing left
+                        if (keyboardControlled && keysPressed['ArrowLeft']) {
+                            isSwinging = false;
+                            isClimbing = true;
+                            climbingDirection = 'left';
+                            personY = window.innerHeight - 40;
+                            person.style.top = 'auto';
+                        } else {
+                            personX = 12;
+                        }
+                    } else if (personX >= window.innerWidth - 12) {
+                        // Switch to climbing at right edge if pressing right
+                        if (keyboardControlled && keysPressed['ArrowRight']) {
+                            isSwinging = false;
+                            isClimbing = true;
+                            climbingDirection = 'right';
+                            personY = window.innerHeight - 40;
+                            person.style.top = 'auto';
+                        } else {
+                            personX = window.innerWidth - 12;
+                        }
+                    }
+                    
+                    // Update horizontal position
+                    person.style.left = (personX - 12) + 'px';
+                }
+                // Handle climbing logic
+                else if (isClimbing) {
+                    // Update climbing classes
+                    person.className = climbingDirection === 'right' ? 'climbing-right' : 'climbing-left';
+                    
+                    // Move up/down wall
+                    if (keyboardControlled) {
+                        // Keyboard climbing controls
+                        if (keysPressed['ArrowUp']) {
+                            personY += climbSpeed;
+                        } else if (keysPressed['ArrowDown']) {
+                            personY -= climbSpeed;
+                        }
+                    } else {
+                        // Auto-climb based on cursor position
+                        personY += climbSpeed;
+                    }
+                    
+                    // Keep Y position in bounds
+                    personY = Math.max(0, Math.min(window.innerHeight - 40, personY));
+                    
+                    // Update position
+                    if (climbingDirection === 'left') {
+                        person.style.left = '0px';
+                    } else {
+                        person.style.left = (window.innerWidth - 24) + 'px';
+                    }
+                    person.style.bottom = personY + 'px';
+                    person.style.top = 'auto';
+                    
+                    // Switch to monkey bars at top
+                    if (atTop) {
+                        // If at the top and pressing in the direction opposite the wall, start swinging
+                        if ((climbingDirection === 'left' && keysPressed['ArrowRight']) || 
+                            (climbingDirection === 'right' && keysPressed['ArrowLeft'])) {
+                            isClimbing = false;
+                            isSwinging = true;
+                            swingingDirection = climbingDirection === 'left' ? 'right' : 'left';
+                            personX = climbingDirection === 'left' ? 24 : window.innerWidth - 24;
+                        }
+                    }
+                    
+                    // Stop climbing if hitting bottom
+                    if (personY <= 0) {
+                        isClimbing = false;
+                        person.style.bottom = '0px'; // Reset to bottom
+                        
+                        // Push away from wall slightly
+                        if (climbingDirection === 'left') {
+                            personX = 24;
+                            direction = 'right';
+                        } else {
+                            personX = window.innerWidth - 24;
+                            direction = 'left';
+                        }
+                    }
+                    
+                    // Allow jumping off wall with opposite direction key - switch to parachute if above ground level
+                    if (keyboardControlled) {
+                        if ((climbingDirection === 'left' && keysPressed['ArrowRight']) || 
+                            (climbingDirection === 'right' && keysPressed['ArrowLeft'])) {
+                            
+                            const jumpDirection = climbingDirection === 'left' ? 'right' : 'left';
+                            
+                            // If above ground level, start parachuting
+                            if (personY > 50) {
+                                isClimbing = false;
+                                isParachuting = true;
+                                parachutingDirection = jumpDirection;
+                                
+                                // Push slightly away from wall
+                                if (jumpDirection === 'right') {
+                                    personX = 24;
+                                } else {
+                                    personX = window.innerWidth - 24;
+                                }
+                            } else {
+                                // Just drop to ground if close to bottom
+                                isClimbing = false;
+                                personX = climbingDirection === 'left' ? 24 : window.innerWidth - 24;
+                                direction = jumpDirection;
+                                person.style.bottom = '0px';
+                            }
+                        }
+                    }
+                } else if (isParachuting) {
+                    // Update parachuting animation classes
+                    person.className = parachutingDirection === 'right' ? 'parachuting-right' : 'parachuting-left';
+                    
+                    // Float down slowly
+                    personY -= parachuteSpeed;
+                    
+                    // Allow horizontal movement while parachuting
+                    if (keyboardControlled) {
+                        if (keysPressed['ArrowLeft']) {
+                            personX -= parachuteSpeed;
+                            parachutingDirection = 'left';
+                        } else if (keysPressed['ArrowRight']) {
+                            personX += parachuteSpeed;
+                            parachutingDirection = 'right';
+                        }
+                    }
+                    
+                    // Update position
+                    person.style.bottom = personY + 'px';
+                    person.style.left = (personX - 12) + 'px';
+                    
+                    // Land when reaching ground - make parachute disappear
+                    if (personY <= 0) {
+                        isParachuting = false;
+                        direction = parachutingDirection;
+                        person.style.bottom = '0px';
+                        
+                        // Return to walking animation
+                        if (direction === 'right') {
+                            person.classList.remove('parachuting-right');
+                            person.classList.add('person-right');
+                        } else {
+                            person.classList.remove('parachuting-left');
+                            person.classList.add('person-left');
+                        }
+                    }
+                    
+                    // Grab wall if touching
+                    if (personX <= 12 || personX >= window.innerWidth - 12) {
+                        isParachuting = false;
+                        isClimbing = true;
+                        climbingDirection = personX <= 12 ? 'left' : 'right';
+                    }
+                } else {
+                    // Reset position when in normal walking state
+                    person.style.bottom = '0px';
+                    person.style.top = 'auto';
+                    
+                    // Normal movement (walking)
+                    if (keyboardControlled) {
+                        // Keyboard control movement
+                        if (keysPressed['ArrowLeft']) {
+                            personX -= speed;
+                            direction = 'left';
+                        } else if (keysPressed['ArrowRight']) {
+                            personX += speed;
+                            direction = 'right';
+                        }
+                        
+                        // Keep character on screen
+                        personX = Math.max(12, Math.min(window.innerWidth - 12, personX));
+                    } else {
+                        // Mouse following movement
+                        const distanceToTarget = targetX - personX;
+                        const shouldMove = Math.abs(distanceToTarget) > 5;
+                        
+                        if (shouldMove) {
+                            if (personX < targetX) {
+                                personX += speed;
+                                direction = 'right';
+                            } else {
+                                personX -= speed;
+                                direction = 'left';
+                            }
+                        }
+                    }
+                    
+                    // Apply direction class for walking
+                    if (direction === 'right') {
+                        person.classList.remove('person-left');
+                        person.classList.add('person-right');
+                    } else {
+                        person.classList.remove('person-right');
+                        person.classList.add('person-left');
+                    }
+                    
+                    // Update horizontal position (center character under cursor)
+                    person.style.left = (personX - 12) + 'px';
+                }
             }
             
             requestAnimationFrame(animatePerson);
