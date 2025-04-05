@@ -7,11 +7,18 @@
 </head>
 <body class="text-container">
     <div>
-        <a href="fly.html">
-            <img class="logo" src="assets/fly.png" alt="Logo">
-        </a>
-    </div></a>
+        <img id="fly-image" class="logo" src="assets/fly.png" alt="Logo">
     </div>
+    <script>
+        const img = document.getElementById('fly-image');
+        img.addEventListener('click', function() {
+            if (this.src.includes('fly.png')) {
+                this.src = 'assets/squashed-fly.webp';
+            } else {
+                window.location.href = 'fly.html';
+            }
+        });
+    </script>
     <h1>Stephen Fay</h1>
     <u>About</u><br/><br/>
     Hi! I live in Montreal. I like mountains, symbols, and adventures. My job is to process real-time cosmic signals for the ALBATROS radio telescope. Message me on Twitter (link below) if you want to hire or talk to me.<br/>
