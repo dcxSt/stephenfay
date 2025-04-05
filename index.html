@@ -9,6 +9,7 @@
     <div>
         <img id="fly-image" class="logo" src="assets/fly.png" alt="Logo">
     </div>
+    <div id="pixelated-person"></div>
     <script>
         const img = document.getElementById('fly-image');
         img.addEventListener('click', function() {
@@ -18,6 +19,75 @@
                 window.location.href = 'fly.html';
             }
         });
+
+        // Pixelated person animation
+        const person = document.getElementById('pixelated-person');
+        let personX = window.innerWidth / 2;
+        let targetX = window.innerWidth / 2;
+        let direction = 'right';
+        const speed = 5;
+        let isFlipping = false;
+        
+        // Track cursor position
+        document.addEventListener('mousemove', (e) => {
+            targetX = e.clientX;
+        });
+        
+        // Do a flip on any click
+        document.addEventListener('click', (e) => {
+            if (!isFlipping) {
+                isFlipping = true;
+                
+                // Add flip animation class
+                person.classList.add('flipping');
+                
+                // Remove flip animation class after animation completes
+                setTimeout(() => {
+                    person.classList.remove('flipping');
+                    isFlipping = false;
+                }, 600); // Match animation duration
+            }
+        });
+        
+        // Animation loop
+        function animatePerson() {
+            // Don't move horizontally if flipping
+            if (!isFlipping) {
+                // Move toward cursor X position
+                const distanceToTarget = targetX - personX;
+                const shouldMove = Math.abs(distanceToTarget) > 5;
+                
+                if (shouldMove) {
+                    if (personX < targetX) {
+                        personX += speed;
+                        direction = 'right';
+                    } else {
+                        personX -= speed;
+                        direction = 'left';
+                    }
+                    
+                    // Apply direction class
+                    if (!person.classList.contains('person-right') && direction === 'right') {
+                        person.classList.remove('person-left');
+                        person.classList.add('person-right');
+                    } else if (!person.classList.contains('person-left') && direction === 'left') {
+                        person.classList.remove('person-right');
+                        person.classList.add('person-left');
+                    }
+                }
+                
+                // Update position (center character under cursor)
+                person.style.left = (personX - 12) + 'px';
+            }
+            
+            requestAnimationFrame(animatePerson);
+        }
+        
+        // Initialize character direction
+        person.classList.add('person-right');
+        
+        // Start animation
+        animatePerson();
     </script>
     <h1>Stephen Fay</h1>
     <u>About</u><br/><br/>

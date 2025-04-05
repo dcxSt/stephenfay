@@ -32,12 +32,141 @@ ul {
     width: 40px; /* Adjust size */
     height: auto;
     z-index: 1000; /* Ensures it's above other elements */
+    cursor: pointer;
 }
 
 .text-container {
     max-width: 700px;  /* Limits width on desktops */
     width: 90%;        /* Adapts to smaller screens */
     margin: 0 auto;     /* Centers text */
+}
+
+/* Pixelated Prince style character */
+#pixelated-person {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    width: 24px;
+    height: 40px;
+    z-index: 999;
+    image-rendering: pixelated;
+    transition: transform 0.1s linear;
+}
+
+/* Flip animation */
+.flipping {
+    animation: flip-animation 0.6s ease-in-out;
+}
+
+@keyframes flip-animation {
+    0% {
+        transform: translateY(0) rotate(0deg);
+    }
+    25% {
+        transform: translateY(-50px) rotate(90deg);
+    }
+    50% {
+        transform: translateY(-70px) rotate(180deg);
+    }
+    75% {
+        transform: translateY(-50px) rotate(270deg);
+    }
+    100% {
+        transform: translateY(0) rotate(360deg);
+    }
+}
+
+/* Prince character using box-shadow for pixel art */
+.person-right, .person-left {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Base body structure */
+.person-right::before, .person-left::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Head */
+    box-shadow: 
+        /* Head & hair */
+        8px 0 #000, 12px 0 #000,
+        8px 4px #FDB22A, 12px 4px #FDB22A,
+        8px 8px #FDB22A, 12px 8px #FDB22A,
+        /* Body */
+        8px 12px #FFFFFF, 12px 12px #FFFFFF,
+        8px 16px #0D6CBC, 12px 16px #0D6CBC,
+        8px 20px #0D6CBC, 12px 20px #0D6CBC;
+}
+
+/* Right-facing running animation */
+.person-right::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    animation: walk-right-prince 0.5s steps(2) infinite;
+}
+
+/* Left-facing character */
+.person-left {
+    transform: scaleX(-1);
+}
+
+.person-left::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    animation: walk-left-prince 0.5s steps(2) infinite;
+}
+
+/* Walking animations using box-shadow for pixel art legs */
+@keyframes walk-right-prince {
+    0%, 100% {
+        box-shadow: 
+            /* Arms */
+            4px 12px #FDB22A, 16px 12px #FDB22A,
+            /* Legs */
+            4px 24px #0D6CBC, 16px 24px #0D6CBC,
+            4px 28px #FDB22A, 12px 28px #FDB22A,
+            4px 32px #FDB22A, 16px 32px #FDB22A;
+    }
+    50% {
+        box-shadow: 
+            /* Arms */
+            4px 14px #FDB22A, 16px 10px #FDB22A,
+            /* Legs */
+            8px 24px #0D6CBC, 12px 24px #0D6CBC,
+            4px 28px #FDB22A, 16px 28px #FDB22A,
+            0px 32px #FDB22A, 20px 32px #FDB22A;
+    }
+}
+
+@keyframes walk-left-prince {
+    0%, 100% {
+        box-shadow: 
+            /* Arms */
+            4px 12px #FDB22A, 16px 12px #FDB22A,
+            /* Legs */
+            4px 24px #0D6CBC, 16px 24px #0D6CBC,
+            4px 28px #FDB22A, 12px 28px #FDB22A,
+            4px 32px #FDB22A, 16px 32px #FDB22A;
+    }
+    50% {
+        box-shadow: 
+            /* Arms */
+            4px 14px #FDB22A, 16px 10px #FDB22A,
+            /* Legs */
+            8px 24px #0D6CBC, 12px 24px #0D6CBC,
+            4px 28px #FDB22A, 16px 28px #FDB22A,
+            0px 32px #FDB22A, 20px 32px #FDB22A;
+    }
 }
 
 @media (max-width: 768px) { /* Adjust for tablets and phones */
