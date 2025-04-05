@@ -209,16 +209,16 @@ ul {
 @keyframes climb-limbs {
     0%, 100% {
         box-shadow:
-            /* Arms grabbing wall */
-            0px 12px #FDB22A, 20px 12px #FDB22A,
+            /* Arms grabbing wall (both facing wall) */
+            4px 8px #FDB22A, 16px 8px #FDB22A,
             /* Legs pushing against wall */
             4px 24px #0D6CBC, 16px 24px #0D6CBC,
-            4px 28px #FDB22A, 16px 28px #FDB22A;
+            0px 28px #FDB22A, 20px 28px #FDB22A;
     }
     50% {
         box-shadow:
-            /* Arms reaching up */
-            4px 8px #FDB22A, 16px 8px #FDB22A,
+            /* Arms reaching up (both facing wall) */
+            4px 4px #FDB22A, 16px 4px #FDB22A,
             /* Legs pushing */
             8px 24px #0D6CBC, 12px 24px #0D6CBC,
             4px 28px #FDB22A, 16px 28px #FDB22A;
@@ -376,10 +376,75 @@ ul {
     }
 }
 
+/* Virtual joystick */
+#virtual-joystick {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 120px;
+    height: 120px;
+    background-color: rgba(200, 200, 200, 0.3);
+    border-radius: 50%;
+    z-index: 1000;
+    touch-action: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#joystick-knob {
+    width: 50px;
+    height: 50px;
+    background-color: rgba(100, 100, 100, 0.6);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+}
+
+/* Action buttons */
+#action-buttons {
+    position: fixed;
+    bottom: 100px;
+    left: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.action-button {
+    width: 50px;
+    height: 50px;
+    background-color: rgba(100, 100, 100, 0.6);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    user-select: none;
+    touch-action: none;
+}
+
 @media (max-width: 768px) { /* Adjust for tablets and phones */
     .text-container {
         max-width: 100%; /* Use full width on small screens */
         padding: 0 10px;
+    }
+    
+    /* Always show controls on mobile */
+    #virtual-joystick, #action-buttons {
+        display: flex;
+    }
+}
+
+@media (min-width: 769px) {
+    /* Hide joystick on desktop by default */
+    #virtual-joystick, #action-buttons {
+        display: none;
     }
 }
 

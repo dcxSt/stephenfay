@@ -10,6 +10,17 @@
         <img id="fly-image" class="logo" src="assets/fly.png" alt="Logo">
     </div>
     <div id="pixelated-person"></div>
+    
+    <!-- Virtual joystick for mobile -->
+    <div id="virtual-joystick">
+        <div id="joystick-knob"></div>
+    </div>
+    
+    <!-- Action buttons -->
+    <div id="action-buttons">
+        <div id="jump-button" class="action-button">↑</div>
+        <div id="action-button" class="action-button">A</div>
+    </div>
     <script>
         const img = document.getElementById('fly-image');
         img.addEventListener('click', function() {
@@ -131,19 +142,29 @@
                 if (!isClimbing && !isSwinging) {
                     if (atLeftEdge) {
                         // Start climbing left wall if pressing left or cursor is at left edge
-                        if ((keyboardControlled && keysPressed['ArrowLeft']) || 
+                        // Also allow climbing by pressing up when at wall
+                        if ((keyboardControlled && (keysPressed['ArrowLeft'] || keysPressed['ArrowUp'])) || 
                             (!keyboardControlled && targetX < 30)) {
                             isClimbing = true;
                             climbingDirection = 'left';
                             personY = 0; // Reset to bottom
+                            
+                            // Ensure character is properly positioned at wall edge
+                            personX = 12;
+                            person.style.left = '0px';
                         }
                     } else if (atRightEdge) {
                         // Start climbing right wall if pressing right or cursor is at right edge
-                        if ((keyboardControlled && keysPressed['ArrowRight']) || 
+                        // Also allow climbing by pressing up when at wall
+                        if ((keyboardControlled && (keysPressed['ArrowRight'] || keysPressed['ArrowUp'])) || 
                             (!keyboardControlled && targetX > window.innerWidth - 30)) {
                             isClimbing = true;
                             climbingDirection = 'right';
                             personY = 0; // Reset to bottom
+                            
+                            // Ensure character is properly positioned at wall edge
+                            personX = window.innerWidth - 12;
+                            person.style.left = (window.innerWidth - 24) + 'px';
                         }
                     }
                 }
@@ -209,11 +230,26 @@
                     // Update climbing classes
                     person.className = climbingDirection === 'right' ? 'climbing-right' : 'climbing-left';
                     
+                    // Ensure proper positioning at the wall to prevent glitching
+                    if (climbingDirection === 'left') {
+                        personX = 12; // Lock X position to wall edge
+                        person.style.left = '0px';
+                    } else {
+                        personX = window.innerWidth - 12; // Lock X position to wall edge
+                        person.style.left = (window.innerWidth - 24) + 'px';
+                    }
+                    
                     // Move up/down wall
                     if (keyboardControlled) {
-                        // Keyboard climbing controls
+                        // Keyboard climbing controls with improved responsiveness
                         if (keysPressed['ArrowUp']) {
                             personY += climbSpeed;
+                            
+                            // Only allow jumping off if not pressing toward wall
+                            if ((climbingDirection === 'left' && keysPressed['ArrowRight']) ||
+                                (climbingDirection === 'right' && keysPressed['ArrowLeft'])) {
+                                // Don't jump off yet - handled in the jumping off section below
+                            }
                         } else if (keysPressed['ArrowDown']) {
                             personY -= climbSpeed;
                         }
@@ -226,11 +262,6 @@
                     personY = Math.max(0, Math.min(window.innerHeight - 40, personY));
                     
                     // Update position
-                    if (climbingDirection === 'left') {
-                        person.style.left = '0px';
-                    } else {
-                        person.style.left = (window.innerWidth - 24) + 'px';
-                    }
                     person.style.bottom = personY + 'px';
                     person.style.top = 'auto';
                     
@@ -349,20 +380,73 @@
                             direction = 'right';
                         }
                         
-                        // Keep character on screen
-                        personX = Math.max(12, Math.min(window.innerWidth - 12, personX));
+                        // Keep character on screen with better edge detection
+                        const newX = Math.max(12, Math.min(window.innerWidth - 12, personX));
+                        
+                        // Check if we're newly hitting an edge
+                        const wasAtLeftEdge = personX <= 12;
+                        const wasAtRightEdge = personX >= window.innerWidth - 12;
+                        const nowAtLeftEdge = newX <= 12;
+                        const nowAtRightEdge = newX >= window.innerWidth - 12;
+                        
+                        // If newly hitting an edge, check if we should start climbing
+                        if ((!wasAtLeftEdge && nowAtLeftEdge) || (!wasAtRightEdge && nowAtRightEdge)) {
+                            // If we're moving toward the edge (pressing in that direction), start climbing
+                            if ((nowAtLeftEdge && keysPressed['ArrowLeft']) || (nowAtRightEdge && keysPressed['ArrowRight'])) {
+                                isClimbing = true;
+                                climbingDirection = nowAtLeftEdge ? 'left' : 'right';
+                                personY = 0; // Reset to bottom
+                                
+                                // Ensure character is properly positioned at wall edge
+                                if (nowAtLeftEdge) {
+                                    person.style.left = '0px';
+                                } else {
+                                    person.style.left = (window.innerWidth - 24) + 'px';
+                                }
+                            }
+                        }
+                        
+                        personX = newX;
                     } else {
                         // Mouse following movement
                         const distanceToTarget = targetX - personX;
                         const shouldMove = Math.abs(distanceToTarget) > 5;
                         
                         if (shouldMove) {
+                            // Store previous position to detect edge transition
+                            const prevX = personX;
+                            
                             if (personX < targetX) {
                                 personX += speed;
                                 direction = 'right';
                             } else {
                                 personX -= speed;
                                 direction = 'left';
+                            }
+                            
+                            // Keep within screen bounds
+                            personX = Math.max(12, Math.min(window.innerWidth - 12, personX));
+                            
+                            // Check if we're newly hitting an edge to trigger climbing
+                            const wasAtLeftEdge = prevX <= 12;
+                            const wasAtRightEdge = prevX >= window.innerWidth - 12;
+                            const nowAtLeftEdge = personX <= 12;
+                            const nowAtRightEdge = personX >= window.innerWidth - 12;
+                            
+                            if ((!wasAtLeftEdge && nowAtLeftEdge) || (!wasAtRightEdge && nowAtRightEdge)) {
+                                // If we're moving toward the edge, start climbing
+                                if ((nowAtLeftEdge && direction === 'left') || (nowAtRightEdge && direction === 'right')) {
+                                    isClimbing = true;
+                                    climbingDirection = nowAtLeftEdge ? 'left' : 'right';
+                                    personY = 0; // Reset to bottom
+                                    
+                                    // Ensure character is properly positioned at wall edge
+                                    if (nowAtLeftEdge) {
+                                        person.style.left = '0px';
+                                    } else {
+                                        person.style.left = (window.innerWidth - 24) + 'px';
+                                    }
+                                }
                             }
                         }
                     }
@@ -389,6 +473,157 @@
         
         // Start animation
         animatePerson();
+        
+        // Joystick handling for mobile
+        const joystick = document.getElementById('virtual-joystick');
+        const knob = document.getElementById('joystick-knob');
+        const jumpButton = document.getElementById('jump-button');
+        const actionButton = document.getElementById('action-button');
+        
+        let joystickActive = false;
+        let joystickTouchId = null;
+        let centerX, centerY;
+        const maxDistance = 40; // Maximum distance joystick can move
+        
+        // Initialize joystick
+        function initJoystick() {
+            const rect = joystick.getBoundingClientRect();
+            centerX = rect.width / 2;
+            centerY = rect.height / 2;
+            
+            // Reset knob position
+            knob.style.transform = `translate(-50%, -50%)`;
+        }
+        
+        // Joystick touch handlers
+        joystick.addEventListener('touchstart', function(e) {
+            if (!joystickActive) {
+                joystickTouchId = e.changedTouches[0].identifier;
+                joystickActive = true;
+                handleJoystickMove(e.changedTouches[0]);
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (joystickActive) {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        handleJoystickMove(e.changedTouches[i]);
+                        e.preventDefault();
+                        break;
+                    }
+                }
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', function(e) {
+            if (joystickActive) {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        joystickActive = false;
+                        // Reset joystick visually
+                        knob.style.transform = `translate(-50%, -50%)`;
+                        
+                        // Reset movement keys
+                        keysPressed['ArrowLeft'] = false;
+                        keysPressed['ArrowRight'] = false;
+                        keysPressed['ArrowUp'] = false;
+                        keysPressed['ArrowDown'] = false;
+                        
+                        e.preventDefault();
+                        break;
+                    }
+                }
+            }
+        }, { passive: false });
+        
+        // Joystick movement handler
+        function handleJoystickMove(touch) {
+            const rect = joystick.getBoundingClientRect();
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+            
+            // Calculate distance from center
+            const deltaX = touchX - centerX;
+            const deltaY = touchY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            // Normalize for max distance
+            const limitedDistance = Math.min(distance, maxDistance);
+            const angle = Math.atan2(deltaY, deltaX);
+            
+            const limitedX = limitedDistance * Math.cos(angle);
+            const limitedY = limitedDistance * Math.sin(angle);
+            
+            // Move joystick knob
+            knob.style.transform = `translate(calc(-50% + ${limitedX}px), calc(-50% + ${limitedY}px))`;
+            
+            // Convert joystick position to key presses
+            const absX = Math.abs(limitedX);
+            const absY = Math.abs(limitedY);
+            
+            // Reset all directions first
+            keysPressed['ArrowLeft'] = false;
+            keysPressed['ArrowRight'] = false;
+            keysPressed['ArrowUp'] = false;
+            keysPressed['ArrowDown'] = false;
+            
+            // Allow diagonal movement by considering both axes independently
+            // Horizontal movement
+            if (limitedX < -10) {
+                keysPressed['ArrowLeft'] = true;
+                keyboardControlled = true;
+            } else if (limitedX > 10) {
+                keysPressed['ArrowRight'] = true;
+                keyboardControlled = true;
+            }
+            
+            // Vertical movement - always process regardless of horizontal
+            if (limitedY < -10) {
+                keysPressed['ArrowUp'] = true;
+                keyboardControlled = true;
+            } else if (limitedY > 10) {
+                keysPressed['ArrowDown'] = true;
+                keyboardControlled = true;
+            }
+        }
+        
+        // Action buttons
+        jumpButton.addEventListener('touchstart', function(e) {
+            keysPressed['ArrowUp'] = true;
+            keyboardControlled = true;
+            e.preventDefault();
+        });
+        
+        jumpButton.addEventListener('touchend', function(e) {
+            keysPressed['ArrowUp'] = false;
+            e.preventDefault();
+        });
+        
+        actionButton.addEventListener('touchstart', function(e) {
+            triggerFlip();
+            e.preventDefault();
+        });
+        
+        // Initialize joystick on load
+        initJoystick();
+        
+        // Toggle joystick visibility on desktop
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'j') {
+                const joystick = document.getElementById('virtual-joystick');
+                const actionButtons = document.getElementById('action-buttons');
+                
+                if (window.getComputedStyle(joystick).display === 'none') {
+                    joystick.style.display = 'flex';
+                    actionButtons.style.display = 'flex';
+                } else {
+                    joystick.style.display = 'none';
+                    actionButtons.style.display = 'none';
+                }
+            }
+        });
     </script>
     <h1>Stephen Fay</h1>
     <u>About</u><br/><br/>
