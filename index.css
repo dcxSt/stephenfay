@@ -448,3 +448,34 @@ ul {
     }
 }
 
+/* Gallery styles - inspired by James Ritson */
+.gallery {
+    column-gap: 0.5rem;
+    columns: 3;
+    margin: 2rem 0;
+    width: 100%;
+}
+
+.gallery a {
+    display: block;
+    margin: 0 0 0.5rem 0;
+}
+
+.gallery a img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+@media (max-width: 768px) {
+    .gallery {
+        columns: 2;
+    }
+}
+
+@media (max-width: 480px) {
+    .gallery {
+        columns: 1;
+    }
+}
+
