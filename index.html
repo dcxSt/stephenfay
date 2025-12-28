@@ -52,6 +52,12 @@
 
         // Pixelated person animation
         const person = document.getElementById('pixelated-person');
+
+        // Detect if this is a touch device
+        const isTouchDevice = ('ontouchstart' in window) ||
+                             (navigator.maxTouchPoints > 0) ||
+                             (navigator.msMaxTouchPoints > 0);
+
         // Make animation state variables global so spawn button can access them
         window.personX = window.innerWidth / 2;
         window.personY = 0; // Y position (0 = bottom of screen)
@@ -97,14 +103,24 @@
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
+            // On desktop (non-touch devices), only allow WASD keys, not arrow keys
+            // On touch devices, allow both WASD and arrow keys
+            const isArrowKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
+            const isWASDKey = ['w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key);
+
+            // If desktop device and user pressed arrow key directly, ignore it
+            if (!isTouchDevice && isArrowKey) {
+                return; // Block arrow keys on desktop
+            }
+
             const mappedKey = mapKey(e.key);
             keysPressed[mappedKey] = true;
-            
+
             // Switch to keyboard control mode with any direction key
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(mappedKey)) {
                 keyboardControlled = true;
             }
-            
+
             // Space key for flip
             if (e.key === ' ' && !isFlipping) {
                 triggerFlip();
@@ -112,6 +128,12 @@
         });
         
         document.addEventListener('keyup', (e) => {
+            // Block arrow keys on desktop (same as keydown)
+            const isArrowKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
+            if (!isTouchDevice && isArrowKey) {
+                return; // Block arrow keys on desktop
+            }
+
             const mappedKey = mapKey(e.key);
             keysPressed[mappedKey] = false;
         });
@@ -632,7 +654,7 @@
 
     </script>
     <h1>Stephen Fay <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button><button id="spawn-guy" class="spawn-guy-button" aria-label="Spawn little guy"></button></h1>
-    <i>Use WASD to control the little man</i> <br/><br/>
+    <i class="desktop-only">Use WASD to control the little man</i> <br/><br/>
     <u>About</u><br/><br/>
     Funmaxing life, 我现在这里中国拍照--donate by clicking <a href="https://buy.stripe.com/6oU14ngQT9BX9bK0H267S00">here</a> to support my lifestyle
     <!--Hi! I'm working on building the ALBATROS radio interferometer in Montreal, Canada. ALBATROS is an Arctic-based radio telescope designed, ultimately, to contribute towards a map of the Cosmic Dark Ages. I like to keep my fingers in many pies but I specialize in embedded software and real-time signal processing theory & implementation. CV available upon request.<br/>-->

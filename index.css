@@ -490,6 +490,20 @@ ul {
     }
 }
 
+/* Hide desktop-only text on touch devices */
+@media (pointer: coarse) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+/* Show desktop-only text on non-touch devices */
+@media (pointer: fine) {
+    .desktop-only {
+        display: inline;
+    }
+}
+
 /* Gallery styles - inspired by James Ritson */
 .gallery {
     column-gap: 0.5rem;
