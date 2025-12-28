@@ -11,7 +11,13 @@
         <img id="fly-image" class="logo" src="assets/fly.png" alt="Logo">
     </div>
     <div id="pixelated-person"></div>
-    
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal" class="lightbox-modal">
+        <button id="lightbox-close" class="lightbox-close">close</button>
+        <img id="lightbox-image" class="lightbox-image" src="" alt="Enlarged view" />
+    </div>
+
     <!-- Virtual joystick for mobile -->
     <div id="virtual-joystick">
         <div id="joystick-knob"></div>
@@ -625,6 +631,7 @@
                 }
             }
         });
+
     </script>
     <h1>Stephen Fay</h1>
     <i>Use WASD to control the little man, on touchscreen devices use the joystick. Can you get him up onto the ceiling?</i> <br/><br/>
@@ -740,5 +747,44 @@
     <br/><br/><br/>
     <br/><br/><br/>
     <br/><br/><br/>
+
+    <script>
+        // Lightbox functionality - runs after gallery HTML is loaded
+        const lightboxModal = document.getElementById('lightbox-modal');
+        const lightboxImage = document.getElementById('lightbox-image');
+        const lightboxClose = document.getElementById('lightbox-close');
+        const galleryLinks = document.querySelectorAll('.gallery a');
+
+        // Open lightbox when clicking on gallery images
+        galleryLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault(); // Prevent navigating to the image URL
+                e.stopPropagation(); // Stop this from triggering the person flip
+                const imgSrc = this.querySelector('img').src;
+                lightboxImage.src = imgSrc;
+                lightboxModal.classList.add('active');
+            });
+        });
+
+        // Close lightbox when clicking the close button
+        lightboxClose.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent background click handler
+            lightboxModal.classList.remove('active');
+        });
+
+        // Close lightbox when clicking on the background (but not the image)
+        lightboxModal.addEventListener('click', function(e) {
+            if (e.target === lightboxModal) {
+                lightboxModal.classList.remove('active');
+            }
+        });
+
+        // Close lightbox with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
+                lightboxModal.classList.remove('active');
+            }
+        });
+    </script>
 </body>
 </html>
