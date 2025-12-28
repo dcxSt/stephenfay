@@ -1,5 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
 
+/* Color scheme variables */
+:root {
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --link-color: #D9B382;
+    --link-visited-color: #804d24;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --link-color: #FDB22A;
+    --link-visited-color: #D9B382;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 h1 {
     font-family: 'Special Elite', cursive;
     text-align: left;
@@ -11,12 +32,12 @@ h2, h3, h4, h5, p, ul, body {
 }
 
 a {
-    color: #D9B382;
+    color: var(--link-color);
     text-decoration: none;
 }
 
 a:visited {
-    color: #804d24;
+    color: var(--link-visited-color);
     text-decoration: none;
 }
 
@@ -550,5 +571,49 @@ ul {
 
 .gallery a img:hover {
     opacity: 0.8;
+}
+
+/* Theme toggle button - stylized yin-yang */
+.theme-toggle {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--text-color);
+    background: linear-gradient(90deg, var(--text-color) 50%, transparent 50%);
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    margin-left: 8px;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.theme-toggle::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bg-color);
+    border: 1px solid var(--text-color);
+    top: 50%;
+    left: 25%;
+    transform: translate(-50%, -50%);
+}
+
+.theme-toggle::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-color);
+    top: 50%;
+    right: 25%;
+    transform: translate(50%, -50%);
+}
+
+.theme-toggle:hover {
+    transform: rotate(180deg);
 }
 

@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="lazyload.css">
+    <script>
+        // Theme detection and initialization - runs immediately to prevent flash
+        (function() {
+            const storedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = storedTheme || (systemPrefersDark ? 'dark' : 'light');
+
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 <body class="text-container">
     <div>
@@ -633,7 +645,7 @@
         });
 
     </script>
-    <h1>Stephen Fay</h1>
+    <h1>Stephen Fay <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button></h1>
     <i>Use WASD to control the little man, on touchscreen devices use the joystick. Can you get him up onto the ceiling?</i> <br/><br/>
     <u>About</u><br/><br/>
     Funmaxing life, 我现在这里中国拍照--donate by clicking <a href="https://buy.stripe.com/6oU14ngQT9BX9bK0H267S00">here</a> to support my lifestyle
@@ -784,6 +796,24 @@
             if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
                 lightboxModal.classList.remove('active');
             }
+        });
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+
+        themeToggle.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent triggering character flip
+
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            if (newTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+
+            localStorage.setItem('theme', newTheme);
         });
     </script>
 </body>
