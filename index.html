@@ -52,23 +52,25 @@
 
         // Pixelated person animation
         const person = document.getElementById('pixelated-person');
-        let personX = window.innerWidth / 2;
-        let personY = 0; // Y position (0 = bottom of screen)
+        // Make animation state variables global so spawn button can access them
+        window.personX = window.innerWidth / 2;
+        window.personY = 0; // Y position (0 = bottom of screen)
+        window.direction = 'right';
+        window.isFlipping = false;
+        window.keyboardControlled = false;
+        window.keysPressed = {};
+        window.isClimbing = false;
+        window.climbingDirection = null;
+        window.isSwinging = false;
+        window.swingingDirection = null;
+        window.isParachuting = false;
+        window.parachutingDirection = null;
+
         let targetX = window.innerWidth / 2;
-        let direction = 'right';
         const speed = 5;
         const climbSpeed = 3;
         const swingSpeed = 8;
         const parachuteSpeed = 2;
-        let isFlipping = false;
-        let keyboardControlled = false;
-        let keysPressed = {};
-        let isClimbing = false;
-        let climbingDirection = null;
-        let isSwinging = false;
-        let swingingDirection = null;
-        let isParachuting = false;
-        let parachutingDirection = null;
         
         // Track cursor position
         document.addEventListener('mousemove', (e) => {
@@ -191,7 +193,7 @@
                 // Handle monkey bar swinging
                 if (isSwinging) {
                     // Update animation classes
-                    person.className = swingingDirection === 'right' ? 'swinging-right' : 'swinging-left';
+                    person.className = (swingingDirection === 'right' ? 'swinging-right' : 'swinging-left') + ' spawned';
                     
                     // Set vertical position to top of screen (hanging from ceiling)
                     person.style.top = '0px';
@@ -247,7 +249,7 @@
                 // Handle climbing logic
                 else if (isClimbing) {
                     // Update climbing classes
-                    person.className = climbingDirection === 'right' ? 'climbing-right' : 'climbing-left';
+                    person.className = (climbingDirection === 'right' ? 'climbing-right' : 'climbing-left') + ' spawned';
                     
                     // Ensure proper positioning at the wall to prevent glitching
                     if (climbingDirection === 'left') {
@@ -341,7 +343,7 @@
                     }
                 } else if (isParachuting) {
                     // Update parachuting animation classes
-                    person.className = parachutingDirection === 'right' ? 'parachuting-right' : 'parachuting-left';
+                    person.className = (parachutingDirection === 'right' ? 'parachuting-right' : 'parachuting-left') + ' spawned';
                     
                     // Float down slowly
                     personY -= parachuteSpeed;
@@ -627,26 +629,10 @@
         
         // Initialize joystick on load
         initJoystick();
-        
-        // Toggle joystick visibility on desktop
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'j') {
-                const joystick = document.getElementById('virtual-joystick');
-                const actionButtons = document.getElementById('action-buttons');
-                
-                if (window.getComputedStyle(joystick).display === 'none') {
-                    joystick.style.display = 'flex';
-                    actionButtons.style.display = 'flex';
-                } else {
-                    joystick.style.display = 'none';
-                    actionButtons.style.display = 'none';
-                }
-            }
-        });
 
     </script>
-    <h1>Stephen Fay <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button></h1>
-    <i>Use WASD to control the little man, on touchscreen devices use the joystick. Can you get him up onto the ceiling?</i> <br/><br/>
+    <h1>Stephen Fay <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button><button id="spawn-guy" class="spawn-guy-button" aria-label="Spawn little guy"></button></h1>
+    <i>Use WASD to control the little man</i> <br/><br/>
     <u>About</u><br/><br/>
     Funmaxing life, 我现在这里中国拍照--donate by clicking <a href="https://buy.stripe.com/6oU14ngQT9BX9bK0H267S00">here</a> to support my lifestyle
     <!--Hi! I'm working on building the ALBATROS radio interferometer in Montreal, Canada. ALBATROS is an Arctic-based radio telescope designed, ultimately, to contribute towards a map of the Cosmic Dark Ages. I like to keep my fingers in many pies but I specialize in embedded software and real-time signal processing theory & implementation. CV available upon request.<br/>-->
@@ -815,6 +801,72 @@
 
             localStorage.setItem('theme', newTheme);
         });
+
+        // Spawn guy button functionality - must run after button exists in DOM
+        const spawnGuyButton = document.getElementById('spawn-guy');
+        const personElement = document.getElementById('pixelated-person');
+        let hasSpawned = false;
+
+        if (spawnGuyButton && personElement) {
+            spawnGuyButton.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent triggering character flip
+
+                if (hasSpawned) return; // Only spawn once
+
+                // Get button position
+                const rect = spawnGuyButton.getBoundingClientRect();
+                const buttonX = rect.left + rect.width / 2;
+                const buttonY = rect.top + rect.height / 2;
+
+                // Hide the button
+                spawnGuyButton.classList.add('hidden');
+
+                // Show and position the little guy at button location
+                personElement.classList.add('spawned');
+
+                // Access global animation variables from earlier script
+                // These were declared without const/let so they're on window
+                window.personX = buttonX;
+                window.personY = window.innerHeight - buttonY; // Convert to bottom-relative
+
+                // Set to parachuting state
+                window.isParachuting = true;
+                window.parachutingDirection = 'right';
+                personElement.className = 'parachuting-right spawned';
+
+                // Update position
+                personElement.style.bottom = window.personY + 'px';
+                personElement.style.left = (window.personX - 12) + 'px';
+                personElement.style.top = 'auto';
+
+                // Show joystick controls ONLY on touch devices (never on desktop)
+                // Detect touch capability rather than window width
+                const isTouchDevice = ('ontouchstart' in window) ||
+                                     (navigator.maxTouchPoints > 0) ||
+                                     (navigator.msMaxTouchPoints > 0);
+
+                if (isTouchDevice) {
+                    const joystick = document.getElementById('virtual-joystick');
+                    const actionButtons = document.getElementById('action-buttons');
+                    if (joystick && actionButtons) {
+                        joystick.classList.add('spawned');
+                        actionButtons.classList.add('spawned');
+                    }
+                }
+                // Ensure joystick stays hidden on non-touch devices (defensive)
+                else {
+                    const joystick = document.getElementById('virtual-joystick');
+                    const actionButtons = document.getElementById('action-buttons');
+                    if (joystick && actionButtons) {
+                        joystick.classList.remove('spawned');
+                        actionButtons.classList.remove('spawned');
+                    }
+                }
+
+                hasSpawned = true;
+                window.keyboardControlled = true; // Enable keyboard control immediately
+            });
+        }
     </script>
 </body>
 </html>

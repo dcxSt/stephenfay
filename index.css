@@ -72,6 +72,11 @@ ul {
     z-index: 999;
     image-rendering: pixelated;
     transition: transform 0.1s linear;
+    display: none; /* Hidden initially until spawned */
+}
+
+#pixelated-person.spawned {
+    display: block;
 }
 
 /* Flip animation */
@@ -450,22 +455,38 @@ ul {
     touch-action: none;
 }
 
-@media (max-width: 768px) { /* Adjust for tablets and phones */
-    .text-container {
-        max-width: 100%; /* Use full width on small screens */
-        padding: 0 10px;
+/* Hide joystick by default */
+#virtual-joystick, #action-buttons {
+    display: none;
+}
+
+/* Ensure joystick NEVER shows on non-touch devices (desktop with mouse) */
+@media (pointer: fine) {
+    #virtual-joystick,
+    #action-buttons,
+    #virtual-joystick.spawned,
+    #action-buttons.spawned,
+    div#virtual-joystick.spawned,
+    div#action-buttons.spawned {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
-    
-    /* Always show controls on mobile */
-    #virtual-joystick, #action-buttons {
+}
+
+/* Only show joystick on touch devices when spawned */
+@media (pointer: coarse) {
+    #virtual-joystick.spawned, #action-buttons.spawned {
         display: flex;
     }
 }
 
-@media (min-width: 769px) {
-    /* Hide joystick on desktop by default */
-    #virtual-joystick, #action-buttons {
-        display: none;
+/* Responsive text container for small screens */
+@media (max-width: 768px) {
+    .text-container {
+        max-width: 100%; /* Use full width on small screens */
+        padding: 0 10px;
     }
 }
 
@@ -615,5 +636,68 @@ ul {
 
 .theme-toggle:hover {
     transform: rotate(180deg);
+}
+
+/* Spawn guy button - styled like the little guy, but smaller */
+.spawn-guy-button {
+    display: inline-block;
+    width: 18px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    margin-left: 12px;
+    transition: transform 0.2s ease;
+    image-rendering: pixelated;
+    transform: scale(0.75);
+    transform-origin: center;
+}
+
+.spawn-guy-button::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Head & Body */
+    box-shadow:
+        /* Head & hair */
+        8px 0 #000, 12px 0 #000,
+        8px 4px #FDB22A, 12px 4px #FDB22A,
+        8px 8px #FDB22A, 12px 8px #FDB22A,
+        /* Body */
+        8px 12px #FFFFFF, 12px 12px #FFFFFF,
+        8px 16px #0D6CBC, 12px 16px #0D6CBC,
+        8px 20px #0D6CBC, 12px 20px #0D6CBC;
+    top: 0;
+    left: 0;
+}
+
+.spawn-guy-button::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: transparent;
+    /* Legs and arms */
+    box-shadow:
+        /* Arms */
+        4px 12px #FDB22A, 16px 12px #FDB22A,
+        /* Legs */
+        4px 24px #0D6CBC, 16px 24px #0D6CBC,
+        4px 28px #FDB22A, 12px 28px #FDB22A,
+        4px 32px #FDB22A, 16px 32px #FDB22A;
+    top: 0;
+    left: 0;
+}
+
+.spawn-guy-button:hover {
+    transform: scale(0.85);
+}
+
+.spawn-guy-button.hidden {
+    display: none;
 }
 
