@@ -507,7 +507,7 @@ ul {
 /* Gallery styles - inspired by James Ritson */
 .gallery {
     column-gap: 0.5rem;
-    columns: 3;
+    column-width: 200px; /* Auto-adjust columns based on container width */
     margin: 2rem 0;
     width: 100%;
 }
@@ -521,18 +521,6 @@ ul {
     display: block;
     width: 100%;
     height: auto;
-}
-
-@media (max-width: 768px) {
-    .gallery {
-        columns: 2;
-    }
-}
-
-@media (max-width: 480px) {
-    .gallery {
-        columns: 1;
-    }
 }
 
 /* Lightbox modal styles */
