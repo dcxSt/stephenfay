@@ -7,6 +7,7 @@ const galleryImages = [
     { src: 'images/EB1A3765-edit04.webp', alt: 'EB1A3765-edit04' },
     { src: 'images/EB1A7579.webp', alt: 'EB1A7579' },
     { src: 'images/EB1A7654-edit2.webp', alt: 'EB1A7654-edit2' },
+    { src: 'images/EB1A7851-edit1.webp', alt: 'EB1A7851-edit1' },
     { src: 'images/EB1A8410.webp', alt: 'EB1A8410' },
     { src: 'images/EB1A8483-crop3-edit4-downsample.webp', alt: 'EB1A8483-crop3-edit4-downsample' },
     { src: 'images/EB1A8551-edit3.webp', alt: 'EB1A8551-edit3' },

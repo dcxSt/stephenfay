@@ -583,6 +583,58 @@ ul {
     border-color: #FDB22A;
 }
 
+/* Lightbox navigation buttons */
+.lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(217, 179, 130, 0.9);
+    border: 2px solid #D9B382;
+    color: #000;
+    font-size: 48px;
+    font-weight: bold;
+    width: 60px;
+    height: 80px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.lightbox-prev {
+    left: 20px;
+}
+
+.lightbox-next {
+    right: 20px;
+}
+
+.lightbox-nav:hover {
+    background: #D9B382;
+    border-color: #FDB22A;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Hide nav buttons on small screens */
+@media (max-width: 768px) {
+    .lightbox-nav {
+        width: 50px;
+        height: 60px;
+        font-size: 36px;
+    }
+
+    .lightbox-prev {
+        left: 10px;
+    }
+
+    .lightbox-next {
+        right: 10px;
+    }
+}
+
 /* Make gallery images clickable */
 .gallery a {
     cursor: pointer;

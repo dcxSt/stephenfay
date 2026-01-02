@@ -27,6 +27,8 @@
     <!-- Lightbox Modal -->
     <div id="lightbox-modal" class="lightbox-modal">
         <button id="lightbox-close" class="lightbox-close">close</button>
+        <button id="lightbox-prev" class="lightbox-nav lightbox-prev">‹</button>
+        <button id="lightbox-next" class="lightbox-nav lightbox-next">›</button>
         <img id="lightbox-image" class="lightbox-image" src="" alt="Enlarged view" />
     </div>
 
@@ -793,17 +795,41 @@
         const lightboxModal = document.getElementById('lightbox-modal');
         const lightboxImage = document.getElementById('lightbox-image');
         const lightboxClose = document.getElementById('lightbox-close');
+        const lightboxPrev = document.getElementById('lightbox-prev');
+        const lightboxNext = document.getElementById('lightbox-next');
         const galleryLinks = document.querySelectorAll('.gallery a');
 
+        let currentImageIndex = 0;
+
+        // Function to show image at specific index
+        function showImageAtIndex(index) {
+            currentImageIndex = index;
+            const imgSrc = galleryImages[currentImageIndex].src;
+            lightboxImage.src = imgSrc;
+            lightboxModal.classList.add('active');
+        }
+
         // Open lightbox when clicking on gallery images
-        galleryLinks.forEach(link => {
+        galleryLinks.forEach((link, index) => {
             link.addEventListener('click', function(e) {
                 e.preventDefault(); // Prevent navigating to the image URL
                 e.stopPropagation(); // Stop this from triggering the person flip
-                const imgSrc = this.querySelector('img').src;
-                lightboxImage.src = imgSrc;
-                lightboxModal.classList.add('active');
+                showImageAtIndex(index);
             });
+        });
+
+        // Previous image
+        lightboxPrev.addEventListener('click', function(e) {
+            e.stopPropagation();
+            currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+            lightboxImage.src = galleryImages[currentImageIndex].src;
+        });
+
+        // Next image
+        lightboxNext.addEventListener('click', function(e) {
+            e.stopPropagation();
+            currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+            lightboxImage.src = galleryImages[currentImageIndex].src;
         });
 
         // Close lightbox when clicking the close button
@@ -819,10 +845,18 @@
             }
         });
 
-        // Close lightbox with Escape key
+        // Keyboard navigation
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
-                lightboxModal.classList.remove('active');
+            if (lightboxModal.classList.contains('active')) {
+                if (e.key === 'Escape') {
+                    lightboxModal.classList.remove('active');
+                } else if (e.key === 'ArrowLeft') {
+                    currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+                    lightboxImage.src = galleryImages[currentImageIndex].src;
+                } else if (e.key === 'ArrowRight') {
+                    currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+                    lightboxImage.src = galleryImages[currentImageIndex].src;
+                }
             }
         });
 
