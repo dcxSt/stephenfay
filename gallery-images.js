@@ -2,6 +2,7 @@
 // Run generate-gallery.sh to update
 
 const galleryImages = [
+    { src: 'images/EB1A2732-edit1.webp', alt: 'EB1A2732-edit1' },
     { src: 'images/EB1A2743-crop2-edit1-qhigh.webp', alt: 'EB1A2743-crop2-edit1-qhigh' },
     { src: 'images/EB1A3765-edit04.webp', alt: 'EB1A3765-edit04' },
     { src: 'images/EB1A7654-edit2.webp', alt: 'EB1A7654-edit2' },
