@@ -45,6 +45,8 @@
     <script>
         const img = document.getElementById('fly-image');
         img.addEventListener('click', function() {
+            if (window.destroyMode) return; // in destroy mode you have to shoot it
+
             if (this.src.includes('fly.png')) {
                 this.src = 'assets/squashed-fly.webp';
             } else {
@@ -105,6 +107,8 @@
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
+            if (window.destroyMode) return; // destroy.js has the controls
+
             // On desktop (non-touch devices), only allow WASD keys, not arrow keys
             // On touch devices, allow both WASD and arrow keys
             const isArrowKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
@@ -142,6 +146,8 @@
         
         // Click to flip and toggle control mode
         document.addEventListener('click', (e) => {
+            if (window.destroyMode) return; // clicks are gunfire in destroy mode
+
             // Toggle control mode on click
             keyboardControlled = !keyboardControlled;
             
@@ -152,7 +158,7 @@
         });
         
         function triggerFlip() {
-            if (isClimbing) return; // No flipping while climbing
+            if (isClimbing || window.destroyMode) return; // No flipping while climbing or while destroy.js drives him
             
             isFlipping = true;
             
@@ -177,6 +183,11 @@
         
         // Animation loop
         function animatePerson() {
+            if (window.destroyMode) { // destroy.js is driving him
+                requestAnimationFrame(animatePerson);
+                return;
+            }
+
             if (!isFlipping) {
                 // Handle state transitions
                 const atLeftEdge = personX <= 12;
@@ -588,6 +599,10 @@
             const rect = joystick.getBoundingClientRect();
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
+
+            // Measure the centre now: at load the joystick is hidden, so initJoystick() saw a 0x0 box
+            centerX = rect.width / 2;
+            centerY = rect.height / 2;
             
             // Calculate distance from center
             const deltaX = touchX - centerX;
@@ -625,10 +640,10 @@
             }
             
             // Vertical movement - always process regardless of horizontal
-            if (limitedY < -10) {
+            if (limitedY < -10 && -limitedY > absX * 0.6) { // only when clearly up, so a sideways push doesn't jump
                 keysPressed['ArrowUp'] = true;
                 keyboardControlled = true;
-            } else if (limitedY > 10) {
+            } else if (limitedY > 10 && limitedY > absX) { // only when mostly down, so a low sideways push doesn't drop him
                 keysPressed['ArrowDown'] = true;
                 keyboardControlled = true;
             }
@@ -951,8 +966,12 @@
 
                 hasSpawned = true;
                 window.keyboardControlled = true; // Enable keyboard control immediately
+
+                // Hand him a gun and turn the page into something he can stand on and shoot (destroy.js)
+                window.destroyGame.start(buttonX, buttonY);
             });
         }
     </script>
+    <script src="destroy.js"></script>
 </body>
 </html>

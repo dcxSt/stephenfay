@@ -755,3 +755,106 @@ ul {
     display: none;
 }
 
+
+/* Destroy mode (destroy.js): the text is redrawn on a canvas he can wreck, so the real text hides underneath */
+html.destroying body,
+html.destroying a,
+html.destroying a:visited {
+    color: transparent !important;
+    transition: background-color 0.3s ease;
+}
+
+html.destroying {
+    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+html.destroying a {
+    pointer-events: none;
+}
+
+html.destroying .logo {
+    cursor: crosshair;
+}
+
+html.destroying #pixelated-person {
+    display: none !important;
+}
+
+#destroy-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 998;
+}
+
+#destroy-hud {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 1001;
+    max-width: min(260px, calc(100vw - 34px));
+    padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-color);
+    background: var(--bg-color);
+    border: 1px solid var(--text-color);
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#destroy-hud button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+#destroy-hud button:hover,
+#destroy-hud .dh-on {
+    color: var(--link-color);
+}
+
+#destroy-hud .dh-on::before {
+    content: '[';
+}
+
+#destroy-hud .dh-on::after {
+    content: ']';
+}
+
+#destroy-hud .dh-help {
+    opacity: 0.6;
+}
+
+/* Where it won't cover the name and the theme toggle: under the text column on
+   narrow windows, and below the joystick and buttons on phones */
+#destroy-hud.dh-idle {
+    top: auto;
+    bottom: 8px;
+}
+
+@media (max-width: 1271px) {
+    #destroy-hud {
+        top: auto;
+        bottom: 8px;
+    }
+}
+
+@media (pointer: coarse) {
+    #destroy-hud {
+        top: auto;
+        bottom: 8px;
+        max-width: calc(100vw - 34px);
+        font-size: 11px;
+    }
+}
