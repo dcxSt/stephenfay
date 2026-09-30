@@ -795,7 +795,7 @@ html.destroying #pixelated-person {
 #destroy-hud {
     position: fixed;
     top: 8px;
-    right: 8px;
+    left: 8px;
     z-index: 1001;
     max-width: min(260px, calc(100vw - 34px));
     padding: 6px 8px;
@@ -836,17 +836,22 @@ html.destroying #pixelated-person {
     opacity: 0.6;
 }
 
-/* Where it won't cover the name and the theme toggle: under the text column on
-   narrow windows, and below the joystick and buttons on phones */
+/* Where it won't cover the name, the theme toggle or the fly: in the empty left
+   gutter on wide screens, otherwise down in the bottom corner (below the joystick
+   and buttons on phones) */
 #destroy-hud.dh-idle {
     top: auto;
     bottom: 8px;
+    left: auto;
+    right: 8px;
 }
 
 @media (max-width: 1271px) {
     #destroy-hud {
         top: auto;
         bottom: 8px;
+        left: auto;
+        right: 8px;
     }
 }
 
@@ -854,6 +859,8 @@ html.destroying #pixelated-person {
     #destroy-hud {
         top: auto;
         bottom: 8px;
+        left: auto;
+        right: 8px;
         max-width: calc(100vw - 34px);
         font-size: 11px;
     }
