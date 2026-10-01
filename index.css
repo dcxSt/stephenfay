@@ -767,6 +767,7 @@ html.destroying a:visited {
 html.destroying {
     cursor: crosshair;
     touch-action: none;
+    overscroll-behavior: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
@@ -892,13 +893,94 @@ html.destroying #pixelated-person {
     }
 }
 
+/* Phones: a compact HUD up top, the stick on the left and destroy.js's button pad on
+   the right (index.html's own up and A buttons sit out destroy mode) */
 @media (pointer: coarse) {
     #destroy-hud {
-        top: auto;
-        bottom: 8px;
-        left: auto;
-        right: 8px;
-        max-width: calc(100vw - 34px);
+        top: 8px;
+        bottom: auto;
+        left: 8px;
+        right: auto;
+        max-width: calc(100vw - 16px);
+        padding: 4px 6px;
         font-size: 11px;
     }
+
+    #destroy-hud .dh-bar {
+        width: 70px;
+    }
+
+    html.destroying #virtual-joystick.spawned {
+        left: 16px;
+        right: auto;
+        bottom: 24px;
+    }
+
+    html.destroying #action-buttons {
+        display: none !important;
+    }
+
+    html.destroying #destroy-pad {
+        display: block;
+    }
+}
+
+#destroy-pad {
+    display: none;
+    position: fixed;
+    right: 12px;
+    bottom: 20px;
+    width: 172px;
+    height: 150px;
+    z-index: 1001;
+    touch-action: none;
+}
+
+#destroy-pad button {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    background: rgba(100, 100, 100, 0.6);
+    color: #fff;
+    font: bold 12px 'IBM Plex Mono', monospace;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+#destroy-pad button.down {
+    filter: brightness(1.5);
+    transform: scale(0.93);
+}
+
+#destroy-pad [data-pad="fire"] {
+    right: 0;
+    bottom: 0;
+    width: 80px;
+    height: 80px;
+    background: rgba(208, 65, 43, 0.7);
+}
+
+#destroy-pad [data-pad="jump"] {
+    right: 92px;
+    bottom: 4px;
+    width: 64px;
+    height: 64px;
+}
+
+#destroy-pad [data-pad="nade"] {
+    right: 8px;
+    bottom: 94px;
+    width: 48px;
+    height: 48px;
+    font-size: 10px;
+}
+
+#destroy-pad [data-pad="swap"] {
+    right: 70px;
+    bottom: 84px;
+    width: 48px;
+    height: 48px;
+    font-size: 10px;
 }

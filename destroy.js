@@ -39,7 +39,7 @@
     const ORIGINAL = 1, RUBBLE = 2;
     const CHAR_RGB = [26, 12, 8];
     const SCORCH = [0, 0.3, 0.55, 0.8];
-    const MAX_PARTICLES = 3000;
+    const MAX_PARTICLES = window.matchMedia('(pointer: coarse)').matches ? 1600 : 3000;
     const SKIP = 'script, style, noscript, button, #lightbox-modal, #virtual-joystick, #action-buttons, #destroy-hud';
 
     // His pixel art from index.css: [x, y, colour] offsets of 4px squares in his 24x40 box
@@ -103,7 +103,8 @@
     const BROOD = 100, GLOB_G = 600, GLOB_DMG = 12, LASER_DMG = 4;
     const JET_THRUST = 2700, JET_MAX = 340;   // BROOD: flies it was carrying when it dies
     const KEEPER_HP = 30, KEEPER_SPEED = 105, KEEPER_DMG = 20, KEEPER_DELAY = 20, KEEPER_AGAIN = 60;
-    const MAX_HP = 100, BLAST_DMG = 40, REGEN_CELLS = 50;   // he heals a point for every REGEN_CELLS of page destroyed
+    // he's half as tough again on a phone, where dodging is harder; he heals a point for every REGEN_CELLS of page destroyed
+    const MAX_HP = window.matchMedia('(pointer: coarse)').matches ? 150 : 100, BLAST_DMG = 40, REGEN_CELLS = 50;
     const KEEPER_COLORS = {
         light: { h: '#b08d57', n: '#3d3d3d', f: '#FDB22A', s: '#d9c48f', b: '#4a3b2a' },
         dark: { h: '#c9a46a', n: '#6a6a6a', f: '#FDB22A', s: '#d9c48f', b: '#8a6a4a' },
@@ -589,6 +590,7 @@
         if (amount >= 1) {
             g.hurtT = 0.12;
             sfx('hurt');
+            if (amount >= 4) buzz(20);
         }
         if (g.hp > 0) return;
         g.hp = 0;
@@ -600,7 +602,8 @@
         g.state = 'air';
         g.grounded = false;
         deaths++;
-        firing = shotQueued = false;
+        firing = shotQueued = padFire = false;
+        buzz([60, 40, 120]);
         addShake(6);
         sfx('oof');
         if (keeper && !keeper.dying) say(keeper, KEEPER_LINES.win, true);
@@ -820,10 +823,10 @@
 
     function updateAim() {
         const s = shoulder();
-        if (pointer.has) {
-            const tx = pointer.x + scrollX, ty = pointer.y + scrollY;
-            if (Math.abs(tx - guy.x) > 2) guy.facing = tx > guy.x ? 1 : -1;
-            guy.aim = Math.atan2(ty - s.y, tx - s.x);
+        const target = pointer.has ? { x: pointer.x + scrollX, y: pointer.y + scrollY } : padFire ? autoTarget() : null;
+        if (target) {
+            if (Math.abs(target.x - guy.x) > 2) guy.facing = target.x > guy.x ? 1 : -1;
+            guy.aim = Math.atan2(target.y - s.y, target.x - s.x);
         } else {
             if (guy.vx > 5) guy.facing = 1;
             else if (guy.vx < -5) guy.facing = -1;
@@ -877,8 +880,8 @@
     function throwGrenade() {
         if (!active || nadeCooldown > 0 || guy.dead) return;
         nadeCooldown = GRENADE.cooldown;
-        const s = shoulder();
-        const a = pointer.has ? guy.aim : (guy.facing > 0 ? -0.5 : Math.PI + 0.5);
+        const s = shoulder(), t = pointer.has ? null : autoTarget();
+        const a = pointer.has ? guy.aim : t ? Math.atan2(t.y - s.y - 40, t.x - s.x) : (guy.facing > 0 ? -0.5 : Math.PI + 0.5);
         nades.push({
             x: s.x, y: s.y,
             vx: Math.cos(a) * GRENADE.speed + guy.vx * 0.5,
@@ -1200,13 +1203,14 @@
                     p.grounded = true;
                 } else p.y = y1;
             }
-            if (guy.dead || Math.abs(guy.x - p.x) > 14 || Math.abs(guy.y - HEIGHT / 2 - (p.y - 8)) > 26) continue;
+            if (guy.dead || Math.abs(guy.x - p.x) > (coarsePointer ? 20 : 14) || Math.abs(guy.y - HEIGHT / 2 - (p.y - 8)) > (coarsePointer ? 32 : 26)) continue;
             pickups.splice(i, 1);
             if (p.w === 'health') {
                 guy.hp = Math.min(MAX_HP, guy.hp + 35);
                 banner('+35 health');
             } else {
                 owned.add(p.w);
+                saveProgress();
                 weapon = p.w;
                 cooldown = Math.max(cooldown, 0.12);
                 banner(`you found the ${WEAPONS[p.w].name}`);
@@ -1752,7 +1756,9 @@
     function updateFlies(dt) {
         const cx = guy.x, cy = guy.y - HEIGHT / 2;
         let touching = 0;
-        for (const f of flies) {
+        const n = flies.length, tick = Math.floor(clock * 120);
+        for (let i = 0; i < n; i++) {
+            const f = flies[i];
             f.t += dt;
             // buzz in circles around him until they get bored and wander off
             const a = f.phase + f.t * 2.8;
@@ -1763,7 +1769,9 @@
             const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
             f.vx += (dx / d * 800 + rand(-400, 400)) * dt;
             f.vy += (dy / d * 800 + rand(-400, 400)) * dt;
-            for (const o of flies) {
+            // keep a little apart (a handful of the others each step is plenty)
+            for (let j = 1; j <= Math.min(6, n - 1); j++) {
+                const o = flies[(i + j * 5 + tick) % n];
                 if (o === f) continue;
                 const ox = f.x - o.x, oy = f.y - o.y, o2 = ox * ox + oy * oy;
                 if (o2 < 64 && o2 > 0.01) {
@@ -2131,7 +2139,7 @@
     // The fly's big health bar, across the top of the screen once you've started on it
     function drawBossBar() {
         if (!bigFly.engaged || (!bigFly.alive && bigFly.deathT > 1.5)) return;
-        const vw = window.innerWidth, w = Math.min(420, vw - 80), x = Math.round((vw - w) / 2), y = 26;
+        const vw = window.innerWidth, w = Math.min(420, vw - 80), x = Math.round((vw - w) / 2), y = coarsePointer ? 84 : 26;
         const name = ['GERALD THE FLY', 'GERALD THE BIG FLY', 'GERALD THE HUGE FLY', 'GERALD THE ENORMOUS FLY'][bigFly.stage];
         ctx.globalAlpha = bigFly.alive ? 1 : clamp(1 - (bigFly.deathT - 0.8) / 0.7, 0, 1);
         ctx.font = "11px 'IBM Plex Mono', monospace";
@@ -2316,7 +2324,7 @@
     }
 
     function buildSky() {
-        allocWorld(document.documentElement.clientWidth, Math.max(480, window.innerHeight));
+        allocWorld(document.documentElement.clientWidth, sceneHeight());
         const s = clamp(W / 1100, 0.6, 1);
         const mono = (px, style = 'bold') => `${style} ${Math.round(px * s)}px 'IBM Plex Mono', monospace`;
         sky = { floorY: H - 30, holeX0: 20, holeX1: 20 + Math.round(90 * s), lines: [], visited: false, buildT: 3 };
@@ -2331,7 +2339,8 @@
         const fx0 = Math.max(sky.holeX1 + 24, Math.round(W / 2 - 430 * s)), fx1 = Math.min(W - 16, Math.round(W / 2 + 430 * s));
         const roofY = Math.round(H * 0.44);
         const rf = mono(14), rw = textWidth('CORRUGATED IRON', rf), rgap = textWidth(' ', rf);
-        for (let x = fx0; x + rw <= fx1; x += rw + rgap) stampWord('CORRUGATED IRON', x, roofY, rf, 3);
+        let roofEnd = fx0;
+        for (let x = fx0; x + rw <= fx1; x += rw + rgap) roofEnd = stampWord('CORRUGATED IRON', x, roofY, rf, 3).x1;
         const signFont = `${Math.round(30 * s)}px 'Special Elite', monospace`;
         const signBox = stampWord('ROBOT FACTORY', (fx0 + fx1 - textWidth('ROBOT FACTORY', signFont)) / 2, roofY - Math.round(20 * s), signFont, 4);
         const signX = Math.round((signBox.x0 + signBox.x1) / 2);
@@ -2383,8 +2392,9 @@
             const w = latentWord();
             placeWord(w.text, mono(w.size), w.p, sky.latent, 12);
         }
-        // and a portal back down at the far end of the floor
-        sky.portal = { x: W - Math.max(EDGE + PORTAL_W, Math.round(60 * s)), y: sky.floorY - 12 - PORTAL_H / 2, t: 0 };
+        // and a portal back down, on the right-hand end of the roof (where thumbs on a phone won't cover it)
+        const portalX = Math.round(roofEnd - PORTAL_W / 2 - 8);
+        sky.portal = { x: portalX, y: (surfaceBetween(portalX, roofY - 30, roofY + 2) ?? roofY - 10) - PORTAL_H / 2, t: 0 };
 
         repaint();
         buildSkyBackdrop();
@@ -2467,10 +2477,11 @@
         }
         if (sky.jetpack) {
             sky.jetpack.t += dt;
-            if (!guy.dead && Math.abs(guy.x - sky.jetpack.x) < 14 && Math.abs(guy.y - HEIGHT / 2 - (sky.jetpack.y - 8)) < 26) {
+            if (!guy.dead && Math.abs(guy.x - sky.jetpack.x) < (coarsePointer ? 20 : 14) && Math.abs(guy.y - HEIGHT / 2 - (sky.jetpack.y - 8)) < (coarsePointer ? 32 : 26)) {
                 hasJetpack = true;
+                saveProgress();
                 sky.jetpack = null;
-                banner('you found a jetpack. hold space to fly');
+                banner(coarsePointer ? 'you found a jetpack. hold JET to fly' : 'you found a jetpack. hold space to fly');
                 sfx('ding');
                 renderHud();
             }
@@ -2832,7 +2843,7 @@
 
     // A spot in the white space with room for the portal and something to stand on under it
     function findPortalSpot() {
-        const vy0 = scrollY + PORTAL_H + 10, vy1 = scrollY + window.innerHeight - 10;
+        const vy0 = scrollY + PORTAL_H + 10, vy1 = scrollY + window.innerHeight * (coarsePointer ? 0.7 : 1) - 10;
         const found = [];
         for (const [y0, y1] of [[vy0, vy1], [PORTAL_H + 4, H]]) {
             for (let x = EDGE + PORTAL_W; x < W - EDGE - PORTAL_W; x += 12) {
@@ -3047,7 +3058,7 @@
         if (bannerT <= 0) return;
         const vw = window.innerWidth;
         ctx.font = "13px 'IBM Plex Mono', monospace";
-        const w = Math.ceil(ctx.measureText(bannerText).width) + 20, x = Math.round((vw - w) / 2), y = 54;
+        const w = Math.ceil(ctx.measureText(bannerText).width) + 20, x = Math.round((vw - w) / 2), y = coarsePointer ? 112 : 54;
         ctx.globalAlpha = Math.min(1, bannerT * 2);
         ctx.fillStyle = bgColor;
         ctx.fillRect(x, y, w, 24);
@@ -3103,8 +3114,9 @@
         }
 
         // new drops across the top of the screen
-        const rate = scene === 'site' ? (w.raining ? 150 : 0) : scene === 'sky' ? 35 : 20;
-        const cap = scene === 'site' ? 340 : scene === 'sky' ? 260 : 130;
+        const budget = coarsePointer ? 0.55 : 1;
+        const rate = (scene === 'site' ? (w.raining ? 150 : 0) : scene === 'sky' ? 35 : 20) * budget;
+        const cap = (scene === 'site' ? 340 : scene === 'sky' ? 260 : 130) * budget;
         w.acc += rate * dt;
         while (w.acc >= 1) {
             w.acc--;
@@ -3182,7 +3194,7 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             for (const d of w.drops) {
-                for (let k = 3; k >= 0; k--) {
+                for (let k = coarsePointer ? 1 : 3; k >= 0; k--) {
                     // a fading trail behind each one
                     ctx.globalAlpha = k ? 0.12 * (4 - k) : 0.9;
                     ctx.fillStyle = k ? '#2de2e6' : '#d8fff8';
@@ -3247,7 +3259,7 @@
     }
 
     function buildShell() {
-        allocWorld(document.documentElement.clientWidth, Math.max(480, window.innerHeight));
+        allocWorld(document.documentElement.clientWidth, sceneHeight());
         const s = clamp(W / 1100, 0.6, 1);
         const mono = (px, style = 'bold') => `${style} ${Math.round(px * s)}px 'IBM Plex Mono', monospace`;
         shell = { floorY: H - 26, holeX0: 20, holeX1: 20 + Math.round(90 * s), cells: [], residues: 0, visited: false, font: mono(10), regrowT: 6 };
@@ -3459,7 +3471,7 @@
     function enterShell() {
         skyState = saveScene();
         scene = 'shell';
-        if (shellState && shellState.W === document.documentElement.clientWidth && Math.abs(shellState.H - Math.max(480, window.innerHeight)) < 80) loadScene(shellState);
+        if (shellState && shellState.W === document.documentElement.clientWidth && Math.abs(shellState.H - sceneHeight()) < 80) loadScene(shellState);
         else buildShell();
         shellState = null;
         scrollX = scrollY = 0;
@@ -3488,6 +3500,112 @@
         guy.state = 'air';
         guy.grounded = false;
         renderHud();
+    }
+
+    // ------------------------------------------------------------------- phone
+    //
+    // On a phone the stick moves him (index.html's joystick, which destroy mode moves
+    // over to the left), and a pad on the right has JUMP (JET once he has the
+    // jetpack), FIRE (hold it and it aims itself at the nearest threat), BOMB and
+    // SWAP. Tapping anywhere else still shoots exactly there.
+
+    let pad = null, padFire = false, menuOpen = false;
+
+    function buildPad() {
+        pad = document.createElement('div');
+        pad.id = 'destroy-pad';
+        pad.innerHTML = '<button data-pad="swap">SWAP</button><button data-pad="nade">BOMB</button><button data-pad="jump">JUMP</button><button data-pad="fire">FIRE</button>';
+        document.body.appendChild(pad);
+        const held = new Map();   // which finger is on which button
+        pad.addEventListener('touchstart', e => {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+                const b = t.target.closest && t.target.closest('[data-pad]');
+                if (!b) continue;
+                held.set(t.identifier, b);
+                b.classList.add('down');
+                padPress(b.dataset.pad, true);
+            }
+        }, { passive: false });
+        const lift = e => {
+            for (const t of e.changedTouches) {
+                const b = held.get(t.identifier);
+                if (!b) continue;
+                held.delete(t.identifier);
+                b.classList.remove('down');
+                padPress(b.dataset.pad, false);
+            }
+        };
+        pad.addEventListener('touchend', lift);
+        pad.addEventListener('touchcancel', lift);
+    }
+
+    function padPress(what, down) {
+        if (!active) return;
+        initAudio();
+        if (what === 'jump') {
+            keys.jump = down;
+            if (down) tapped.jump = true;
+        } else if (what === 'fire') {
+            padFire = down;
+            if (down) shotQueued = cooldown < 0.25;
+        } else if (down && what === 'nade') throwGrenade();
+        else if (down && what === 'swap') cycleWeapon();
+    }
+
+    function cycleWeapon() {
+        const have = [...owned].sort((a, b) => a - b);
+        selectWeapon(have[(have.indexOf(weapon) + 1) % have.length]);
+    }
+
+    // What FIRE aims at: the nearest thing that's after him (or, on the website, the
+    // clankers undoing his work, and the fly last of all); nothing means straight ahead
+    function autoTarget() {
+        const sx = guy.x, sy = guy.y - SHOULDER;
+        let best = null, bestD = 360;
+        const consider = (x, y, priority) => {
+            const d = Math.hypot(x - sx, y - sy) / priority;
+            if (d < bestD) {
+                bestD = d;
+                best = { x, y };
+            }
+        };
+        if (scene === 'site') {
+            for (const f of flies) if (!f.dead) consider(f.x, f.y, 1.4);
+            if (keeper && !keeper.dying) consider(keeper.x, keeper.y - 20, 1.6);
+            for (const b of bots) if (!b.dead) consider(b.x, b.y - BOT_H / 2, robotsEvil ? 1.5 : 1);
+            if (bigFly.alive && flyRect) consider((flyRect.left + flyRect.right) / 2 + scrollX, (flyRect.top + flyRect.bottom) / 2 + scrollY, 0.6);
+        } else if (scene === 'sky' && robotsEvil) {
+            for (const b of bots) if (!b.dead) consider(b.x, b.y - BOT_H / 2, 1.3);
+            eachItem((it, line, x, y) => consider(x, y, 0.8));
+        }
+        return best;
+    }
+
+    function buzz(pattern) {
+        if (coarsePointer && !audio.muted && navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    // The guns he's found and the jetpack stay found: through fixing the website,
+    // dying, and coming back another day
+    function loadProgress() {
+        owned = new Set([0]);
+        hasJetpack = false;
+        try {
+            const p = JSON.parse(localStorage.getItem('destroyProgress') || '{}');
+            hasJetpack = !!p.jetpack;
+            for (const i of p.guns || []) if (i > 0 && i < WEAPONS.length) owned.add(i);
+        } catch (_) { /* storage unavailable */ }
+    }
+
+    function saveProgress() {
+        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned] })); } catch (_) { /* storage unavailable */ }
+    }
+
+    // The factory and the shell fill the screen (above the thumbs on a phone held upright)
+    function sceneHeight() {
+        const vh = window.innerHeight;
+        return Math.max(360, vh - (coarsePointer && vh > window.innerWidth ? 170 : 0));
     }
 
     // ------------------------------------------------------------------- sound
@@ -3599,6 +3717,10 @@
             oy = rand(-shakeAmt, shakeAmt);
         }
 
+        if (scene !== 'site') {
+            ctx.fillStyle = scene === 'shell' ? '#03040b' : bgColor;
+            ctx.fillRect(0, 0, vw, vh);
+        }
         const backdrop = scene === 'sky' ? sky && sky.backdrop : scene === 'shell' ? shell && shell.backdrop : null;
         if (backdrop) ctx.drawImage(backdrop, ox, oy);
         const x0 = clamp(Math.floor(scrollX), 0, W), y0 = clamp(Math.floor(scrollY), 0, H);
@@ -3854,9 +3976,10 @@
         if (Math.abs(guy.vx) > 1 || Math.abs(guy.vy) > 1) camHold = 0.4;
         else if ((camHold -= dt) <= 0) return;
         const vh = window.innerHeight, sy = guy.y - HEIGHT / 2 - scrollY;
+        const lo = coarsePointer ? 0.25 : 0.3, hi = coarsePointer ? 0.55 : 0.7;
         let d = 0;
-        if (sy < vh * 0.3) d = sy - vh * 0.3;
-        else if (sy > vh * 0.7) d = sy - vh * 0.7;
+        if (sy < vh * lo) d = sy - vh * lo;
+        else if (sy > vh * hi) d = sy - vh * hi;
         if (!d) return;
         let step = d * Math.min(1, dt * 8);
         if (Math.abs(step) < 1) step = Math.sign(step);
@@ -3869,7 +3992,7 @@
         cooldown -= dt;
         nadeCooldown -= dt;
         muzzleFlash -= dt;
-        if ((firing || shotQueued) && cooldown <= 0) {
+        if ((firing || shotQueued || padFire) && cooldown <= 0) {
             fire();
             shotQueued = false;
         }
@@ -3941,6 +4064,10 @@
             else if (act === 'help') toggleHelp();
             else if (act === 'bots') toggleBots();
             else if (act === 'taunt') taunt();
+            else if (act === 'menu') {
+                menuOpen = !menuOpen;
+                renderHud();
+            }
         });
     }
 
@@ -3963,11 +4090,21 @@
             : `<span class="dh-locked">${coarsePointer ? '' : i + 1 + ' '}?</span>`
         ).join(' ');
         const help = coarsePointer
-            ? 'stick: move<br>&uarr;: jump, again to flip, hold to glide<br>tap: shoot<br>A: grenade<br>push into the screen edge: climb'
+            ? 'stick: move<br>JUMP: jump, again to flip, hold to glide<br>FIRE: shoot (it aims itself)<br>tap: shoot right there<br>BOMB: grenade &middot; SWAP: next gun<br>push into the screen edge: climb<br>kill the fly: something opens'
             : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page';
-        const jetHelp = hasJetpack ? `<br>${coarsePointer ? '&uarr;' : 'space'}: jetpack` : '';
+        const jetHelp = hasJetpack ? `<br>${coarsePointer ? 'JET' : 'space'}: jetpack` : '';
         const key = k => coarsePointer ? '' : `[${k}] `;
-        hud.innerHTML =
+        if (pad) pad.querySelector('[data-pad="jump"]').textContent = hasJetpack ? 'JET' : 'JUMP';
+        if (coarsePointer) hud.innerHTML =
+            `<div><span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span> &middot; ${WEAPONS[weapon].name}${hasJetpack ? ' + jetpack' : ''} <button data-act="menu">[${menuOpen ? 'close' : 'menu'}]</button></div>` +
+            `<div class="dh-pct"></div>` +
+            (menuOpen
+                ? `<div>${weapons}</div>` + (botsOn ? `<div class="dh-kills"></div>` : '') +
+                  `<div><button data-act="mute"></button> &middot; <button data-act="bots">robots ${botsOn ? 'on' : 'off'}</button> &middot; <button data-act="taunt">taunt</button></div>` +
+                  `<div class="dh-help">${help}${jetHelp}</div>` +
+                  `<div><button data-act="fix">fix website</button></div>`
+                : '');
+        else hud.innerHTML =
             `<div>${weapons}</div>` +
             `<div class="dh-pct"></div>` +
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
@@ -3981,7 +4118,7 @@
         shownKills = '';
         shownHp = -1;
         muteEl = hud.querySelector('[data-act="mute"]');
-        muteEl.textContent = `${coarsePointer ? '' : '[m] '}sound ${audio.muted ? 'off' : 'on'}`;
+        if (muteEl) muteEl.textContent = `${coarsePointer ? '' : '[m] '}sound ${audio.muted ? 'off' : 'on'}`;
         shownPct = -1;
         updatePct();
     }
@@ -3992,7 +4129,7 @@
             if (hp !== shownHp) {
                 shownHp = hp;
                 hpFill.style.width = hp / MAX_HP * 100 + '%';
-                hpFill.style.background = hp > 50 ? '#4cc94c' : hp > 25 ? '#f2c230' : '#ff4b3a';
+                hpFill.style.background = hp > MAX_HP / 2 ? '#4cc94c' : hp > MAX_HP / 4 ? '#f2c230' : '#ff4b3a';
                 hpNum.textContent = guy.dead ? 'ow' : hp;
             }
         }
@@ -4028,7 +4165,7 @@
     // ------------------------------------------------------------ start / stop
 
     function sizeView() {
-        dpr = Math.min(window.devicePixelRatio || 1, 3);
+        dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 2 : 3);
         const vw = window.innerWidth, vh = window.innerHeight;
         view.width = Math.round(vw * dpr);
         view.height = Math.round(vh * dpr);
@@ -4092,16 +4229,17 @@
         regen = 0;
         resetBigFly();
         toggle = document.getElementById('theme-toggle');
-        owned = new Set([0]);
+        loadProgress();
         weapon = 0;
+        menuOpen = false;
         placeGuns();
+        if (coarsePointer && !pad) buildPad();
         scene = 'site';
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
         portalArmed = true;
         weather = {};
         shell = shellState = null;
-        hasJetpack = false;
         globs = [];
         lasers = [];
         bannerT = 0;
@@ -4222,7 +4360,7 @@
 
     // ------------------------------------------------------------------- input
 
-    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #virtual-joystick, #action-buttons, #lightbox-modal');
+    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #destroy-pad, #virtual-joystick, #action-buttons, #lightbox-modal');
 
     document.addEventListener('keydown', e => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -4241,10 +4379,7 @@
             return;
         }
         if (/^Digit[1-9]$/.test(e.code)) selectWeapon(+e.code.slice(5) - 1);
-        else if (e.code === 'KeyQ') {
-            const have = [...owned].sort((a, b) => a - b);
-            selectWeapon(have[(have.indexOf(weapon) + 1) % have.length]);
-        }
+        else if (e.code === 'KeyQ') cycleWeapon();
         else if (e.code === 'KeyG') throwGrenade();
         else if (e.code === 'KeyM') toggleMute();
         else if (e.code === 'KeyH') toggleHelp();
@@ -4263,7 +4398,8 @@
     function releaseAll() {
         for (const k in keys) keys[k] = false;
         for (const k in tapped) tapped[k] = false;
-        shotQueued = false;
+        shotQueued = padFire = false;
+        if (pad) for (const b of pad.querySelectorAll('.down')) b.classList.remove('down');
         // index.html's own key state can get stuck the same way
         const kp = window.keysPressed;
         if (kp) for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) kp[k] = false;
@@ -4342,26 +4478,10 @@
     document.addEventListener('touchend', endTouch);
     document.addEventListener('touchcancel', endTouch);
 
-    const actionButton = document.getElementById('action-button');
-    if (actionButton) actionButton.addEventListener('touchstart', () => throwGrenade());
-
-    // index.html's joystick rewrites ArrowUp on every move, which would let go of a
-    // jump button that's being held to glide, so track the button separately
-    const jumpButton = document.getElementById('jump-button');
-    if (jumpButton) {
-        jumpButton.addEventListener('touchstart', () => {
-            if (!active) return;
-            keys.jump = true;
-            tapped.jump = true;
-        });
-        jumpButton.addEventListener('touchend', () => { keys.jump = false; });
-        jumpButton.addEventListener('touchcancel', () => { keys.jump = false; });
-    }
-
     window.addEventListener('resize', () => {
         if (!active) return;
         sizeView();
-        const resized = document.documentElement.clientWidth !== W || (scene !== 'site' && Math.abs(Math.max(480, window.innerHeight) - H) > 80);
+        const resized = document.documentElement.clientWidth !== W || (scene !== 'site' && Math.abs(sceneHeight() - H) > 80);
         if (resized) {
             clearTimeout(rebuildTimer);
             rebuildTimer = setTimeout(rebuild, 250);
