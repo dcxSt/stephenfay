@@ -99,6 +99,16 @@
     const TILE = 16;            // damage is tracked in 16px tiles (markTile shifts by 4)
     const BOT_HP = 4, BOT_SPEED = 80, BOT_H = 22, BOT_REACH = 42, WELD_RATE = 90, WELD_R = 9;
     const MAX_BOTS = 8, MAX_FLIES = 30, FLY_SPEED = 210;
+    const FLY_HP = 40, FLY_GROW_HP = 20, FLY_ALONE = 25, FLY_BITE = 1.2;   // FLY_BITE: health per second per fly on him
+    const KEEPER_HP = 30, KEEPER_SPEED = 105, KEEPER_DMG = 20, KEEPER_DELAY = 20, KEEPER_AGAIN = 60;
+    const MAX_HP = 100, BLAST_DMG = 40, REGEN_CELLS = 50;   // he heals a point for every REGEN_CELLS of page destroyed
+    const KEEPER_COLORS = {
+        light: { h: '#b08d57', n: '#3d3d3d', f: '#FDB22A', s: '#d9c48f', b: '#4a3b2a' },
+        dark: { h: '#c9a46a', n: '#6a6a6a', f: '#FDB22A', s: '#d9c48f', b: '#8a6a4a' },
+    };
+    // the fly guy: beekeeper hat and net, khaki suit (4px per character, like him)
+    const KEEPER_BODY = ['.hhhh.', 'hhhhhh', '.nnnn.', '.nffn.', '..ss..', '.ssss.', '.ssss.'];
+    const KEEPER_LEGS = [['.s..s.', '.s..s.', 'bb..bb'], ['.s..s.', 's....s', 'b....b']];
     const BOT_COLORS = {
         light: { y: '#f2c230', g: '#9aa3ad', k: '#2b2f33', e: '#ff4b3a', d: '#6b737c', b: '#c9a227', m: '#4a5159', w: '#bfe3ff' },
         dark: { y: '#f2c230', g: '#aab3bd', k: '#6a7178', e: '#ff4b3a', d: '#7d858e', b: '#c9a227', m: '#8a929a', w: '#bfe3ff' },
@@ -110,7 +120,7 @@
         ['.......', '..kkk..', 'wwkekww', 'w.kkk.w', '...k...'],
     ];
 
-    const DEBRIS = 0, SPARK = 1, SHELL = 2, SMOKE = 3, FIRE = 4;
+    const DEBRIS = 0, SPARK = 1, SHELL = 2, SMOKE = 3, FIRE = 4, SPLAT = 5;
     const KEYS = {
         KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
         KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', Space: 'jump',
@@ -130,7 +140,7 @@
 
     let active = false, starting = false;
     let view = null, ctx = null, dpr = 1;
-    let hud = null, pctEl = null, muteEl = null, killsEl = null, shownPct = -1, shownKills = '';
+    let hud = null, pctEl = null, muteEl = null, killsEl = null, hpFill = null, hpNum = null, shownPct = -1, shownKills = '', shownHp = -1;
     let raf = 0, lastTime = 0, acc = 0, rebuildTimer = 0, startToken = 0, camHold = 0;
     let helpOn = window.matchMedia('(min-width: 1272px) and (pointer: fine)').matches;
     let guy = null;
@@ -138,26 +148,30 @@
     let bullets = [], rockets = [], nades = [], parts = [], beams = [], flashes = [];
     let scrollX = 0, scrollY = 0, fly = null, flyRect = null;
     let origAlp = null, origPal = null, tileDirty = null, dirtyTiles = new Set(), TW = 0, hadDamage = false;
-    let bots = [], flies = [], clock = 0, botTimer = 3, flyTimer = 12, lastSay = -10, scrapped = 0, swatted = 0;
-    let botsOn = true, revenge = null;
+    let bots = [], flies = [], clock = 0, botTimer = 3, lastSay = -10, scrapped = 0, swatted = 0;
+    let keeper = null, keeperWait = 0, keepersBeaten = 0, stack = null, deaths = 0, regen = 0;
+    const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, engaged: false, deathT: 0, startSrc: '' };
+    let botsOn = true;
+    const splatImg = new Image();
+    splatImg.src = 'assets/squashed-fly.webp';
     try { botsOn = localStorage.getItem('destroyBots') !== '0'; } catch (_) { /* storage unavailable */ }
     const pointer = { has: false, x: 0, y: 0, touchId: null };
     const keys = {};
     const tapped = {};   // presses not yet seen by a physics step, so quick taps still count
 
-    let gunColors = GUN_COLORS.light, botColors = BOT_COLORS.light, bgColor = '#fff';
-    let gunSprites = [], botSprites = null, flySprites = [];
+    let gunColors = GUN_COLORS.light, botColors = BOT_COLORS.light, keeperColors = KEEPER_COLORS.light, bgColor = '#fff';
+    let gunSprites = [], botSprites = null, flySprites = [], keeperSprites = null;
 
-    // Pixel art from strings, 2px per character; `white` gives the flash when a robot is hit
-    function artCanvas(rows, colors, white) {
+    // Pixel art from strings, `px` pixels per character; `white` gives the flash when something is hit
+    function artCanvas(rows, colors, white, px = 2) {
         const c = document.createElement('canvas');
-        c.width = rows[0].length * 2;
-        c.height = rows.length * 2;
+        c.width = rows[0].length * px;
+        c.height = rows.length * px;
         const g = c.getContext('2d');
         rows.forEach((row, y) => [...row].forEach((ch, x) => {
             if (colors[ch]) {
                 g.fillStyle = white ? '#ffffff' : colors[ch];
-                g.fillRect(x * 2, y * 2, 2, 2);
+                g.fillRect(x * px, y * px, px, px);
             }
         }));
         return c;
@@ -170,6 +184,10 @@
             hurt: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), botColors, true)),
         };
         flySprites = FLY_ART.map(rows => artCanvas(rows, botColors));
+        keeperSprites = {
+            normal: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, false, 4)),
+            hurt: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, true, 4)),
+        };
     }
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -201,6 +219,7 @@
         const dark = r * 0.299 + g * 0.587 + b * 0.114 < 128;
         gunColors = dark ? GUN_COLORS.dark : GUN_COLORS.light;
         botColors = dark ? BOT_COLORS.dark : BOT_COLORS.light;
+        keeperColors = dark ? KEEPER_COLORS.dark : KEEPER_COLORS.light;
         bgColor = `rgb(${r},${g},${b})`;
         buildSprites();
     }
@@ -446,7 +465,11 @@
                 if (d2 <= r2) {
                     if (a >= SOLID) {
                         hits++;
-                        if (kind[i] === ORIGINAL) solidRemoved++;
+                        if (kind[i] === ORIGINAL) {
+                            solidRemoved++;
+                            regen++;
+                            hadDamage = true;
+                        }
                         if (Math.random() < o.debris && parts.length < MAX_PARTICLES) {
                             let vx, vy;
                             const v = o.speed * rand(0.3, 1);
@@ -511,7 +534,39 @@
             x, y, vx: 0, vy: 0, grounded: false, state: chute ? 'chute' : 'air', forceChute: chute,
             jumps: 1, facing: 1, aim: 0, wall: 0, wallPush: 0, coyote: 0, dropping: false,
             spin: 0, walk: 0, kick: 0, jumpHeld: false, spaceHeld: false, downHeld: false, groundTime: 0,
+            hp: MAX_HP, hurtT: 0, dead: false, deadT: 0, deadRot: 0,
         };
+    }
+
+    // Flies, the fly guy and his own explosions wear him down; wrecking the page heals him
+    function hurtGuy(amount) {
+        const g = guy;
+        if (g.dead || amount <= 0) return;
+        g.hp -= amount;
+        if (amount >= 1) {
+            g.hurtT = 0.12;
+            sfx('hurt');
+        }
+        if (g.hp > 0) return;
+        g.hp = 0;
+        g.dead = true;
+        g.deadT = 1.8;
+        g.deadRot = 0;
+        g.vx = rand(-120, 120);
+        g.vy = -380;
+        g.state = 'air';
+        g.grounded = false;
+        deaths++;
+        firing = shotQueued = false;
+        addShake(6);
+        sfx('oof');
+        if (keeper && !keeper.dying) say(keeper, KEEPER_LINES.win, true);
+    }
+
+    function healGuy() {
+        if (regen < REGEN_CELLS) return;
+        if (!guy.dead) guy.hp = Math.min(MAX_HP, guy.hp + Math.floor(regen / REGEN_CELLS));
+        regen %= REGEN_CELLS;
     }
 
     function input() {
@@ -540,6 +595,20 @@
         g.spin = Math.max(0, g.spin - dt);
         g.coyote = Math.max(0, g.coyote - dt);
         g.kick = Math.max(0, g.kick - dt * 40);
+        g.hurtT -= dt;
+
+        if (g.dead) {
+            // tumble off the screen, then parachute back in at full health
+            g.vy += GRAVITY * dt;
+            g.x += g.vx * dt;
+            g.y += g.vy * dt;
+            g.deadRot += dt * 10;
+            if ((g.deadT -= dt) <= 0) {
+                guy = newGuy(clamp(g.x, EDGE, W - EDGE), Math.max(HEIGHT, scrollY + 20), true);
+                guy.facing = g.facing;
+            }
+            return;
+        }
 
         if (g.state === 'climb') {
             g.x = g.wall < 0 ? EDGE : W - EDGE;
@@ -704,6 +773,7 @@
     // ------------------------------------------------------------------ weapons
 
     function fire() {
+        if (guy.dead) return;
         const w = WEAPONS[weapon], pose = gunPose(), m = muzzleOf(w, pose);
         cooldown = w.cooldown;
         guy.kick = w.kick;
@@ -732,7 +802,7 @@
     }
 
     function throwGrenade() {
-        if (!active || nadeCooldown > 0) return;
+        if (!active || nadeCooldown > 0 || guy.dead) return;
         nadeCooldown = GRENADE.cooldown;
         const s = shoulder();
         const a = pointer.has ? guy.aim : (guy.facing > 0 ? -0.5 : Math.PI + 0.5);
@@ -747,17 +817,18 @@
 
     function rail(x, y, cos, sin, hole) {
         const max = Math.hypot(W, H);
-        let len = 0;
+        let len = 0, flyHit = false;
         for (; len < max; len += 2) {
             const px = x + cos * len, py = y + sin * len;
             if (px < -hole || px > W + hole || py < -hole || py > H) break;
             carve(px, py, hole, { debris: 0.2, speed: 160, fx: -sin * (Math.random() < 0.5 ? 1 : -1), fy: cos });
-            hitFly(px, py);
+            if (!flyHit) flyHit = hitFly(px, py, 10);
         }
         const x1 = x + cos * len, y1 = y + sin * len;
         beams.push({ x0: x, y0: y, x1, y1, t: 0.3 });
-        for (const b of bots) if (!b.dead && !b.leaving && segDist2(b.x, b.y - BOT_H / 2, x, y, x1, y1)[0] < 144) hurtBot(b, 99, cos * 200, -150);
+        for (const b of bots) if (!b.dead && segDist2(b.x, b.y - BOT_H / 2, x, y, x1, y1)[0] < 144) hurtBot(b, 99, cos * 200, -150);
         for (const f of flies) if (!f.dead && segDist2(f.x, f.y, x, y, x1, y1)[0] < 81) killFly(f);
+        if (keeper && !keeper.dying && segDist2(keeper.x, keeper.y - 20, x, y, x1, y1)[0] < 225) hurtKeeper(10, cos * 200);
     }
 
     function explode(x, y, R) {
@@ -773,10 +844,11 @@
         addShake(Math.min(14, R / 3));
         sfx('boom');
 
-        // knock him (and everything else) around
+        // knock him (and everything else) around, and hurt him if he's too close
         const reach = R * 2.2;
         const dx = guy.x - x, dy = guy.y - HEIGHT / 2 - y, d = Math.hypot(dx, dy) || 1;
-        if (d < reach) {
+        if (d < R * 1.6) hurtGuy(BLAST_DMG * (1 - (d / (R * 1.6)) ** 2));
+        if (d < reach && !guy.dead) {
             const f = 1 - d / reach, k = f * 950;
             guy.vx += dx / d * k;
             guy.vy += dy / d * k - 250 * f;
@@ -788,11 +860,19 @@
             }
         }
         for (const b of bots) {
-            if (b.dead || b.leaving) continue;
+            if (b.dead) continue;
             const bdx = b.x - x, bdy = b.y - BOT_H / 2 - y, bd = Math.hypot(bdx, bdy) || 1;
             if (bd < R * 1.5) hurtBot(b, 1 + 5 * (1 - bd / (R * 1.5)), bdx / bd * 400, -250);
         }
         for (const f of flies) if (!f.dead && Math.hypot(f.x - x, f.y - y) < R * 1.6) killFly(f);
+        if (keeper && !keeper.dying) {
+            const kd = Math.hypot(keeper.x - x, keeper.y - 20 - y);
+            if (kd < R * 1.5) hurtKeeper(2 + 6 * (1 - kd / (R * 1.5)), (keeper.x - x) / (kd || 1) * 300);
+        }
+        if (bigFly.alive && flyRect) {
+            const c = bigFlyCenter(), fd = Math.hypot(c.x - x, c.y - y);
+            if (fd < R * 1.5) damageBigFly(Math.ceil(6 * (1 - fd / (R * 1.5))), c.x, c.y);
+        }
         for (const n of nades) {
             const ndx = n.x - x, ndy = n.y - y, nd = Math.hypot(ndx, ndy) || 1;
             if (nd < reach) {
@@ -823,21 +903,6 @@
         for (let i = 0; i < count && parts.length < MAX_PARTICLES; i++) {
             parts.push({ type: SMOKE, x: x + rand(-8, 8), y: y - 1, vx: rand(-50, 50), vy: rand(-30, -5), life: rand(0.3, 0.5), max: 0.5, size: rand(2, 4) });
         }
-    }
-
-    // You can finally do something about the fly
-    function hitFly(x, y) {
-        if (!flyRect || !fly.src.includes('fly.png')) return false;
-        const sx = x - scrollX, sy = y - scrollY;
-        if (sx < flyRect.left || sx > flyRect.right || sy < flyRect.top || sy > flyRect.bottom) return false;
-        fly.src = 'assets/squashed-fly.webp';
-        for (let i = 0; i < 10 && parts.length < MAX_PARTICLES; i++) {
-            parts.push({ type: SPARK, x, y, vx: rand(-160, 160), vy: rand(-200, 40), life: rand(0.15, 0.35), color: '#6b8f23' });
-        }
-        sfx('splat');
-        // ...and a moment later its mechanical relatives would like a word
-        if (botsOn) revenge = { x, y, t: 0.5 };
-        return true;
     }
 
     function updateBullets(dt) {
@@ -895,7 +960,7 @@
                 rockets.splice(i, 1);
                 continue;
             }
-            if (hit || hitFly(nx, ny) || r.life <= 0) {
+            if (hit || hitFly(nx, ny, 8) || r.life <= 0) {
                 explode(hit ? hit.x : nx, hit ? hit.y : ny, r.blast);
                 rockets.splice(i, 1);
                 continue;
@@ -974,6 +1039,8 @@
                 q.vy += GRAVITY * 0.4 * dt;
                 q.x += q.vx * dt;
                 q.y += q.vy * dt;
+            } else if (q.type === SPLAT) {
+                // stays where it splatted while it fades
             } else {
                 // smoke and fire drift up and slow down
                 const drag = Math.exp(-dt * 3);
@@ -1006,8 +1073,14 @@
     // Clankers are hard-hatted repair robots. Whenever the page is damaged they
     // propeller down from the top of the screen, walk and hop over the text to the
     // damage, and weld it back from a snapshot of the original page, sweeping up
-    // rubble as they go. Robot flies come in from the sides in swarms and mob him;
-    // enough of them at once will carry him off. Everything goes down to gunfire.
+    // rubble as they go. When it's all fixed they fly over to one another and
+    // stack into a tower.
+    //
+    // The fly (the page's logo) is a hive: while it's alive it lets out one to four
+    // robot flies at a time, which swarm him, nibble at him and, enough of them at
+    // once, carry him off. It takes a lot of shooting to splat, and if it's left
+    // alone for a while it either grows or dies of old age. Once it and all its
+    // flies are gone, the fly guy turns up a while later with a swatter.
 
     const LINES = {
         arrive: ['on it', 'who did this', 'repair crew!', 'clocking in', 'ugh, again?', 'not the kerning'],
@@ -1015,20 +1088,27 @@
         hurt: ['ow', 'hey!', 'rude', 'my warranty!', 'I have a family', 'stop that'],
         grief: ['GARY NO', 'he was 2 days from retirement', 'avenge him!', 'noooo'],
         fixed: ['all fixed :)', "you're welcome", 'good as new'],
-        leave: ['my work here is done', 'break time', 'see ya'],
+        huddle: ['huddle up!', 'tower time', 'everyone on me'],
+        tada: ['ta-da!', 'behold', 'nailed it'],
+    };
+    const KEEPER_LINES = {
+        arrive: ['you squashed Gerald!', 'who killed my fly?!', "that's for Gerald", 'you monster'],
+        swat: ['SWAT!', 'hold still', 'take that'],
+        hurt: ['ow', 'argh', 'hey!'],
+        die: ['Geraaald...', 'tell Gerald I tried', 'avenge me, flies'],
+        win: ['and stay down', "that's for Gerald", 'pest control!'],
     };
     const pick = a => a[Math.floor(Math.random() * a.length)];
 
-    function say(b, lines, force) {
+    function say(e, lines, force) {
         if (!force && clock - lastSay < 1.5) return;
         lastSay = clock;
-        b.say = { text: pick(lines), t: 1.8 };
+        e.say = { text: pick(lines), t: 1.8 };
         sfx('beep');
     }
 
     function markTile(x, y) {
         const t = (y >> 4) * TW + (x >> 4);
-        hadDamage = true;
         if (!tileDirty[t]) {
             tileDirty[t] = 1;
             dirtyTiles.add(t);
@@ -1097,26 +1177,12 @@
         const x = from.length ? (pick(from) % TW) * TILE + 8 + rand(-40, 40) : rand(EDGE, W - EDGE);
         const b = {
             x: clamp(x, EDGE, W - EDGE), y: scrollY - 4, vx: 0, vy: 30, grounded: false, dropping: false,
-            prop: true, leaving: false, dead: false, hp: BOT_HP, facing: Math.random() < 0.5 ? -1 : 1,
-            t: 0, seed: rand(0, 6), hurt: 0, jumpCd: 0, retarget: 0, target: null, weldAcc: 0,
-            progressT: clock, bestDist: Infinity, idle: 0, skip: new Map(), say: null, beam: null,
+            prop: true, mode: 'work', dead: false, hp: BOT_HP, facing: Math.random() < 0.5 ? -1 : 1,
+            t: 0, hurt: 0, jumpCd: 0, retarget: 0, target: null, weldAcc: 0,
+            progressT: clock, bestDist: Infinity, skip: new Map(), say: null, beam: null,
         };
         bots.push(b);
         say(b, LINES.arrive);
-    }
-
-    function spawnSwarm(n, angry, from) {
-        const side = Math.random() < 0.5 ? -1 : 1, vw = window.innerWidth, vh = window.innerHeight;
-        for (let i = 0; i < n && flies.length < MAX_FLIES; i++) {
-            flies.push({
-                x: from ? from.x + rand(-10, 10) : side < 0 ? scrollX - rand(10, 80) : scrollX + vw + rand(10, 80),
-                y: from ? from.y + rand(-10, 10) : scrollY + vh * rand(0.1, 0.7),
-                vx: from ? rand(-160, 160) : -side * rand(120, 200), vy: rand(-60, 60),
-                t: 0, phase: rand(0, Math.PI * 2), orbit: angry ? rand(8, 20) : rand(16, 34), angry, dead: false,
-                bored: rand(25, 40), away: side,
-            });
-        }
-        sfx('buzz');
     }
 
     // Weld the damage around the target point; false once there's nothing left to fix there
@@ -1158,34 +1224,79 @@
         return false;
     }
 
-    function moveBot(b, dir, dt) {
-        b.vx = approach(b.vx, dir * BOT_SPEED, (b.grounded ? 900 : 250) * dt);
-        b.x = clamp(b.x + b.vx * dt, EDGE, W - EDGE);
-        if (b.grounded) {
-            const ground = groundUnder(b.x, b.y);
+    // Walking and falling on the text, for clankers and the fly guy. `prop` means a
+    // slow descent (propeller or parachute) until they land.
+    function moveWalker(e, dir, speed, dt) {
+        e.vx = approach(e.vx, dir * speed, (e.grounded ? 900 : 250) * dt);
+        e.x = clamp(e.x + e.vx * dt, EDGE, W - EDGE);
+        if (e.grounded) {
+            const ground = groundUnder(e.x, e.y);
             if (ground === null) {
-                b.grounded = false;
-                b.vy = 0;
+                e.grounded = false;
+                e.vy = 0;
             } else {
-                b.y = ground;
-                b.vy = 0;
+                e.y = ground;
+                e.vy = 0;
             }
         }
-        if (!b.grounded) {
-            b.vy = Math.min(b.vy + GRAVITY * dt, b.prop ? 90 : MAX_FALL);
-            const y1 = b.y + b.vy * dt;
+        if (!e.grounded) {
+            e.vy = Math.min(e.vy + GRAVITY * dt, e.prop ? 90 : MAX_FALL);
+            const y1 = e.y + e.vy * dt;
             let land = null;
-            if (b.vy > 0) {
-                if (b.dropping && !feetInSolid(b.x, y1)) b.dropping = false;
-                if (!b.dropping) land = surfaceBetween(b.x, Math.ceil(b.y), Math.floor(y1));
+            if (e.vy > 0) {
+                if (e.dropping && !feetInSolid(e.x, y1)) e.dropping = false;
+                if (!e.dropping) land = surfaceBetween(e.x, Math.ceil(e.y), Math.floor(y1));
             }
             if (land !== null) {
-                b.y = land;
-                b.vy = 0;
-                b.grounded = true;
-                b.prop = false;
-            } else b.y = Math.max(-40, y1);
+                e.y = land;
+                e.vy = 0;
+                e.grounded = true;
+                e.prop = false;
+            } else e.y = Math.max(-40, y1);
         }
+    }
+
+    // Which way to walk towards (tx, ty), hopping up or dropping down when it's
+    // overhead or underfoot. The text is one-way, so there's nothing to bump into.
+    function navigate(e, tx, ty, refY, stop, near) {
+        const dx = tx - e.x;
+        if (e.grounded && Math.abs(dx) < near && e.jumpCd <= 0) {
+            if (ty < refY - 20) {
+                e.vy = -Math.sqrt(2 * GRAVITY * clamp(e.y - (ty - 6), 20, 220));
+                e.grounded = false;
+                e.jumpCd = 0.5;
+            } else if (ty > e.y + 26 && e.y < H) {
+                e.grounded = false;
+                e.dropping = true;
+                e.y += 1;
+                e.vy = 60;
+                e.jumpCd = 0.3;
+            }
+        }
+        return Math.abs(dx) > stop ? Math.sign(dx) : 0;
+    }
+
+    function slotPos(k) {
+        return { x: stack.x + Math.sin(clock * 2 + k * 0.7) * k * 0.6, y: stack.y - k * BOT_H };
+    }
+
+    function disbandStack() {
+        if (!stack) return;
+        for (const [k, b] of stack.members.entries()) {
+            b.mode = 'work';
+            if (k > 0) {
+                b.grounded = false;
+                b.vx = rand(-90, 90);
+                b.vy = -rand(60, 180);
+            }
+        }
+        for (const b of bots) {
+            if (b.mode === 'gather') {
+                b.mode = 'work';
+                b.prop = false;
+            }
+        }
+        stack = null;
     }
 
     function updateBot(b, dt) {
@@ -1196,12 +1307,47 @@
         b.beam = null;
         if (b.say && (b.say.t -= dt) <= 0) b.say = null;
 
-        if (b.leaving) {
-            // off back up to wherever they come from
-            b.vy = Math.max(-150, b.vy - 300 * dt);
-            b.y += b.vy * dt;
-            if (b.y < scrollY - 80) b.dead = true;
-            return;
+        if (b.mode === 'stacked') {
+            const k = stack ? stack.members.indexOf(b) : -1;
+            if (k < 0) b.mode = 'work';
+            else if (k === 0) {
+                // the foreman holds the bottom
+                moveWalker(b, 0, BOT_SPEED, dt);
+                stack.x = b.x;
+                stack.y = b.y;
+                return;
+            } else {
+                const p = slotPos(k);
+                b.x = p.x;
+                b.y = p.y;
+                b.vx = b.vy = 0;
+                b.facing = stack.members[0].facing;
+                return;
+            }
+        }
+        if (b.mode === 'gather') {
+            if (!stack) b.mode = 'work';
+            else {
+                // propeller over and land on top of the stack
+                const p = slotPos(stack.members.length);
+                const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy);
+                b.prop = true;
+                if (Math.abs(dx) > 1) b.facing = Math.sign(dx);
+                if (d < 3) {
+                    stack.members.push(b);
+                    b.mode = 'stacked';
+                    b.prop = false;
+                    if (!stack.cheered && stack.members.length >= 2 && bots.every(o => o.mode === 'stacked')) {
+                        stack.cheered = true;
+                        say(b, LINES.tada, true);
+                    }
+                } else {
+                    const step = Math.min(d, 140 * dt);
+                    b.x += dx / d * step;
+                    b.y += dy / d * step;
+                }
+                return;
+            }
         }
 
         if (!b.prop && (!b.target || !tileDirty[b.target.tile]) && b.retarget <= 0) {
@@ -1209,34 +1355,16 @@
             b.retarget = 0.5;
             b.bestDist = Infinity;
             b.progressT = clock;
-            if (b.target) b.idle = 0;
         }
 
         let dir = 0;
         if (b.target) {
             const torchX = b.x + b.facing * 9, torchY = b.y - 12;
-            const dx = b.target.x - b.x, dist = Math.hypot(b.target.x - torchX, b.target.y - torchY);
+            const dist = Math.hypot(b.target.x - torchX, b.target.y - torchY);
             if (dist < BOT_REACH) {
-                b.facing = dx >= 0 ? 1 : -1;
+                b.facing = b.target.x >= b.x ? 1 : -1;
                 weld(b, dt);
-            } else if (b.grounded) {
-                if (Math.abs(dx) > 8) dir = Math.sign(dx);
-                if (Math.abs(dx) < 40 && b.jumpCd <= 0) {
-                    if (b.target.y < torchY - 20) {
-                        // hop up to it: the text is one-way, so there's nothing to bump into
-                        const rise = clamp(b.y - (b.target.y - 6), 20, 220);
-                        b.vy = -Math.sqrt(2 * GRAVITY * rise);
-                        b.grounded = false;
-                        b.jumpCd = 0.5;
-                    } else if (b.target.y > b.y + 26 && b.y < H) {
-                        b.grounded = false;
-                        b.dropping = true;
-                        b.y += 1;
-                        b.vy = 60;
-                        b.jumpCd = 0.3;
-                    }
-                }
-            }
+            } else if (b.grounded) dir = navigate(b, b.target.x, b.target.y, torchY, 8, 40);
             if (b.target) {
                 if (dist < b.bestDist - 8) {
                     b.bestDist = dist;
@@ -1248,18 +1376,150 @@
                     b.target = null;
                 }
             }
-        } else if (!b.prop) {
-            b.idle += dt;
-            if (b.idle > 1.5 && b.grounded) dir = Math.sin(b.t * 0.7 + b.seed) > 0 ? 1 : -1;
-            if (b.idle > 9 && !dirtyTiles.size) {
-                b.leaving = true;
-                b.prop = true;
-                b.vy = -40;
-                say(b, LINES.leave);
-            }
         }
         if (dir) b.facing = dir;
-        moveBot(b, dir, dt);
+        moveWalker(b, dir, BOT_SPEED, dt);
+    }
+
+    // Once all the text is back, the clankers build a tower on whoever's nearest the middle of the
+    // screen (stray rubble can wait until they're next called out)
+    function updateStack() {
+        if (solidRemoved > 0) {
+            disbandStack();
+            return;
+        }
+        if (!stack) {
+            const midX = scrollX + window.innerWidth / 2, midY = scrollY + window.innerHeight / 2;
+            let foreman = null, best = Infinity;
+            for (const b of bots) {
+                if (b.dead || b.mode !== 'work' || b.prop || !b.grounded) continue;
+                const d = Math.hypot(b.x - midX, b.y - midY);
+                if (d < best) {
+                    best = d;
+                    foreman = b;
+                }
+            }
+            if (!foreman) return;
+            stack = { x: foreman.x, y: foreman.y, members: [foreman], cheered: false };
+            foreman.mode = 'stacked';
+            foreman.target = null;
+            if (bots.length > 1) say(foreman, LINES.huddle, true);
+        }
+        for (const b of bots) {
+            if (b.mode !== 'work' || b.dead || !(b.grounded || b.prop)) continue;
+            b.mode = 'gather';
+            b.target = null;
+        }
+    }
+
+    // ------------------------------------------------------- the fly and its flies
+
+    function resetBigFly() {
+        fly = document.getElementById('fly-image');
+        bigFly.startSrc = fly ? fly.getAttribute('src') : '';
+        bigFly.alive = !!fly && fly.src.includes('fly.png');
+        bigFly.stage = 0;
+        bigFly.max = bigFly.hp = bigFly.shownHp = FLY_HP;
+        bigFly.alone = 0;
+        bigFly.spawnT = 5;
+        bigFly.engaged = false;
+        bigFly.deathT = 0;
+        if (fly) {
+            fly.style.scale = '';
+            fly.classList.remove('fly-dead');
+        }
+    }
+
+    function restoreBigFly() {
+        if (!fly) return;
+        fly.setAttribute('src', bigFly.startSrc);
+        fly.style.scale = '';
+        fly.classList.remove('fly-dead');
+    }
+
+    function bigFlyCenter() {
+        const r = fly.getBoundingClientRect();
+        return { x: r.left + r.width / 2 + scrollX, y: r.top + r.height / 2 + scrollY };
+    }
+
+    // Bullets etc. call this as they travel; true if they hit the fly
+    function hitFly(x, y, dmg = 1) {
+        if (!bigFly.alive || !flyRect) return false;
+        const sx = x - scrollX, sy = y - scrollY;
+        if (sx < flyRect.left || sx > flyRect.right || sy < flyRect.top || sy > flyRect.bottom) return false;
+        damageBigFly(dmg, x, y);
+        return true;
+    }
+
+    function damageBigFly(dmg, x, y) {
+        if (!bigFly.alive) return;
+        bigFly.hp -= dmg;
+        bigFly.alone = 0;
+        bigFly.engaged = true;
+        if (fly.animate) fly.animate({ rotate: ['0deg', '-14deg', '10deg', '0deg'] }, 200);
+        for (let i = 0; i < 3 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x, y, vx: rand(-140, 140), vy: rand(-160, 40), life: rand(0.1, 0.25), color: '#6b8f23' });
+        }
+        sfx('squish');
+        if (bigFly.hp <= 0) killBigFly(false);
+    }
+
+    function killBigFly(oldAge) {
+        bigFly.alive = false;
+        bigFly.hp = 0;
+        bigFly.deathT = 0;
+        fly.src = 'assets/squashed-fly.webp';
+        fly.classList.add('fly-dead');   // index.css fades it out
+        const c = bigFlyCenter();
+        for (let i = 0; i < 16 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x: c.x, y: c.y, vx: rand(-220, 220), vy: rand(-260, 60), life: rand(0.2, 0.5), color: i % 2 ? '#c41e1e' : '#6b8f23' });
+        }
+        sfx('splat');
+        if (!oldAge) addShake(5);
+        keeperWait = 0;
+    }
+
+    function growBigFly() {
+        bigFly.stage++;
+        bigFly.max += FLY_GROW_HP;
+        bigFly.hp += FLY_GROW_HP;
+        fly.style.scale = String(1 + bigFly.stage * 0.4);
+        const c = bigFlyCenter();
+        for (let i = 0; i < 10 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SMOKE, x: c.x + rand(-20, 20), y: c.y + rand(-20, 20), vx: rand(-40, 40), vy: rand(-40, 10), life: rand(0.5, 1), max: 1, size: rand(4, 9) });
+        }
+        sfx('grow');
+    }
+
+    function updateBigFly(dt) {
+        if (!bigFly.alive) {
+            bigFly.deathT += dt;
+            return;
+        }
+        bigFly.shownHp = approach(bigFly.shownHp, bigFly.hp, bigFly.max * 0.6 * dt);
+        if (!botsOn) return;
+        if ((bigFly.spawnT -= dt) <= 0) {
+            spawnFlies(1 + Math.floor(Math.random() * 4));
+            bigFly.spawnT = rand(6, 11) / (1 + bigFly.stage * 0.35);
+        }
+        // left alone too long: it either grows or dies of old age
+        if ((bigFly.alone += dt) > FLY_ALONE) {
+            bigFly.alone = 0;
+            if (bigFly.stage < 3 && Math.random() < 0.6) growBigFly();
+            else killBigFly(true);
+        }
+    }
+
+    function spawnFlies(n) {
+        const c = bigFlyCenter();
+        for (let i = 0; i < n && flies.length < MAX_FLIES; i++) {
+            flies.push({
+                x: c.x + rand(-6, 6), y: c.y + rand(-6, 6), vx: rand(-200, 60), vy: rand(-90, 90),
+                t: 0, phase: rand(0, Math.PI * 2), orbit: rand(12, 30), dead: false,
+                bored: rand(25, 40), away: Math.random() < 0.5 ? -1 : 1,
+            });
+        }
+        sfx('buzz');
     }
 
     function updateFlies(dt) {
@@ -1268,7 +1528,7 @@
         for (const f of flies) {
             f.t += dt;
             // buzz in circles around him until they get bored and wander off
-            const a = f.phase + f.t * (f.angry ? 4.2 : 2.6);
+            const a = f.phase + f.t * 2.8;
             const leaving = f.t > f.bored;
             const tx = leaving ? cx + f.away * 5000 : cx + Math.cos(a) * f.orbit;
             const ty = leaving ? f.y - 40 : cy + Math.sin(a * 1.3) * f.orbit * 0.7;
@@ -1285,17 +1545,18 @@
                     f.vy += oy / od * 300 * dt;
                 }
             }
-            const max = f.angry ? 270 : FLY_SPEED, v = Math.hypot(f.vx, f.vy);
-            if (v > max) {
-                f.vx *= max / v;
-                f.vy *= max / v;
+            const v = Math.hypot(f.vx, f.vy);
+            if (v > FLY_SPEED) {
+                f.vx *= FLY_SPEED / v;
+                f.vy *= FLY_SPEED / v;
             }
             f.x += f.vx * dt;
             f.y += f.vy * dt;
             if (!leaving && Math.abs(f.x - cx) < 20 && Math.abs(f.y - cy) < 24) touching++;
         }
-        if (!touching) return;
+        if (!touching || guy.dead) return;
         sfx('buzz');
+        hurtGuy(touching * FLY_BITE * dt);
         guy.vx += rand(-1, 1) * touching * 60 * dt;
         // enough of them pick him up
         if (touching >= 4 && guy.state !== 'climb') {
@@ -1309,22 +1570,114 @@
         }
     }
 
+    // ------------------------------------------------------------- the fly guy
+
+    function spawnKeeper() {
+        const vw = window.innerWidth, fromRight = guy.x - scrollX < vw / 2;
+        const hp = KEEPER_HP + keepersBeaten * 10;
+        keeper = {
+            x: clamp(scrollX + (fromRight ? vw - 40 : 40), EDGE, W - EDGE), y: scrollY - 4, vx: 0, vy: 30,
+            grounded: false, dropping: false, prop: true, hp, max: hp, facing: fromRight ? -1 : 1,
+            t: 0, hurt: 0, jumpCd: 0, cd: 1, attack: null, attackT: 0, say: null, dying: false, deathT: 0, rot: 0,
+        };
+        say(keeper, KEEPER_LINES.arrive, true);
+    }
+
+    function updateKeeper(dt) {
+        const k = keeper;
+        k.t += dt;
+        k.hurt -= dt;
+        k.jumpCd -= dt;
+        k.cd -= dt;
+        if (k.say && (k.say.t -= dt) <= 0) k.say = null;
+        if (k.dying) {
+            k.vy += GRAVITY * dt;
+            k.x += k.vx * dt;
+            k.y += k.vy * dt;
+            k.rot += dt * 9;
+            if ((k.deathT += dt) > 2) keeper = null;
+            return;
+        }
+        let dir = 0;
+        if (k.attack) {
+            k.attackT -= dt;
+            if (k.attack === 'windup' && k.attackT <= 0) {
+                k.attack = 'strike';
+                k.attackT = 0.14;
+                swat(k);
+            } else if (k.attack === 'strike' && k.attackT <= 0) {
+                k.attack = 'recover';
+                k.attackT = 0.4;
+            } else if (k.attack === 'recover' && k.attackT <= 0) k.attack = null;
+        } else if (!guy.dead) {
+            const dx = guy.x - k.x;
+            k.facing = dx >= 0 ? 1 : -1;
+            const close = Math.abs(dx) < 34 && Math.abs(guy.y - HEIGHT / 2 - (k.y - 20)) < 34;
+            if (close && k.cd <= 0 && k.grounded) {
+                k.attack = 'windup';
+                k.attackT = 0.32;
+                sfx('whoosh');
+                if (Math.random() < 0.3) say(k, KEEPER_LINES.swat, true);
+            } else dir = navigate(k, guy.x, guy.y, k.y, 18, 80);
+        }
+        moveWalker(k, dir, KEEPER_SPEED, dt);
+    }
+
+    function swat(k) {
+        k.cd = 1.1;
+        if (guy.dead) return;
+        const dx = guy.x - k.x, dy = guy.y - HEIGHT / 2 - (k.y - 20);
+        if (Math.abs(dx) > 40 || Math.abs(dy) > 36 || Math.sign(dx || k.facing) !== k.facing) return;
+        hurtGuy(KEEPER_DMG);
+        if (guy.dead) return;
+        // and off he goes
+        guy.state = 'air';
+        guy.grounded = false;
+        guy.dropping = false;
+        guy.forceChute = false;
+        guy.vx = k.facing * 650;
+        guy.vy = -430;
+        guy.jumps = 1;
+        guy.spin = FLIP_TIME;
+        flashes.push({ x: guy.x, y: guy.y - HEIGHT / 2, r: 10, t: 0, life: 0.12 });
+        addShake(7);
+        sfx('swat');
+    }
+
+    function hurtKeeper(dmg, kx) {
+        const k = keeper;
+        if (!k || k.dying) return;
+        k.hp -= dmg;
+        k.hurt = 0.1;
+        k.vx += kx || 0;
+        if (k.hp > 0) {
+            if (Math.random() < 0.25) say(k, KEEPER_LINES.hurt, true);
+            sfx('oof');
+            return;
+        }
+        k.dying = true;
+        k.vy = -320;
+        k.vx = -k.facing * 140;
+        keepersBeaten++;
+        keeperWait = 0;
+        say(k, KEEPER_LINES.die, true);
+        addShake(4);
+        sfx('oof');
+    }
+
     function updateRobots(dt) {
         for (const b of bots) updateBot(b, dt);
-        if (revenge && (revenge.t -= dt) <= 0) {
-            spawnSwarm(14, true, revenge);
-            revenge = null;
-        }
+        updateBigFly(dt);
         updateFlies(dt);
+        if (keeper) updateKeeper(dt);
         if (bots.some(b => b.dead)) bots = bots.filter(b => !b.dead);
         if (flies.some(f => f.dead)) flies = flies.filter(f => !f.dead);
         if (!botsOn) return;
 
         const pct = solidTotal ? solidRemoved / solidTotal * 100 : 0;
-        if (dirtyTiles.size) {
+        if (solidRemoved > 0) {
             botTimer -= dt;
-            const working = bots.filter(b => !b.leaving).length;
-            if (botTimer <= 0 && working < Math.min(MAX_BOTS, 1 + Math.floor(pct / 3))) {
+            if (botTimer <= 0 && bots.length < Math.min(MAX_BOTS, 2 + Math.floor(pct / 2))) {
                 spawnBot();
                 botTimer = clamp(9 - pct / 5, 2.5, 9);
             }
@@ -1332,15 +1685,15 @@
             botTimer = Math.max(botTimer, 3);
             if (hadDamage) {
                 hadDamage = false;
-                const b = bots.find(o => !o.leaving);
-                if (b && solidRemoved === 0) say(b, LINES.fixed, true);
+                if (bots.length) say(bots[0], LINES.fixed, true);
             }
         }
-        flyTimer -= dt;
-        if (flyTimer <= 0) {
-            spawnSwarm(3 + Math.floor(pct / 10) + Math.min(4, Math.floor(clock / 60)), false);
-            flyTimer = rand(15, 25);
-        }
+        updateStack();
+
+        // with the fly and all its flies gone, the fly guy comes looking for you
+        if (!bigFly.alive && !flies.length && !keeper) {
+            if ((keeperWait += dt) > (keepersBeaten ? KEEPER_AGAIN : KEEPER_DELAY)) spawnKeeper();
+        } else if (bigFly.alive || flies.length) keeperWait = 0;
     }
 
     function segDist2(cx, cy, x0, y0, x1, y1) {
@@ -1350,36 +1703,36 @@
         return [ex * ex + ey * ey, t];
     }
 
-    // The first robot or fly along a segment: { e, fly, t } or null
+    // The first robot, fly or fly guy along a segment: { e, kind, t } or null
     function enemyOnSegment(x0, y0, x1, y1, pad = 0) {
         let best = null;
-        for (const b of bots) {
-            if (b.dead || b.leaving) continue;
-            const [d2, t] = segDist2(b.x, b.y - BOT_H / 2, x0, y0, x1, y1);
-            if (d2 <= (10 + pad) ** 2 && (!best || t < best.t)) best = { e: b, fly: false, t };
-        }
-        for (const f of flies) {
-            if (f.dead) continue;
-            const [d2, t] = segDist2(f.x, f.y, x0, y0, x1, y1);
-            if (d2 <= (7 + pad) ** 2 && (!best || t < best.t)) best = { e: f, fly: true, t };
-        }
+        const test = (e, kind, cx, cy, r) => {
+            const [d2, t] = segDist2(cx, cy, x0, y0, x1, y1);
+            if (d2 <= (r + pad) ** 2 && (!best || t < best.t)) best = { e, kind, t };
+        };
+        for (const b of bots) if (!b.dead) test(b, 'bot', b.x, b.y - BOT_H / 2, 10);
+        for (const f of flies) if (!f.dead) test(f, 'fly', f.x, f.y, 7);
+        if (keeper && !keeper.dying) test(keeper, 'keeper', keeper.x, keeper.y - 20, 13);
         return best;
     }
 
     function damageEnemy(hit, dmg, vx, vy) {
-        if (hit.fly) return killFly(hit.e);
         const v = Math.hypot(vx, vy) || 1;
-        hurtBot(hit.e, dmg, vx / v * 60, -40);
+        if (hit.kind === 'fly') killFly(hit.e);
+        else if (hit.kind === 'keeper') hurtKeeper(dmg, vx / v * 40);
+        else hurtBot(hit.e, dmg, vx / v * 60, -40);
     }
 
     function hurtBot(b, dmg, kx, ky) {
         if (b.dead) return;
         b.hp -= dmg;
         b.hurt = 0.1;
-        b.vx += kx;
-        if (ky < -50) {
-            b.grounded = false;
-            b.vy = Math.min(b.vy, ky);
+        if (b.mode !== 'stacked') {
+            b.vx += kx;
+            if (ky < -50) {
+                b.grounded = false;
+                b.vy = Math.min(b.vy, ky);
+            }
         }
         if (b.hp <= 0) return killBot(b);
         sfx('clank');
@@ -1389,6 +1742,7 @@
     function killBot(b) {
         b.dead = true;
         scrapped++;
+        if (stack && stack.members.includes(b)) disbandStack();   // timber
         const cx = b.x, cy = b.y - BOT_H / 2;
         const cols = [botColors.g, botColors.y, botColors.d, botColors.k, botColors.e];
         for (let i = 0; i < 14 && parts.length < MAX_PARTICLES; i++) {
@@ -1402,7 +1756,7 @@
         addShake(2);
         sfx('crunch');
         for (const o of bots) {
-            if (o.dead || o.leaving || Math.hypot(o.x - b.x, o.y - b.y) > 160) continue;
+            if (o.dead || Math.hypot(o.x - b.x, o.y - b.y) > 160) continue;
             say(o, LINES.grief, true);
             break;
         }
@@ -1412,8 +1766,10 @@
         if (f.dead) return;
         f.dead = true;
         swatted++;
-        for (let i = 0; i < 5 && parts.length < MAX_PARTICLES; i++) {
-            parts.push({ type: SHELL, x: f.x, y: f.y, vx: rand(-140, 140), vy: rand(-200, -20), life: rand(0.6, 1.1), bounces: 0, color: pick([botColors.k, botColors.w, botColors.e]), size: 2 });
+        // splat
+        if (parts.length < MAX_PARTICLES) parts.push({ type: SPLAT, x: f.x, y: f.y, rot: rand(0, Math.PI * 2), size: rand(12, 18), life: 1.6 });
+        for (let i = 0; i < 3 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SHELL, x: f.x, y: f.y, vx: rand(-140, 140), vy: rand(-200, -20), life: rand(0.6, 1.1), bounces: 0, color: pick([botColors.k, botColors.w]), size: 2 });
         }
         sfx('pop');
     }
@@ -1423,12 +1779,12 @@
         try { localStorage.setItem('destroyBots', botsOn ? '1' : '0'); } catch (_) { /* storage unavailable */ }
         if (!botsOn) {
             for (const e of [...bots, ...flies]) dust(e.x, e.y, 4);
+            if (keeper) dust(keeper.x, keeper.y - 20, 8);
             bots = [];
             flies = [];
-        } else {
-            botTimer = 3;
-            flyTimer = 6;
-        }
+            keeper = null;
+            stack = null;
+        } else botTimer = 3;
         renderHud();
     }
 
@@ -1473,21 +1829,90 @@
         }
     }
 
+    function drawKeeper() {
+        const k = keeper;
+        ctx.save();
+        ctx.translate(Math.round(k.x), Math.round(k.y) - 20);
+        if (k.dying) {
+            ctx.rotate(k.rot);
+            ctx.globalAlpha = clamp(1 - k.deathT / 2, 0, 1);
+        }
+        if (k.facing < 0) ctx.scale(-1, 1);
+        if (k.prop) {
+            ctx.fillStyle = keeperColors.h;
+            for (const [x, y] of CANOPY) ctx.fillRect(x - 12, y - 20, 4, 4);
+        }
+        const frame = k.grounded && Math.abs(k.vx) > 15 ? Math.floor(k.t / 0.2) % 2 : 0;
+        ctx.drawImage(k.hurt > 0 ? keeperSprites.hurt[frame] : keeperSprites.normal[frame], -12, -20);
+        // the swatter
+        let a = -1;
+        if (k.attack === 'windup') a = -2.3;
+        else if (k.attack === 'strike') a = 0.7;
+        else if (k.attack === 'recover') a = 0.7 - 1.7 * (1 - k.attackT / 0.4);
+        ctx.translate(6, -2);
+        ctx.rotate(a);
+        ctx.fillStyle = '#7a4a22';
+        ctx.fillRect(0, -1, 16, 2);
+        ctx.fillStyle = '#c23b22';
+        ctx.fillRect(16, -5, 11, 10);
+        ctx.fillStyle = '#e8705a';
+        for (let i = 0; i < 3; i++) {
+            ctx.fillRect(18 + i * 3, -4, 1, 8);
+            ctx.fillRect(17, -3 + i * 3, 9, 1);
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        if (!k.dying) drawBar(k.x - 15, k.y - 48, 30, k.hp / k.max);
+    }
+
+    function drawBar(x, y, w, f) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, w + 2, 5);
+        ctx.fillStyle = f > 0.5 ? '#4cc94c' : f > 0.25 ? '#f2c230' : '#ff4b3a';
+        ctx.fillRect(Math.round(x), Math.round(y), Math.max(0, Math.round(w * f)), 3);
+    }
+
+    // The fly's big health bar, across the top of the screen once you've started on it
+    function drawBossBar() {
+        if (!bigFly.engaged || (!bigFly.alive && bigFly.deathT > 1.5)) return;
+        const vw = window.innerWidth, w = Math.min(420, vw - 80), x = Math.round((vw - w) / 2), y = 26;
+        const name = ['GERALD THE FLY', 'GERALD THE BIG FLY', 'GERALD THE HUGE FLY', 'GERALD THE ENORMOUS FLY'][bigFly.stage];
+        ctx.globalAlpha = bigFly.alive ? 1 : clamp(1 - (bigFly.deathT - 0.8) / 0.7, 0, 1);
+        ctx.font = "11px 'IBM Plex Mono', monospace";
+        ctx.textBaseline = 'bottom';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = cellColor(1, 0);
+        ctx.fillText(bigFly.alive ? name : 'SPLAT', vw / 2, y - 3);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(x, y, w, 12);
+        ctx.fillStyle = '#ffe0a0';
+        ctx.fillRect(x, y, Math.round(w * bigFly.shownHp / bigFly.max), 12);
+        ctx.fillStyle = '#c41e1e';
+        ctx.fillRect(x, y, Math.round(w * Math.max(0, bigFly.hp) / bigFly.max), 12);
+        ctx.strokeStyle = cellColor(1, 0);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 0.5, y - 0.5, w + 1, 13);
+        ctx.globalAlpha = 1;
+    }
+
     function drawSpeech() {
         ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textBaseline = 'middle';
-        for (const b of bots) {
-            if (!b.say) continue;
-            const w = Math.ceil(ctx.measureText(b.say.text).width) + 8;
-            const x = Math.round(b.x - w / 2), y = Math.round(b.y - BOT_H - (b.prop ? 18 : 12));
-            ctx.globalAlpha = Math.min(1, b.say.t * 4);
+        const talkers = keeper ? [...bots, keeper] : bots;
+        for (const e of talkers) {
+            if (!e.say) continue;
+            const top = e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
+            const w = Math.ceil(ctx.measureText(e.say.text).width) + 8;
+            const x = Math.round(e.x - w / 2), y = Math.round(top);
+            ctx.globalAlpha = Math.min(1, e.say.t * 4);
             ctx.fillStyle = bgColor;
             ctx.fillRect(x, y - 7, w, 14);
             ctx.strokeStyle = cellColor(1, 0);
             ctx.lineWidth = 1;
             ctx.strokeRect(x + 0.5, y - 6.5, w - 1, 13);
             ctx.fillStyle = cellColor(1, 0);
-            ctx.fillText(b.say.text, x + 4, y + 0.5);
+            ctx.fillText(e.say.text, x + 4, y + 0.5);
         }
         ctx.globalAlpha = 1;
     }
@@ -1558,8 +1983,14 @@
         pop: t => tone(t, 0.07, 'square', 900, 250, 0.05),
         buzz: t => tone(t, 0.3, 'sawtooth', 160, 200, 0.03),
         beep: t => { tone(t, 0.05, 'square', 1250, 1250, 0.03); tone(t + 0.07, 0.05, 'square', 950, 950, 0.03); },
+        squish: t => { noise(t, 0.08, 'lowpass', 1400, 300, 0.25); tone(t, 0.06, 'sine', 240, 120, 0.12); },
+        grow: t => tone(t, 0.4, 'sine', 180, 520, 0.12),
+        whoosh: t => noise(t, 0.2, 'bandpass', 500, 1800, 0.18, 1.2),
+        swat: t => { noise(t, 0.14, 'bandpass', 1600, 400, 0.6, 1); tone(t, 0.1, 'square', 200, 70, 0.15); },
+        oof: t => tone(t, 0.22, 'square', 300, 90, 0.1),
+        hurt: t => tone(t, 0.08, 'square', 520, 260, 0.06),
     };
-    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2 };
+    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15 };
 
     function sfx(name) {
         if (audio.muted || !audio.ctx || audio.ctx.state !== 'running') return;
@@ -1601,12 +2032,15 @@
         drawNades();
         drawRockets();
         drawBots();
+        if (keeper) drawKeeper();
         drawGuy();
         drawFlies();
         drawBullets();
         drawBeams();
         drawFlashes();
         drawSpeech();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawBossBar();
     }
 
     function drawParticles() {
@@ -1617,6 +2051,16 @@
             } else if (q.type === SPARK) {
                 ctx.fillStyle = q.color || '#ffd24a';
                 ctx.fillRect(q.x, q.y, 1.5, 1.5);
+            } else if (q.type === SPLAT) {
+                ctx.globalAlpha = Math.min(1, q.life / 0.8);
+                ctx.imageSmoothingEnabled = true;
+                ctx.save();
+                ctx.translate(q.x, q.y);
+                ctx.rotate(q.rot);
+                ctx.drawImage(splatImg, -q.size / 2, -q.size / 2, q.size, q.size);
+                ctx.restore();
+                ctx.imageSmoothingEnabled = false;
+                ctx.globalAlpha = 1;
             } else if (q.type === SHELL) {
                 ctx.globalAlpha = Math.min(1, q.life * 3);
                 ctx.fillStyle = q.color || '#d4a93a';
@@ -1639,9 +2083,9 @@
         }
     }
 
-    function drawPixels(list) {
+    function drawPixels(list, tint) {
         for (const [x, y, c] of list) {
-            ctx.fillStyle = c;
+            ctx.fillStyle = tint || c;
             ctx.fillRect(x, y, 4, 4);
         }
     }
@@ -1656,16 +2100,23 @@
 
         ctx.save();
         ctx.translate(Math.round(g.x), Math.round(g.y) - HEIGHT / 2);
-        if (g.spin > 0) ctx.rotate((1 - g.spin / FLIP_TIME) * Math.PI * 2 * g.facing);
+        if (g.dead) {
+            ctx.rotate(g.deadRot);
+            ctx.globalAlpha = clamp(g.deadT / 1.8, 0, 1);
+        } else if (g.spin > 0) ctx.rotate((1 - g.spin / FLIP_TIME) * Math.PI * 2 * g.facing);
         if (g.facing < 0) ctx.scale(-1, 1);
         ctx.translate(-12, -HEIGHT / 2);
-        if (pose === 'chute') {
+        if (pose === 'chute' && !g.dead) {
             ctx.fillStyle = CANOPY_RED;
             for (const [x, y] of CANOPY) ctx.fillRect(x, y, 4, 4);
         }
-        drawPixels(BODY);
-        drawPixels(POSES[pose][frame]);
+        const tint = g.hurtT > 0 ? '#ff4b3a' : null;
+        drawPixels(BODY, tint);
+        drawPixels(POSES[pose][frame], tint);
         ctx.restore();
+        ctx.globalAlpha = 1;
+        if (g.dead) return;
+        if (g.hp < MAX_HP) drawBar(g.x - 12, g.y - HEIGHT - 9, 24, g.hp / MAX_HP);
 
         // the arm that holds the gun, then the gun, pointing wherever he's aiming
         const w = WEAPONS[weapon], p = gunPose();
@@ -1777,6 +2228,7 @@
     // Keep him in the middle of the screen while he moves (and for a moment after,
     // to catch up), but leave the user free to scroll around while he stands still
     function followCamera(dt) {
+        if (guy.dead) return;
         if (Math.abs(guy.vx) > 1 || Math.abs(guy.vy) > 1) camHold = 0.4;
         else if ((camHold -= dt) <= 0) return;
         const vh = window.innerHeight, sy = guy.y - HEIGHT / 2 - scrollY;
@@ -1804,6 +2256,7 @@
         updateNades(dt);
         clock += dt;
         updateRobots(dt);
+        healGuy();
         updateParticles(dt);
         for (let i = beams.length - 1; i >= 0; i--) if ((beams[i].t -= dt) <= 0) beams.splice(i, 1);
         for (let i = flashes.length - 1; i >= 0; i--) if ((flashes[i].t += dt) >= flashes[i].life) flashes.splice(i, 1);
@@ -1817,7 +2270,7 @@
         acc += dt;
         scrollX = window.scrollX;
         scrollY = window.scrollY;
-        flyRect = fly && fly.src.includes('fly.png') ? fly.getBoundingClientRect() : null;
+        flyRect = bigFly.alive && fly ? fly.getBoundingClientRect() : null;
         while (acc >= STEP) {
             step(STEP);
             acc -= STEP;
@@ -1863,7 +2316,7 @@
         hud.classList.toggle('dh-idle', !active);
         if (!active) {
             hud.innerHTML = `<button data-act="gun">[${coarsePointer ? 'tap' : 'g'}] give him the gun back</button>`;
-            pctEl = muteEl = killsEl = null;
+            pctEl = muteEl = killsEl = hpFill = hpNum = null;
             return;
         }
         const weapons = WEAPONS.map((w, i) =>
@@ -1876,12 +2329,16 @@
         hud.innerHTML =
             `<div>${weapons}</div>` +
             `<div class="dh-pct"></div>` +
+            `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
             (helpOn ? `<div class="dh-help">${help}</div>` : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button> <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
+        hpFill = hud.querySelector('.dh-fill');
+        hpNum = hud.querySelector('.dh-hpn');
         shownKills = '';
+        shownHp = -1;
         muteEl = hud.querySelector('[data-act="mute"]');
         muteEl.textContent = `${coarsePointer ? '' : '[m] '}sound ${audio.muted ? 'off' : 'on'}`;
         shownPct = -1;
@@ -1889,8 +2346,19 @@
     }
 
     function updateKills() {
+        if (hpFill) {
+            const hp = Math.ceil(guy.hp);
+            if (hp !== shownHp) {
+                shownHp = hp;
+                hpFill.style.width = hp / MAX_HP * 100 + '%';
+                hpFill.style.background = hp > 50 ? '#4cc94c' : hp > 25 ? '#f2c230' : '#ff4b3a';
+                hpNum.textContent = guy.dead ? 'ow' : hp;
+            }
+        }
         if (!killsEl) return;
-        const text = `clankers scrapped: ${scrapped} \u00b7 flies swatted: ${swatted}`;
+        let text = `clankers scrapped: ${scrapped} \u00b7 flies swatted: ${swatted}`;
+        if (keepersBeaten) text += ` \u00b7 fly guys beaten: ${keepersBeaten}`;
+        if (deaths) text += ` \u00b7 deaths: ${deaths}`;
         if (text === shownKills) return;
         shownKills = text;
         killsEl.textContent = text;
@@ -1947,7 +2415,6 @@
         view.style.display = 'block';
         sizeView();
         if (!hud) buildHud();
-        fly = document.getElementById('fly-image');
 
         guy = newGuy(clamp(x + window.scrollX, EDGE, W - EDGE), clamp(y + window.scrollY, HEIGHT, H), chute);
         bullets = [];
@@ -1963,10 +2430,15 @@
         flies = [];
         clock = 0;
         botTimer = 3;
-        flyTimer = 12;
         lastSay = -10;
         scrapped = swatted = 0;
-        revenge = null;
+        keeper = null;
+        keeperWait = 0;
+        keepersBeaten = 0;
+        stack = null;
+        deaths = 0;
+        regen = 0;
+        resetBigFly();
         releaseAll();
         active = true;
         renderHud();
@@ -2015,6 +2487,9 @@
         dirtyTiles = new Set();
         bots = [];
         flies = [];
+        keeper = null;
+        stack = null;
+        restoreBigFly();
         bullets = [];
         rockets = [];
         nades = [];
@@ -2040,6 +2515,7 @@
         guy.y = clamp(y + window.scrollY, HEIGHT, H);
         guy.grounded = false;
         guy.state = 'air';
+        disbandStack();
         for (const b of bots) {
             b.target = null;
             b.grounded = false;
@@ -2211,6 +2687,6 @@
         start,
         stop: holster,
         // for poking at from the console
-        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted } : null; },
+        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode) } : null; },
     };
 })();

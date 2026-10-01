@@ -780,6 +780,17 @@ html.destroying .logo {
     cursor: crosshair;
 }
 
+/* In destroy mode the fly is a boss: it grows if it's left alone, and fades out once it's splatted */
+html.destroying #fly-image {
+    transition: scale 0.6s ease, opacity 1.5s ease;
+}
+
+html.destroying #fly-image.fly-dead {
+    opacity: 0;
+    transition: scale 0.6s ease, opacity 1.5s ease 1s;
+    pointer-events: none;
+}
+
 html.destroying #pixelated-person {
     display: none !important;
 }
@@ -834,6 +845,20 @@ html.destroying #pixelated-person {
 
 #destroy-hud .dh-help {
     opacity: 0.6;
+}
+
+#destroy-hud .dh-bar {
+    display: inline-block;
+    width: 100px;
+    height: 7px;
+    border: 1px solid var(--text-color);
+    vertical-align: middle;
+}
+
+#destroy-hud .dh-fill {
+    display: block;
+    height: 100%;
+    background: #4cc94c;
 }
 
 /* Where it won't cover the name, the theme toggle or the fly: in the empty left
