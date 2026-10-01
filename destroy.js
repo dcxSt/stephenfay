@@ -100,7 +100,8 @@
     const BOT_HP = 4, BOT_SPEED = 80, BOT_H = 22, BOT_REACH = 42, WELD_RATE = 90, WELD_R = 9;
     const MAX_BOTS = 8, MAX_FLIES = 30, FLY_SPEED = 210;
     const FLY_HP = 250, FLY_GROW_HP = 125, FLY_ALONE = 25, FLY_BITE = 1.2;   // FLY_BITE: health per second per fly on him
-    const BROOD = 100, GLOB_G = 600, GLOB_DMG = 12, LASER_DMG = 4;   // BROOD: flies it was carrying when it dies
+    const BROOD = 100, GLOB_G = 600, GLOB_DMG = 12, LASER_DMG = 4;
+    const JET_THRUST = 2700, JET_MAX = 340;   // BROOD: flies it was carrying when it dies
     const KEEPER_HP = 30, KEEPER_SPEED = 105, KEEPER_DMG = 20, KEEPER_DELAY = 20, KEEPER_AGAIN = 60;
     const MAX_HP = 100, BLAST_DMG = 40, REGEN_CELLS = 50;   // he heals a point for every REGEN_CELLS of page destroyed
     const KEEPER_COLORS = {
@@ -150,7 +151,7 @@
     let alp = null, pal = null, shade = null, kind = null;
     let worldCanvas = null, worldCtx = null, worldImg = null, px32 = null;
     let dirtyX0, dirtyY0, dirtyX1, dirtyY1;
-    const palette = [null, [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];   // 1: text, 2: links, 3-6: the space above
+    const palette = [null, [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];   // 1: text, 2: links, 3-6: the space above, 7-10: the shell
     let colorCache = new Map();
     let solidTotal = 0, solidRemoved = 0;
 
@@ -170,6 +171,7 @@
     let botsOn = true;
     let scene = 'site', siteState = null, skyState = null, sky = null, portal = null, robotsEvil = false;
     let owned = new Set([0]), pickups = [];
+    let weather = {}, shell = null, shellState = null, hasJetpack = false, jetSprite = null;
     let globs = [], lasers = [], fade = null, siteWords = [], factoryDown = false, portalArmed = true, tauntN = 0, tauntT = 0, retortT = 0;
     const splatImg = new Image();
     splatImg.src = 'assets/squashed-fly.webp';
@@ -212,6 +214,7 @@
         };
         for (const [name, p] of Object.entries(PARTS)) partSprites[name] = artCanvas(partRows(p), { ...botColors, o: '#3a3f45' });
         partSprites.eyesEvil = artCanvas(partRows(PARTS.eyes), { e: '#ff2020' });
+        jetSprite = artCanvas(['.kk.kk.', 'kggkggk', 'kggkggk', 'kggkggk', '.oo.oo.'], { k: '#2b2f33', g: '#8c96a0', o: '#ff8a2a' });
         keeperSprites = {
             normal: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, false, 4)),
             hurt: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, true, 4)),
@@ -249,6 +252,10 @@
         palette[4] = [200, 100, 30];
         palette[5] = dark ? [169, 139, 255] : [122, 79, 214];
         palette[6] = dark ? [70, 210, 230] : [31, 155, 176];
+        palette[7] = [45, 226, 230];
+        palette[8] = [255, 63, 164];
+        palette[9] = [246, 224, 94];
+        palette[10] = [154, 215, 255];
         gunColors = dark ? GUN_COLORS.dark : GUN_COLORS.light;
         botColors = dark ? BOT_COLORS.dark : BOT_COLORS.light;
         keeperColors = dark ? KEEPER_COLORS.dark : KEEPER_COLORS.light;
@@ -619,8 +626,11 @@
 
     function updateGuy(dt) {
         const g = guy, k = input();
-        const jumpHeld = k.up || k.space;
-        let jumpPressed = (jumpHeld && !g.jumpHeld) || k.tapped.up || k.tapped.jump;
+        // with the jetpack, space is the jetpack rather than jump
+        const jumpHeld = k.up || (k.space && !hasJetpack);
+        let jumpPressed = (jumpHeld && !g.jumpHeld) || k.tapped.up || (k.tapped.jump && !hasJetpack);
+        g.jetting = hasJetpack && k.space && !g.dead;
+        const swim = submerged();
         const spacePressed = (k.space && !g.spaceHeld) || k.tapped.jump;
         const downPressed = (k.down && !g.downHeld) || k.tapped.down;
         tapped.up = tapped.down = tapped.jump = false;
@@ -654,7 +664,7 @@
             if (climb) g.walk += dt;
             const y0 = g.y;
             g.y = Math.max(canRiseOut() ? -10 : HEIGHT, g.y + g.vy * dt);
-            if (g.y < 0) transition(() => enterSky('climb'));
+            if (g.y < 0) transition(riseOut);
             if (climb > 0) {
                 const land = surfaceBetween(g.x, Math.ceil(y0), Math.floor(g.y));
                 if (land !== null) {
@@ -678,7 +688,7 @@
         }
 
         // Running. Blasts can throw him faster than he runs; let that carry.
-        const speed = g.state === 'chute' ? CHUTE_SPEED : RUN_SPEED;
+        const speed = (g.state === 'chute' ? CHUTE_SPEED : RUN_SPEED) * (swim ? 0.7 : 1);
         let accel = g.grounded ? 2400 : 1300;
         if (Math.abs(g.vx) > speed && Math.sign(g.vx) !== -dir) accel = g.grounded ? 1200 : 350;
         g.vx = approach(g.vx, dir * speed, accel * dt);
@@ -704,6 +714,11 @@
             } else g.wallPush = 0;
         } else g.wallPush = 0;
 
+        if (g.grounded && g.jetting) {
+            g.grounded = false;
+            g.vy = -120;
+            g.jumps = 1;
+        }
         if (g.grounded) {
             g.groundTime += dt;
             if (jumpPressed) {
@@ -733,7 +748,8 @@
         }
 
         if (!g.grounded) {
-            if (jumpPressed) {
+            if (jumpPressed && swim) g.vy = -300;   // a swimming stroke
+            else if (jumpPressed) {
                 if (g.coyote > 0) {
                     g.vy = -JUMP_SPEED;
                     g.coyote = 0;
@@ -744,11 +760,18 @@
                     g.forceChute = false;
                 }
             }
-            const gliding = (jumpHeld || g.forceChute) && g.vy > 0 && !k.down && g.spin <= 0;
+            const gliding = (jumpHeld || g.forceChute) && g.vy > 0 && !k.down && g.spin <= 0 && !swim && !g.jetting;
             const vy0 = g.vy;
-            g.vy += GRAVITY * (k.down ? 1.8 : 1) * dt;
+            g.vy += GRAVITY * (k.down ? 1.8 : 1) * (swim ? 0.25 : 1) * dt;
             if (gliding) g.vy = Math.min(g.vy, Math.max(CHUTE_FALL, vy0 - 1800 * dt));
-            g.vy = Math.min(g.vy, k.down ? FAST_FALL : MAX_FALL);
+            if (g.jetting) {
+                g.vy = Math.max(-JET_MAX, g.vy - JET_THRUST * dt);
+                if (Math.random() < 0.6 && parts.length < MAX_PARTICLES) {
+                    parts.push({ type: FIRE, x: g.x - g.facing * 7 + rand(-2, 2), y: g.y - 10, vx: rand(-20, 20), vy: rand(150, 260), life: rand(0.15, 0.3), max: 0.3, size: rand(2, 4) });
+                }
+                sfx('jet');
+            }
+            g.vy = Math.min(g.vy, swim ? 110 : k.down ? FAST_FALL : MAX_FALL);
             g.state = gliding ? 'chute' : 'air';
 
             const y0 = g.y, y1 = g.y + g.vy * dt;
@@ -769,20 +792,26 @@
                 g.forceChute = false;
             } else {
                 g.y = y1;
-                if (g.y < 0 && canRiseOut()) transition(() => enterSky('climb'));
+                if (g.y < 0 && canRiseOut()) transition(riseOut);
                 else if (g.y < 0) {
                     g.y = 0;
                     g.vy = Math.max(0, g.vy);
                 }
-                if (scene === 'sky' && g.y > H + 30) transition(() => exitSky('fall'));
+                if (scene !== 'site' && g.y > H + 30) transition(() => (scene === 'sky' ? exitSky('fall') : exitShell()));
             }
         }
         if (g.grounded) g.state = 'ground';
     }
 
-    // The top of the website is sealed until the fly's dead
+    // The top of the website is sealed until the fly's dead, and the top of the
+    // factory level is out of reach without the jetpack
     function canRiseOut() {
-        return scene === 'site' && !bigFly.alive;
+        return scene === 'site' ? !bigFly.alive : scene === 'sky' && hasJetpack;
+    }
+
+    function riseOut() {
+        if (scene === 'site') enterSky('climb');
+        else if (scene === 'sky') enterShell();
     }
 
     function shoulder() {
@@ -875,6 +904,7 @@
         for (const f of flies) if (!f.dead && segDist2(f.x, f.y, x, y, x1, y1)[0] < 81) killFly(f);
         if (keeper && !keeper.dying && segDist2(keeper.x, keeper.y - 20, x, y, x1, y1)[0] < 225) hurtKeeper(10, cos * 200);
         eachItem((it, line, ix, iy) => { if (segDist2(ix, iy, x, y, x1, y1)[0] < 100) destroyItem(it, line); });
+        if (scene === 'shell' && shell) for (const c of shell.cells) if (segDist2(c.x, c.y, x, y, x1, y1)[0] < 100) popCell(c);
     }
 
     function explode(x, y, R, harmless) {
@@ -912,6 +942,7 @@
         }
         for (const f of flies) if (!f.dead && Math.hypot(f.x - x, f.y - y) < R * 1.6) killFly(f);
         eachItem((it, line, ix, iy) => { if (Math.hypot(ix - x, iy - y) < R * 1.3) destroyItem(it, line); });
+        if (scene === 'shell' && shell) for (const c of shell.cells) if (Math.hypot(c.x - x, c.y - y) < R * 1.3) popCell(c);
         if (keeper && !keeper.dying) {
             const kd = Math.hypot(keeper.x - x, keeper.y - 20 - y);
             if (kd < R * 1.5) hurtKeeper(2 + 6 * (1 - kd / (R * 1.5)), (keeper.x - x) / (kd || 1) * 300);
@@ -1872,6 +1903,10 @@
             updateFactory(dt);
             return;
         }
+        if (scene === 'shell') {
+            updateShell(dt);
+            return;
+        }
         updateBigFly(dt);
         updateGlobs(dt);
         updateFlies(dt);
@@ -1924,6 +1959,7 @@
         for (const f of flies) if (!f.dead) test(f, 'fly', f.x, f.y, 7);
         if (keeper && !keeper.dying) test(keeper, 'keeper', keeper.x, keeper.y - 20, 13);
         eachItem((it, line, ix, iy) => test({ it, line }, 'item', ix, iy, 9));
+        if (scene === 'shell' && shell) for (const c of shell.cells) if (!c.dead) test(c, 'cell', c.x, c.y, 5 + c.size * 4);
         return best;
     }
 
@@ -1931,6 +1967,7 @@
         const v = Math.hypot(vx, vy) || 1;
         if (hit.kind === 'fly') killFly(hit.e);
         else if (hit.kind === 'item') destroyItem(hit.e.it, hit.e.line);
+        else if (hit.kind === 'cell') popCell(hit.e);
         else if (hit.kind === 'keeper') hurtKeeper(dmg, vx / v * 40);
         else hurtBot(hit.e, dmg, vx / v * 60, -40);
     }
@@ -2246,9 +2283,9 @@
         return { text: pick(LATENT_WORDS), p: 5, size: pick([14, 16, 20]) };
     }
 
-    function buildSky() {
-        W = document.documentElement.clientWidth;
-        H = Math.max(480, window.innerHeight);
+    function allocWorld(w, h) {
+        W = w;
+        H = h;
         const n = W * H;
         alp = new Uint8Array(n);
         pal = new Uint8Array(n);
@@ -2276,7 +2313,10 @@
         flashes = [];
         lasers = [];
         stack = null;
+    }
 
+    function buildSky() {
+        allocWorld(document.documentElement.clientWidth, Math.max(480, window.innerHeight));
         const s = clamp(W / 1100, 0.6, 1);
         const mono = (px, style = 'bold') => `${style} ${Math.round(px * s)}px 'IBM Plex Mono', monospace`;
         sky = { floorY: H - 30, holeX0: 20, holeX1: 20 + Math.round(90 * s), lines: [], visited: false, buildT: 3 };
@@ -2293,7 +2333,9 @@
         const rf = mono(14), rw = textWidth('CORRUGATED IRON', rf), rgap = textWidth(' ', rf);
         for (let x = fx0; x + rw <= fx1; x += rw + rgap) stampWord('CORRUGATED IRON', x, roofY, rf, 3);
         const signFont = `${Math.round(30 * s)}px 'Special Elite', monospace`;
-        stampWord('ROBOT FACTORY', (fx0 + fx1 - textWidth('ROBOT FACTORY', signFont)) / 2, roofY - Math.round(20 * s), signFont, 4);
+        const signBox = stampWord('ROBOT FACTORY', (fx0 + fx1 - textWidth('ROBOT FACTORY', signFont)) / 2, roofY - Math.round(20 * s), signFont, 4);
+        const signX = Math.round((signBox.x0 + signBox.x1) / 2);
+        sky.jetpack = hasJetpack ? null : { x: signX, y: surfaceBetween(signX, signBox.y0, signBox.y1) ?? signBox.y0, t: 0 };
         const bf = mono(12), bw = textWidth('BRICK', bf), bh = Math.round(17 * s);
         for (let y = roofY + bh + 4; y < sky.floorY - 6; y += bh) {
             stampWord('BRICK', fx0, y, bf, 4);
@@ -2422,6 +2464,16 @@
                 explode(bm.x, bm.y, bm.r, true);
             }
             if (sky.booms.every(bm => bm.done)) sky.booms = null;
+        }
+        if (sky.jetpack) {
+            sky.jetpack.t += dt;
+            if (!guy.dead && Math.abs(guy.x - sky.jetpack.x) < 14 && Math.abs(guy.y - HEIGHT / 2 - (sky.jetpack.y - 8)) < 26) {
+                hasJetpack = true;
+                sky.jetpack = null;
+                banner('you found a jetpack. hold space to fly');
+                sfx('ding');
+                renderHud();
+            }
         }
         if (!nearPortal(sky.portal)) portalArmed = true;
         else if (portalArmed && !guy.dead) transition(() => exitSky('portal'));
@@ -2964,6 +3016,13 @@
             ctx.fillStyle = cellColor(5, 0);
             ctx.textBaseline = 'top';
             ctx.fillText('the website \u2193', sky.holeX0, sky.floorY + 4);
+            if (hasJetpack) ctx.fillText('\u2191 something else up there', W / 2 - 70, 4);
+            return;
+        }
+        if (scene === 'shell') {
+            ctx.fillStyle = '#2de2e6';
+            ctx.textBaseline = 'top';
+            ctx.fillText('the factory \u2193', shell.holeX0, shell.floorY + 4);
             return;
         }
         if (bigFly.alive && scrollY < 40) {
@@ -3007,6 +3066,428 @@
         ctx.fillStyle = '#d9ccff';
         ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
         ctx.globalAlpha = 1;
+    }
+
+    // ------------------------------------------------------------------ weather
+    //
+    // Each stage has its own. On the website it rains on and off, and the rain
+    // pools at the bottom of the page (rising while it lasts, slowly draining
+    // after); he can swim in it. Up in the factory it snows. In the shell, a rain
+    // of katakana falls through everything into a glowing pool, with the odd glitch
+    // of lightning.
+
+    const GLYPHS = Array.from({ length: 86 }, (_, i) => String.fromCharCode(0x30a1 + i)).concat('0123456789'.split(''));
+    const POOL_MAX = { site: 160, shell: 110 };
+
+    function weatherNow() {
+        return weather[scene] || (weather[scene] = { drops: [], pool: 0, raining: false, timer: 15, acc: 0, glitchT: rand(6, 12), glitch: 0 });
+    }
+
+    function updateWeather(dt) {
+        const w = weatherNow(), vw = window.innerWidth, vh = window.innerHeight;
+        if (scene === 'site') {
+            if ((w.timer -= dt) <= 0) {
+                w.raining = !w.raining;
+                w.timer = w.raining ? rand(40, 80) : rand(25, 50);
+                banner(w.raining ? 'it started raining' : 'the rain stopped');
+            }
+            w.pool = clamp(w.pool + (w.raining ? 0.7 : -0.15) * dt, 0, POOL_MAX.site);
+        } else if (scene === 'shell') {
+            w.pool = Math.min(POOL_MAX.shell, w.pool + 0.4 * dt);
+            if ((w.glitchT -= dt) <= 0) {
+                w.glitchT = rand(7, 14);
+                w.glitch = 0.25;
+                sfx('glitch');
+            }
+            w.glitch -= dt;
+        }
+
+        // new drops across the top of the screen
+        const rate = scene === 'site' ? (w.raining ? 150 : 0) : scene === 'sky' ? 35 : 20;
+        const cap = scene === 'site' ? 340 : scene === 'sky' ? 260 : 130;
+        w.acc += rate * dt;
+        while (w.acc >= 1) {
+            w.acc--;
+            if (w.drops.length >= cap) continue;
+            if (scene === 'site') w.drops.push({ x: scrollX + rand(-40, vw + 40), y: scrollY - rand(0, 60), vx: 50, vy: rand(650, 850) });
+            else if (scene === 'sky') w.drops.push({ x: rand(0, W), y: -rand(0, 30), vy: rand(30, 65), stuck: 0 });
+            else w.drops.push({ x: Math.floor(rand(0, W) / 12) * 12 + 6, y: -rand(0, 60), vy: rand(150, 300), g: pick(GLYPHS), gt: 0 });
+        }
+
+        const top = H - w.pool, wind = Math.sin(clock * 0.4) * 25;
+        for (let i = w.drops.length - 1; i >= 0; i--) {
+            const d = w.drops[i];
+            let gone = false;
+            if (scene === 'site') {
+                const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt;
+                if (ny >= top) gone = true;
+                else if (solidAt(Math.floor(nx), Math.floor(ny))) {
+                    gone = true;
+                    if (Math.random() < 0.3 && parts.length < MAX_PARTICLES) parts.push({ type: SPARK, x: nx, y: ny - 1, vx: rand(-40, 40), vy: rand(-80, -20), life: 0.12, color: '#8fb6ff' });
+                } else gone = ny > scrollY + vh + 40;
+                d.x = nx;
+                d.y = ny;
+            } else if (scene === 'sky') {
+                // snow drifts down and sits where it lands for a moment
+                if (d.stuck) gone = (d.stuck -= dt) <= 0;
+                else {
+                    d.x += (wind + Math.sin(clock * 2 + d.y * 0.05) * 15) * dt;
+                    d.y += d.vy * dt;
+                    if (solidAt(Math.floor(d.x), Math.floor(d.y))) d.stuck = 1.5;
+                    else gone = d.y > H;
+                }
+            } else {
+                // data rain falls through everything into the pool
+                d.y += d.vy * dt;
+                if ((d.gt -= dt) <= 0) {
+                    d.gt = 0.08;
+                    d.g = pick(GLYPHS);
+                }
+                gone = d.y >= top;
+            }
+            if (gone) {
+                w.drops[i] = w.drops[w.drops.length - 1];
+                w.drops.pop();
+            }
+        }
+    }
+
+    // In the water (or the data) he floats and swims
+    function submerged() {
+        const w = weather[scene];
+        return !!w && w.pool > 0 && guy.y - HEIGHT / 2 > H - w.pool;
+    }
+
+    function drawWeather() {
+        const w = weather[scene];
+        if (!w) return;
+        if (scene === 'site') {
+            ctx.strokeStyle = 'rgba(110,150,230,0.55)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (const d of w.drops) {
+                ctx.moveTo(d.x, d.y);
+                ctx.lineTo(d.x - d.vx * 0.018, d.y - d.vy * 0.018);
+            }
+            ctx.stroke();
+        } else if (scene === 'sky') {
+            ctx.fillStyle = gunColors === GUN_COLORS.dark ? '#ffffff' : '#aab6c4';
+            for (const d of w.drops) {
+                ctx.globalAlpha = d.stuck ? Math.min(1, d.stuck) : 1;
+                ctx.fillRect(d.x, d.y, 2, 2);
+            }
+            ctx.globalAlpha = 1;
+        } else {
+            ctx.font = "12px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            for (const d of w.drops) {
+                for (let k = 3; k >= 0; k--) {
+                    // a fading trail behind each one
+                    ctx.globalAlpha = k ? 0.12 * (4 - k) : 0.9;
+                    ctx.fillStyle = k ? '#2de2e6' : '#d8fff8';
+                    ctx.fillText(k ? GLYPHS[Math.floor(d.x + k * 7 + d.y / 14) % GLYPHS.length] : d.g, d.x, d.y - k * 13);
+                }
+            }
+            ctx.globalAlpha = 1;
+            ctx.textAlign = 'left';
+        }
+    }
+
+    function drawPool() {
+        const w = weather[scene];
+        if (!w || w.pool <= 0) return;
+        const top = H - w.pool;
+        ctx.fillStyle = scene === 'shell' ? 'rgba(45,226,230,0.22)' : 'rgba(70,130,220,0.32)';
+        ctx.fillRect(0, top, W, w.pool + 2);
+        ctx.strokeStyle = scene === 'shell' ? '#2de2e6' : 'rgba(120,170,255,0.9)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 8) {
+            const y = top + Math.sin(x * 0.05 + clock * 2) * 1.5;
+            if (x) ctx.lineTo(x, y);
+            else ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+    }
+
+    function drawGlitch() {
+        const w = weather[scene];
+        if (scene !== 'shell' || !w || w.glitch <= 0) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        ctx.globalAlpha = w.glitch * 0.6;
+        ctx.fillStyle = '#2de2e6';
+        ctx.fillRect(0, 0, vw, vh);
+        ctx.globalAlpha = 0.6;
+        for (let i = 0; i < 5; i++) {
+            const y = rand(0, vh), h = rand(2, 10);
+            ctx.drawImage(view, 0, y * dpr, view.width, h * dpr, rand(-14, 14), y, vw, h);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // ---------------------------------------------------------------- the shell
+    //
+    // Above the factory, reached with the jetpack from up there: a neon night city,
+    // and where the factory's robots assemble themselves from parts, the robots here
+    // are alive in the other way. Tiny cells drift about, grow, and divide in two;
+    // some of them, like ribosomes, extrude chains of amino acids that fold into
+    // helices, spirals and sheets as they go, so the place slowly fills up with
+    // protein. (Proteins being, after all, self-assembling robots.)
+
+    const AMINO = 'ACDEFGHIKLMNPQRSTVWY'.split('');
+    const SHELL_WORDS = ['GHOST', 'SHELL', 'CYBERBRAIN', 'PROSTHETIC BODY', 'THERMOPTIC', 'NEURAL LINK', 'KINESIN', 'RIBOSOME',
+        'MITOSIS', 'CHAPERONE', 'ALPHA HELIX', 'BETA SHEET', 'DYNEIN', 'ATP SYNTHASE', 'SELF-REPLICATION', 'TRANSLATION',
+        '\u30b4\u30fc\u30b9\u30c8', '\u96fb\u8133', '\u7fa9\u4f53'];
+    const CELL_CAP = 26, RESIDUE_CAP = 2200;
+
+    // hydrophobic in magenta, charged in yellow, the rest in cyan
+    function residuePal(a) {
+        return 'AVILMFWC'.includes(a) ? 8 : 'DEKRH'.includes(a) ? 9 : 7;
+    }
+
+    function buildShell() {
+        allocWorld(document.documentElement.clientWidth, Math.max(480, window.innerHeight));
+        const s = clamp(W / 1100, 0.6, 1);
+        const mono = (px, style = 'bold') => `${style} ${Math.round(px * s)}px 'IBM Plex Mono', monospace`;
+        shell = { floorY: H - 26, holeX0: 20, holeX1: 20 + Math.round(90 * s), cells: [], residues: 0, visited: false, font: mono(10), regrowT: 6 };
+
+        // the floor is a protein (a made-up one)
+        const ff = mono(13), cw = textWidth('M', ff);
+        for (let x = 0; x < W; x += cw) {
+            if (x + cw > shell.holeX0 && x < shell.holeX1) continue;
+            const a = pick(AMINO);
+            stampWord(a, x, shell.floorY, ff, residuePal(a));
+        }
+        const sign = 'PROTEINS ARE SELF-ASSEMBLING ROBOTS';
+        let sf = mono(22);
+        if (textWidth(sign, sf) > W - 40) sf = `bold ${Math.floor((W - 40) / sign.length / 0.62)}px 'IBM Plex Mono', monospace`;
+        stampWord(sign, (W - textWidth(sign, sf)) / 2, 64, sf, 9);
+        const region = { x0: 20, x1: W - 20, y0: 110, y1: shell.floorY - 60 };
+        for (const word of SHELL_WORDS) placeWord(word, mono(pick([12, 14, 16])), pick([7, 8, 10]), region, 16);
+        repaint();
+        buildShellBackdrop();
+        for (let i = 0; i < 3; i++) shell.cells.push(newCell(W * (0.3 + 0.2 * i), H * 0.45, 0.8));
+    }
+
+    // The neon city behind it all, always at night
+    function buildShellBackdrop() {
+        if (!shell) return;
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const g = c.getContext('2d');
+        const grad = g.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, '#03040b');
+        grad.addColorStop(1, '#0b1a2b');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, W, H);
+        for (let x = 0; x < W;) {
+            const bw = rand(30, 90), bh = rand(H * 0.15, H * 0.55);
+            g.fillStyle = Math.random() < 0.5 ? '#0a1220' : '#0d1828';
+            g.fillRect(x, shell.floorY - bh, bw - 4, bh);
+            for (let wy = shell.floorY - bh + 6; wy < shell.floorY - 6; wy += 7) {
+                for (let wx = x + 4; wx < x + bw - 8; wx += 6) {
+                    if (Math.random() > 0.12) continue;
+                    g.fillStyle = pick(['rgba(45,226,230,0.45)', 'rgba(246,224,94,0.4)', 'rgba(255,63,164,0.35)']);
+                    g.fillRect(wx, wy, 2, 2);
+                }
+            }
+            x += bw;
+        }
+        // vertical neon signs
+        const px = Math.round(18 * clamp(W / 1100, 0.6, 1));
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.font = `bold ${px}px sans-serif`;
+        ['\u96fb\u8133', '\u7fa9\u4f53', '\u30b4\u30fc\u30b9\u30c8', '\u516c\u5b89'].forEach((text, i) => {
+            const sx = W * (0.12 + i * 0.25) + rand(-20, 20), sy = H * 0.3 + rand(0, H * 0.2), col = i % 2 ? '#ff3fa4' : '#2de2e6';
+            g.shadowColor = col;
+            g.shadowBlur = 12;
+            g.fillStyle = col;
+            g.globalAlpha = 0.55;
+            [...text].forEach((ch, k) => g.fillText(ch, sx, sy + k * (px + 4)));
+        });
+        g.shadowBlur = 0;
+        g.globalAlpha = 0.35;
+        g.fillStyle = '#2de2e6';
+        g.font = "bold 12px 'IBM Plex Mono', monospace";
+        g.fillText('SECTION 9', W * 0.82, H * 0.22);
+        g.globalAlpha = 1;
+        shell.backdrop = c;
+    }
+
+    function newCell(x, y, size) {
+        return { x, y, vx: rand(-15, 15), vy: rand(-15, 15), size, grow: rand(0.04, 0.07), t: rand(0, 6), divT: -1, folder: Math.random() < 0.5, chain: null, dead: false };
+    }
+
+    function updateShell(dt) {
+        const w = weather.shell, low = shell.floorY - 20 - (w ? w.pool : 0), born = [];
+        for (const c of shell.cells) {
+            c.t += dt;
+            if (c.divT >= 0) {
+                // mitosis: it stretches, pinches in the middle and comes apart as two
+                if ((c.divT += dt) >= 1.2) {
+                    c.divT = -1;
+                    c.size = 0.6;
+                    born.push(newCell(c.x + 6, c.y, 0.6));
+                    c.x -= 6;
+                    for (let i = 0; i < 6 && parts.length < MAX_PARTICLES; i++) parts.push({ type: SPARK, x: c.x + 6, y: c.y, vx: rand(-60, 60), vy: rand(-60, 60), life: 0.25, color: '#ff3fa4' });
+                    sfx('pop');
+                }
+                continue;
+            }
+            if (c.chain) {
+                growChain(c, dt);
+                continue;
+            }
+            // otherwise drift, like something in water
+            c.vx += rand(-80, 80) * dt;
+            c.vy += rand(-80, 80) * dt;
+            const v = Math.hypot(c.vx, c.vy);
+            if (v > 30) {
+                c.vx *= 30 / v;
+                c.vy *= 30 / v;
+            }
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            if (c.x < 12 || c.x > W - 12) c.vx = -c.vx;
+            if (c.y < 90 || c.y > low) c.vy = -c.vy;
+            c.x = clamp(c.x, 12, W - 12);
+            c.y = clamp(c.y, 90, Math.max(90, low));
+            c.size = Math.min(1, c.size + c.grow * dt);
+            if (c.size >= 1 && shell.cells.length + born.length < CELL_CAP && Math.random() < dt * 0.4) c.divT = 0;
+            else if (c.folder && shell.residues < RESIDUE_CAP && Math.random() < dt * 0.25) startChain(c);
+        }
+        shell.cells.push(...born);
+        if (shell.cells.some(c => c.dead)) shell.cells = shell.cells.filter(c => !c.dead);
+        // life finds a way
+        if (!shell.cells.length && (shell.regrowT -= dt) <= 0) {
+            shell.regrowT = 6;
+            shell.cells.push(newCell(rand(40, W - 40), low - 10, 0.6));
+        }
+    }
+
+    function startChain(c) {
+        c.chain = { kind: pick(['helix', 'spiral', 'fold', 'sheet']), n: 0, len: Math.floor(rand(30, 90)), x0: c.x, y0: c.y, a: rand(0, Math.PI * 2), dir: Math.random() < 0.5 ? -1 : 1, acc: 0, px: c.x, py: c.y };
+    }
+
+    // Where the next amino acid goes, for each kind of fold
+    function chainPoint(ch) {
+        const n = ch.n, step = 6.5;
+        if (ch.kind === 'helix') {
+            const ux = Math.cos(ch.a), uy = Math.sin(ch.a) * 0.4, l = Math.hypot(ux, uy), dx = ux / l, dy = uy / l, coil = Math.sin(n * 0.7) * 10;
+            return { x: ch.x0 + dx * n * 3.2 - dy * coil, y: ch.y0 + dy * n * 3.2 + dx * coil };
+        }
+        if (ch.kind === 'spiral') {
+            const th = Math.sqrt(5.9 * n), r = 6 + 2.2 * th;
+            return { x: ch.x0 + Math.cos(ch.a + ch.dir * th) * r, y: ch.y0 + Math.sin(ch.a + ch.dir * th) * r };
+        }
+        if (ch.kind === 'sheet') {
+            const row = Math.floor(n / 9), col = n % 9;
+            return { x: ch.x0 + (row % 2 ? 8 - col : col) * step * ch.dir, y: ch.y0 + row * 11 };
+        }
+        ch.a += rand(-0.5, 0.5);
+        ch.px += Math.cos(ch.a) * step;
+        ch.py += Math.sin(ch.a) * step * 0.8;
+        return { x: ch.px, y: ch.py };
+    }
+
+    // A folder cell extrudes its chain an amino acid at a time, riding the end of it
+    function growChain(c, dt) {
+        const ch = c.chain;
+        ch.acc += dt;
+        while (c.chain && ch.acc >= 0.12) {
+            ch.acc -= 0.12;
+            const p = chainPoint(ch);
+            if (p.x < 8 || p.x > W - 8 || p.y < 90 || p.y > shell.floorY - 16 || ch.n >= ch.len || shell.residues >= RESIDUE_CAP) {
+                c.chain = null;
+                break;
+            }
+            const a = pick(AMINO);
+            stampWord(a, p.x - 3, p.y + 4, shell.font, residuePal(a));
+            ch.n++;
+            shell.residues++;
+            c.x = p.x;
+            c.y = p.y - 7;
+        }
+    }
+
+    function popCell(c) {
+        if (c.dead) return;
+        c.dead = true;
+        for (let i = 0; i < 8 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x: c.x, y: c.y, vx: rand(-120, 120), vy: rand(-140, 60), life: rand(0.2, 0.4), color: i % 2 ? '#2de2e6' : '#ff3fa4' });
+        }
+        sfx('squish');
+    }
+
+    function drawCells() {
+        for (const c of shell.cells) {
+            const r = 3 + c.size * 4;
+            if (c.divT >= 0) {
+                const k = Math.min(1, c.divT / 1.2), sep = k * r * 1.1, rr = r * (1 - 0.25 * k);
+                drawMembrane(c.x - sep, c.y, rr, c.t);
+                drawMembrane(c.x + sep, c.y, rr, c.t + 1);
+            } else drawMembrane(c.x, c.y, r, c.t);
+        }
+    }
+
+    function drawMembrane(x, y, r, t) {
+        ctx.fillStyle = 'rgba(45,226,230,0.18)';
+        ctx.strokeStyle = '#2de2e6';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ff3fa4';
+        ctx.beginPath();
+        ctx.arc(x + Math.sin(t) * r * 0.2, y, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        // cilia
+        ctx.strokeStyle = 'rgba(45,226,230,0.6)';
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = i * 1.05 + t * 0.5, w = Math.sin(t * 8 + i) * 0.3;
+            ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+            ctx.lineTo(x + Math.cos(a + w) * (r + 3), y + Math.sin(a + w) * (r + 3));
+        }
+        ctx.stroke();
+    }
+
+    function enterShell() {
+        skyState = saveScene();
+        scene = 'shell';
+        if (shellState && shellState.W === document.documentElement.clientWidth && Math.abs(shellState.H - Math.max(480, window.innerHeight)) < 80) loadScene(shellState);
+        else buildShell();
+        shellState = null;
+        scrollX = scrollY = 0;
+        // up through the floor, still on the jetpack
+        guy.x = clamp(guy.x, EDGE, W - EDGE);
+        if (guy.x > shell.holeX0 - 10 && guy.x < shell.holeX1 + 10) guy.x = shell.holeX1 + 30;
+        guy.y = H + 4;
+        guy.vy = -650;
+        guy.state = 'air';
+        guy.grounded = false;
+        if (!shell.visited) {
+            shell.visited = true;
+            banner('the shell');
+        }
+        renderHud();
+    }
+
+    function exitShell() {
+        shellState = saveScene();
+        scene = 'sky';
+        loadScene(skyState);
+        scrollX = scrollY = 0;
+        guy.x = clamp(guy.x, EDGE, W - EDGE);
+        guy.y = 0;
+        guy.vy = 100;
+        guy.state = 'air';
+        guy.grounded = false;
+        renderHud();
     }
 
     // ------------------------------------------------------------------- sound
@@ -3086,8 +3567,10 @@
         ding: t => tone(t, 0.25, 'sine', 1320, 1320, 0.06),
         alarm: t => { for (let i = 0; i < 4; i++) tone(t + i * 0.18, 0.16, 'square', i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.05); },
         spit: t => noise(t, 0.12, 'bandpass', 700, 300, 0.25, 3),
+        jet: t => noise(t, 0.12, 'lowpass', 600, 300, 0.07),
+        glitch: t => { tone(t, 0.15, 'square', 90, 60, 0.06); noise(t, 0.1, 'highpass', 4000, 3000, 0.08); },
     };
-    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2 };
+    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2, jet: 0.09 };
 
     function sfx(name) {
         if (audio.muted || !audio.ctx || audio.ctx.state !== 'running') return;
@@ -3116,7 +3599,8 @@
             oy = rand(-shakeAmt, shakeAmt);
         }
 
-        if (scene === 'sky' && sky && sky.backdrop) ctx.drawImage(sky.backdrop, ox, oy);
+        const backdrop = scene === 'sky' ? sky && sky.backdrop : scene === 'shell' ? shell && shell.backdrop : null;
+        if (backdrop) ctx.drawImage(backdrop, ox, oy);
         const x0 = clamp(Math.floor(scrollX), 0, W), y0 = clamp(Math.floor(scrollY), 0, H);
         const w = Math.min(W - x0, Math.ceil(vw) + 1), h = Math.min(H - y0, Math.ceil(vh) + 1);
         if (w > 0 && h > 0) ctx.drawImage(worldCanvas, x0, y0, w, h, x0 - scrollX + ox, y0 - scrollY + oy, w, h);
@@ -3134,7 +3618,18 @@
         if (scene === 'sky') {
             drawPortal(sky.portal);
             drawLines();
+            if (sky.jetpack) {
+                const j = sky.jetpack, y = Math.round(j.y - 10 + Math.sin(j.t * 3) * 2);
+                ctx.globalAlpha = 0.25 + 0.15 * Math.sin(j.t * 5);
+                ctx.fillStyle = '#ffd24a';
+                ctx.beginPath();
+                ctx.arc(j.x, y, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.drawImage(jetSprite, j.x - 7, y - 5);
+            }
         }
+        if (scene === 'shell') drawCells();
         drawParticles();
         drawNades();
         drawRockets();
@@ -3145,6 +3640,8 @@
             drawFlies();
             drawGlobs();
         }
+        drawWeather();
+        drawPool();
         drawLasers();
         drawBullets();
         drawBeams();
@@ -3155,6 +3652,7 @@
             drawBossBar();
             if (portal) drawPortalArrow();
         }
+        drawGlitch();
         drawBanner();
         drawFade();
     }
@@ -3227,6 +3725,14 @@
             for (const [x, y] of CANOPY) ctx.fillRect(x, y, 4, 4);
         }
         const tint = g.hurtT > 0 ? '#ff4b3a' : null;
+        if (hasJetpack && !g.dead) {
+            ctx.drawImage(jetSprite, -2, 10);
+            if (g.jetting) {
+                ctx.fillStyle = Math.random() < 0.5 ? '#ffd24a' : '#ff8a2a';
+                ctx.fillRect(0, 20, 3, rand(4, 9));
+                ctx.fillRect(6, 20, 3, rand(4, 9));
+            }
+        }
         drawPixels(BODY, tint);
         drawPixels(POSES[pose][frame], tint);
         ctx.restore();
@@ -3371,6 +3877,7 @@
         updateRockets(dt);
         updateNades(dt);
         clock += dt;
+        updateWeather(dt);
         updateTaunts(dt);
         updateRobots(dt);
         healGuy();
@@ -3386,7 +3893,7 @@
         lastTime = now;
         acc += dt;
         bannerT -= dt;
-        const inSky = scene === 'sky';
+        const inSky = scene !== 'site';
         scrollX = inSky ? 0 : window.scrollX;
         scrollY = inSky ? 0 : window.scrollY;
         flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
@@ -3406,8 +3913,8 @@
             acc -= STEP;
         }
         if (scene === 'site') followCamera(dt);
-        scrollX = scene === 'sky' ? 0 : window.scrollX;
-        scrollY = scene === 'sky' ? 0 : window.scrollY;
+        scrollX = scene !== 'site' ? 0 : window.scrollX;
+        scrollY = scene !== 'site' ? 0 : window.scrollY;
         flushWorld();
         render();
         updatePct();
@@ -3445,7 +3952,7 @@
     function renderHud() {
         if (!hud) return;
         hud.classList.toggle('dh-idle', !active);
-        hud.classList.toggle('dh-sky', active && scene === 'sky');
+        hud.classList.toggle('dh-sky', active && scene !== 'site');
         if (!active) {
             hud.innerHTML = `<button data-act="gun">[${coarsePointer ? 'tap' : 'g'}] give him the gun back</button>`;
             pctEl = muteEl = killsEl = hpFill = hpNum = null;
@@ -3458,13 +3965,14 @@
         const help = coarsePointer
             ? 'stick: move<br>&uarr;: jump, again to flip, hold to glide<br>tap: shoot<br>A: grenade<br>push into the screen edge: climb'
             : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page';
+        const jetHelp = hasJetpack ? `<br>${coarsePointer ? '&uarr;' : 'space'}: jetpack` : '';
         const key = k => coarsePointer ? '' : `[${k}] `;
         hud.innerHTML =
             `<div>${weapons}</div>` +
             `<div class="dh-pct"></div>` +
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
-            (helpOn ? `<div class="dh-help">${help}</div>` : '') +
+            (helpOn ? `<div class="dh-help">${help}${jetHelp}</div>` : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button>${coarsePointer ? ' <button data-act="taunt">taunt</button>' : ''} <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
@@ -3503,6 +4011,11 @@
         const shown = Math.floor(pct * 10) / 10;
         if (scene === 'site' && shown === shownPct) return;
         shownPct = shown;
+        if (scene === 'shell') {
+            const text = `the shell: ${shell.cells.length} cells, ${shell.residues} amino acids folded`;
+            if (pctEl.textContent !== text) pctEl.textContent = text;
+            return;
+        }
         if (scene === 'sky') {
             const left = sky.lines.filter(l => l.alive).length;
             const text = left ? `assembly lines left: ${left}` : 'the factory is destroyed';
@@ -3586,6 +4099,9 @@
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
         portalArmed = true;
+        weather = {};
+        shell = shellState = null;
+        hasJetpack = false;
         globs = [];
         lasers = [];
         bannerT = 0;
@@ -3609,10 +4125,11 @@
         active = false;
         releaseAll();
         cancelAnimationFrame(raf);
-        if (scene === 'sky') {
+        if (scene !== 'site') {
             loadScene(siteState);
             scene = 'site';
         }
+        shell = shellState = null;
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
         globs = [];
@@ -3667,6 +4184,14 @@
     // A new width reflows the text, so rebuild the world to match (this repairs it)
     function rebuild() {
         if (!active) return;
+        if (scene === 'shell') {
+            buildShell();
+            guy.x = clamp(guy.x, EDGE, W - EDGE);
+            guy.y = shell.floorY - 60;
+            guy.grounded = false;
+            guy.state = 'air';
+            return;
+        }
         if (scene === 'sky') {
             // a fresh factory for the new size; the website gets rebuilt on the way back down
             buildSky();
@@ -3836,7 +4361,7 @@
     window.addEventListener('resize', () => {
         if (!active) return;
         sizeView();
-        const resized = document.documentElement.clientWidth !== W || (scene === 'sky' && Math.abs(Math.max(480, window.innerHeight) - H) > 80);
+        const resized = document.documentElement.clientWidth !== W || (scene !== 'site' && Math.abs(Math.max(480, window.innerHeight) - H) > 80);
         if (resized) {
             clearTimeout(rebuildTimer);
             rebuildTimer = setTimeout(rebuild, 250);
@@ -3862,6 +4387,6 @@
         stop: holster,
         // for poking at from the console
         get pickups() { return pickups.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), w: p.w })); },
-        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode), scene, evil: robotsEvil, portal, lines: sky ? sky.lines.map(l => ({ alive: l.alive, health: +l.health.toFixed(2) })) : null, lasers: lasers.length, globs: globs.length } : null; },
+        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode), scene, evil: robotsEvil, portal, lines: sky ? sky.lines.map(l => ({ alive: l.alive, health: +l.health.toFixed(2) })) : null, lasers: lasers.length, globs: globs.length, jetpack: hasJetpack, weather: weather[scene] && { pool: +weather[scene].pool.toFixed(1), raining: weather[scene].raining, drops: weather[scene].drops.length }, cells: shell && shell.cells.length, residues: shell && shell.residues } : null; },
     };
 })();
