@@ -1189,3 +1189,25 @@ html.destroy-cine #destroy-dialog,
 html.destroy-cine #virtual-joystick {
     visibility: hidden;
 }
+
+/* On a phone the stick floats (destroy.js): a thumb down anywhere in the bottom-left */
+#destroy-stick {
+    display: none;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 50vw;
+    height: min(260px, 45vh);
+    z-index: 1000;
+    touch-action: none;
+}
+
+@media (pointer: coarse) {
+    html.destroying #destroy-stick {
+        display: block;
+    }
+}
+
+html.destroy-cine #destroy-stick {
+    display: none;
+}
