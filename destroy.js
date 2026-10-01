@@ -6664,7 +6664,7 @@
 
     // ------------------------------------------------------------------- sound
 
-    const audio = { ctx: null, out: null, noise: null, muted: false, last: {} };
+    const audio = { ctx: null, out: null, comp: null, noise: null, muted: false, last: {} };
     try { audio.muted = localStorage.getItem('destroyMuted') === '1'; } catch (_) { /* storage unavailable */ }
 
     function initAudio() {
@@ -6675,7 +6675,7 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
         const a = new AC();
-        const comp = a.createDynamicsCompressor();
+        const comp = audio.comp = a.createDynamicsCompressor();
         comp.connect(a.destination);
         audio.out = a.createGain();
         audio.out.gain.value = 0.35;
@@ -6763,10 +6763,247 @@
         SOUNDS[name](t);
     }
 
+    // [m] goes round: sound on, music off (sound effects still on), sound off
     function toggleMute() {
-        audio.muted = !audio.muted;
-        try { localStorage.setItem('destroyMuted', audio.muted ? '1' : '0'); } catch (_) { /* storage unavailable */ }
-        if (muteEl) muteEl.textContent = `${coarsePointer ? '' : '[m] '}sound ${audio.muted ? 'off' : 'on'}`;
+        if (audio.muted) {
+            audio.muted = false;
+            music.on = true;
+        } else if (music.on) music.on = false;
+        else audio.muted = true;
+        saveSound();
+    }
+
+    function toggleMusic() {
+        music.on = !music.on;
+        if (music.on) audio.muted = false;
+        saveSound();
+    }
+
+    function saveSound() {
+        try {
+            localStorage.setItem('destroyMuted', audio.muted ? '1' : '0');
+            localStorage.setItem('destroyMusic', music.on ? '1' : '0');
+        } catch (_) { /* storage unavailable */ }
+        if (muteEl) muteEl.textContent = soundLabel();
+        musicLevel();
+    }
+
+    function soundLabel() {
+        return `${coarsePointer ? '' : '[m] '}${audio.muted ? 'sound off' : music.on ? 'sound on' : 'music off'}`;
+    }
+
+    // ------------------------------------------------------------------- music
+    //
+    // While he's out a soundtrack plays, made up as it goes: slow pads of detuned
+    // saws opening and closing through a long reverb, a sub under them, and notes
+    // off the chord echoing through a delay. Each level has its own key and colour:
+    // the website a calm D Dorian with soft plucks, the factory a cold E minor with a
+    // ticking square arpeggio, the shell a dark C Phrygian over a pulsing bass, the
+    // ether a bright A Lydian with bells. [m] goes sound on, music off, sound off;
+    // [n] is just the music.
+
+    const MUSIC = {
+        site: { root: 50, beat: 0.5, bar: 16, cutoff: 900, arp: 'pluck', odds: 0.55, delay: 0.75, chords: [[0, 3, 7, 10, 14], [-4, 0, 3, 7], [3, 7, 10, 14], [-2, 2, 5, 12]] },
+        sky: { root: 52, beat: 0.25, bar: 32, cutoff: 650, arp: 'tick', odds: 0.5, delay: 0.375, chords: [[0, 3, 7, 10, 14], [-4, 0, 3, 7, 14], [-7, -4, 0, 3, 7], [-5, 0, 2, 5]] },
+        shell: { root: 48, beat: 0.25, bar: 32, cutoff: 560, arp: 'pulse', odds: 0.2, delay: 0.5, chords: [[0, 3, 7, 12], [1, 5, 8, 12], [-2, 1, 5, 10], [-4, 0, 3, 10]] },
+        net: { root: 57, beat: 0.5, bar: 16, cutoff: 1400, arp: 'bell', odds: 0.45, delay: 1, chords: [[0, 4, 7, 11, 14], [2, 6, 9, 14], [-3, 0, 4, 7], [-7, -3, 0, 4, 7]] },
+    };
+    const ARP = [0, 2, 1, 3, 2, 4, 1, 3];
+    const music = { on: true, live: false, bus: null, dry: null, verb: null, echo: null, timer: 0, next: 0, step: 0, chord: -1, scene: '' };
+    try { music.on = localStorage.getItem('destroyMusic') !== '0'; } catch (_) { /* storage unavailable */ }
+    const mtof = m => 440 * 2 ** ((m - 69) / 12);
+
+    // The rooms the music plays in: a dry path, a reverb (a few seconds of decaying
+    // noise as its impulse), and a darkening delay feeding back into itself
+    function musicGraph() {
+        const a = audio.ctx;
+        music.bus = a.createGain();
+        music.bus.gain.value = 0;
+        music.bus.connect(audio.comp);
+        music.dry = a.createGain();
+        music.dry.gain.value = 0.7;
+        music.dry.connect(music.bus);
+        const len = Math.floor(a.sampleRate * (coarsePointer ? 2.4 : 3.4)), ir = a.createBuffer(2, len, a.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = ir.getChannelData(ch);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2.6;
+        }
+        music.verb = a.createConvolver();
+        music.verb.buffer = ir;
+        const wet = a.createGain();
+        wet.gain.value = 0.85;
+        music.verb.connect(wet).connect(music.bus);
+        music.echo = a.createDelay(2);
+        const fb = a.createGain(), dark = a.createBiquadFilter();
+        fb.gain.value = 0.4;
+        dark.type = 'lowpass';
+        dark.frequency.value = 2200;
+        music.echo.connect(dark).connect(fb).connect(music.echo);
+        dark.connect(music.bus);
+        dark.connect(music.verb);
+    }
+
+    // How loud it should be: nothing unless he's out, the music's on and the sound is
+    function musicLevel() {
+        if (!music.bus) return;
+        const on = active && music.live && music.on && !audio.muted && !document.hidden;
+        music.bus.gain.setTargetAtTime(on ? 1.15 : 0, audio.ctx.currentTime, on ? 1.2 : 0.3);
+    }
+
+    function startMusic() {
+        if (!audio.ctx) return;
+        if (!music.bus) musicGraph();
+        music.live = true;
+        music.scene = '';
+        music.next = audio.ctx.currentTime + 0.1;
+        clearInterval(music.timer);
+        music.timer = setInterval(musicTick, 250);
+        musicLevel();
+    }
+
+    function stopMusic() {
+        music.live = false;
+        clearInterval(music.timer);
+        musicLevel();
+    }
+
+    // A second or so ahead, every quarter of a second
+    function musicTick() {
+        if (!music.live || !audio.ctx || audio.ctx.state !== 'running') return;
+        const now = audio.ctx.currentTime;
+        if (music.next < now) music.next = now + 0.05;   // after a stall, carry on from now
+        if (music.scene !== scene) {
+            // a new level: its first chord on the next beat (the old pads ring out)
+            music.scene = scene;
+            music.step = 0;
+            music.chord = -1;
+        }
+        const S = MUSIC[scene] || MUSIC.site;
+        while (music.next < now + 1.2) {
+            playBeat(S, music.next);
+            music.next += S.beat;
+        }
+    }
+
+    function playBeat(S, t) {
+        const step = music.step++;
+        if (step % S.bar === 0) {
+            music.chord = (music.chord + 1) % S.chords.length;
+            const ch = S.chords[music.chord], len = S.bar * S.beat;
+            for (const n of ch) padNote(S.root + n, t, len, S.cutoff, 0.028);
+            bassNote(S.root + ch[0] - 12, t, len, 'sine', 0.09);
+            if (music.chord === 0) whoosh(t + len * 0.5);
+        }
+        const ch = S.chords[music.chord], i = step % 8;
+        if (S.arp === 'pulse') {
+            // the shell: a bass pulsing on the root, accents now and then
+            if (step % 2 === 0) bassNote(S.root + ch[0] - 12, t, S.beat * 1.6, 'sawtooth', step % 8 === 0 ? 0.07 : 0.045);
+            if (Math.random() < S.odds) pluck(S.root + ch[ARP[i] % ch.length] + 12, t, 'triangle', 0.035, 0.5, S.delay);
+        } else if (S.arp === 'tick') {
+            if (Math.random() < S.odds) pluck(S.root + ch[ARP[i] % ch.length] + 12 + (step % 16 > 11 ? 12 : 0), t, 'square', 0.022, 0.18, S.delay);
+        } else if (S.arp === 'bell') {
+            if (Math.random() < S.odds) bell(S.root + ch[Math.floor(Math.random() * ch.length)] + 24, t, S.delay);
+        } else if (Math.random() < S.odds) pluck(S.root + ch[ARP[i] % ch.length] + 12 + (Math.random() < 0.25 ? 12 : 0), t, 'sine', 0.05, 0.9, S.delay);
+    }
+
+    // Two saws a little out of tune with each other, a low-pass opening and closing
+    // over them, swelling in and dying away
+    function padNote(m, t, len, cutoff, vol) {
+        const a = audio.ctx, f = a.createBiquadFilter(), g = a.createGain(), end = t + len + 2;
+        f.type = 'lowpass';
+        f.Q.value = 0.9;
+        f.frequency.setValueAtTime(cutoff * 0.45, t);
+        f.frequency.linearRampToValueAtTime(cutoff, t + len * 0.5);
+        f.frequency.linearRampToValueAtTime(cutoff * 0.5, t + len + 1.5);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + len * 0.3);
+        g.gain.setValueAtTime(vol, t + len * 0.7);
+        g.gain.linearRampToValueAtTime(0.0001, end);
+        for (const det of [-8, 8]) {
+            const o = a.createOscillator();
+            o.type = 'sawtooth';
+            o.frequency.value = mtof(m);
+            o.detune.value = det + rand(-3, 3);
+            o.connect(f);
+            o.start(t);
+            o.stop(end + 0.05);
+        }
+        f.connect(g);
+        g.connect(music.dry);
+        g.connect(music.verb);
+    }
+
+    function bassNote(m, t, len, type, vol) {
+        const a = audio.ctx, o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(), short = len < 2;
+        o.type = type;
+        o.frequency.value = mtof(m);
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(short ? 900 : 240, t);
+        f.frequency.exponentialRampToValueAtTime(short ? 160 : 200, t + (short ? len : len * 0.5));
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + (short ? 0.01 : len * 0.25));
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len + (short ? 0.05 : 1));
+        o.connect(f).connect(g).connect(music.dry);
+        o.start(t);
+        o.stop(t + len + 1.1);
+    }
+
+    function pluck(m, t, type, vol, decay, echo) {
+        const a = audio.ctx, o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+        o.type = type;
+        o.frequency.value = mtof(m);
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(type === 'sine' ? 4000 : 2600, t);
+        f.frequency.exponentialRampToValueAtTime(500, t + decay);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+        o.connect(f).connect(g);
+        g.connect(music.dry);
+        g.connect(music.echo);
+        g.connect(music.verb);
+        music.echo.delayTime.setValueAtTime(echo, t);
+        o.start(t);
+        o.stop(t + decay + 0.05);
+    }
+
+    // A bell: a sine and an out-of-tune overtone, ringing a long time
+    function bell(m, t, echo) {
+        const a = audio.ctx, g = a.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.03, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 3);
+        for (const [ratio, v] of [[1, 1], [2.76, 0.35], [5.4, 0.12]]) {
+            const o = a.createOscillator(), og = a.createGain();
+            o.frequency.value = mtof(m) * ratio;
+            og.gain.value = v;
+            o.connect(og).connect(g);
+            o.start(t);
+            o.stop(t + 3.05);
+        }
+        g.connect(music.dry);
+        g.connect(music.echo);
+        g.connect(music.verb);
+        music.echo.delayTime.setValueAtTime(echo, t);
+    }
+
+    // Now and then a slow sweep of filtered noise, like weather on another planet
+    function whoosh(t) {
+        const a = audio.ctx, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+        src.buffer = audio.noise;
+        src.loop = true;
+        f.type = 'bandpass';
+        f.Q.value = 6;
+        f.frequency.setValueAtTime(300, t);
+        f.frequency.exponentialRampToValueAtTime(2400, t + 3);
+        f.frequency.exponentialRampToValueAtTime(400, t + 6);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.05, t + 3);
+        g.gain.linearRampToValueAtTime(0.0001, t + 6);
+        src.connect(f).connect(g);
+        g.connect(music.verb);
+        src.start(t);
+        src.stop(t + 6.1);
     }
 
     // ------------------------------------------------------------------ drawing
@@ -7280,7 +7517,7 @@
         shownKills = '';
         shownHp = -1;
         muteEl = hud.querySelector('[data-act="mute"]');
-        if (muteEl) muteEl.textContent = `${coarsePointer ? '' : '[m] '}sound ${audio.muted ? 'off' : 'on'}`;
+        if (muteEl) muteEl.textContent = soundLabel();
         shownPct = -1;
         updatePct();
     }
@@ -7431,6 +7668,7 @@
         bannerT = 0;
         releaseAll();
         active = true;
+        startMusic();
         renderHud();
         lastTime = performance.now();
         acc = 0;
@@ -7447,6 +7685,7 @@
         }
         if (!active) return;
         active = false;
+        stopMusic();
         releaseAll();
         cancelAnimationFrame(raf);
         if (scene !== 'site') {
@@ -7618,6 +7857,7 @@
         else if (e.code === 'KeyQ') cycleWeapon();
         else if (e.code === 'KeyG') altFire();
         else if (e.code === 'KeyM') toggleMute();
+        else if (e.code === 'KeyN') toggleMusic();
         else if (e.code === 'KeyH') toggleHelp();
         else if (e.code === 'KeyB') toggleBots();
         else if (e.code === 'KeyT') taunt();
@@ -7644,7 +7884,10 @@
         if (stick) endStick();
     }
     window.addEventListener('blur', releaseAll);
-    document.addEventListener('visibilitychange', releaseAll);
+    document.addEventListener('visibilitychange', () => {
+        releaseAll();
+        musicLevel();
+    });
 
     // Only a real mouse aims by hovering; taps on buttons send fake mouse moves too
     window.addEventListener('pointermove', e => {
