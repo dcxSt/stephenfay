@@ -95,6 +95,29 @@
     ];
     const GRENADE = { cooldown: 0.5, fuse: 1.6, blast: 42, speed: 520 };
 
+    // Once he's merged with Project 2501 he's a cyborg: synthetic skin, purple hair,
+    // a slate suit with cyan seams (outlined, so he still shows up on a white page),
+    // and the guns come out of his arm. ARMS are drawn from the shoulder, in the same
+    // units as WEAPONS' grip and muzzle.
+    const CYBORG = { [SKIN]: '#ecd5c4', [BLUE]: '#3b4252', [HAIR]: '#6a3fa0', [SHIRT]: '#6b7590' };
+    const CYBORG_LEGS = { [SKIN]: '#4a5468', [BLUE]: '#3b4252' };
+    const CY_BODY = BODY.map(([x, y, c]) => [x, y, CYBORG[c]]);
+    // the first square of each frame is the back arm, the rest are legs (in the suit)
+    const CY_POSES = Object.fromEntries(Object.entries(POSES).map(([pose, frames]) =>
+        [pose, frames.map(f => f.map(([x, y, c], i) => [x, y, (i ? CYBORG_LEGS : CYBORG)[c]]))]));
+    const ARM_COLORS = { s: '#ecd5c4', m: '#3b4252', l: '#8a94a6', c: '#2de2e6', p: '#ff3fa4' };
+    const ARMS = [
+        { art: ['sscmmmmm..', 'sscllllllc', 'sscmmmmm..'], grip: [3.5, 1.5], muzzle: [10, 1.5] },
+        { art: ['..cmmmmmmmm.', 'sscllllllllc', 'sscmlmlmlmm.', 'sscllllllllc', '..cmmmmmmmm.'], grip: [3.5, 2.5], muzzle: [12, 2.5] },
+        { art: ['..cmmmmmmmmmll', 'sscmmmmmmmmmmc', 'sscllllllllllc', 'sscmmmmmmmmmmc', '..cmmmmmmmmmll'], grip: [3.5, 2.5], muzzle: [14, 2.5] },
+        { art: ['...cmmmmmmmmmmm.', '..cmpppppppppppm', 'sscmmmmmmmmmmmmc', '..cmpppppppppppm', '...cmmmmmmmmmmm.'], grip: [3.5, 2.5], muzzle: [16, 2.5] },
+        { art: ['..c.m.m.m.m.m.m.', 'sscllllllllllllc', 'ssccccccccccccc.', 'sscllllllllllllc', '..c.m.m.m.m.m.m.'], grip: [3.5, 2.5], muzzle: [16, 2.5] },
+    ];
+    const DEPLOY = 0.18;        // how long an arm weapon takes to unfold
+    // Thermoptic camouflage: energy drained and recharged per second, the least it
+    // takes to switch on, and how long a shot gives him away for
+    const CAMO = { drain: 1 / 7, charge: 1 / 10, min: 0.25, reveal: 0.3 };
+
     // Robots (see the robots section)
     const TILE = 16;            // damage is tracked in 16px tiles (markTile shifts by 4)
     const BOT_HP = 4, BOT_SPEED = 80, BOT_H = 22, BOT_REACH = 42, WELD_RATE = 90, WELD_R = 9;
@@ -159,10 +182,12 @@
     let active = false, starting = false;
     let view = null, ctx = null, dpr = 1;
     let hud = null, pctEl = null, muteEl = null, killsEl = null, hpFill = null, hpNum = null, shownPct = -1, shownKills = '', shownHp = -1;
+    let camoFill = null, camoNum = null, shownCamo = '';
     let raf = 0, lastTime = 0, acc = 0, rebuildTimer = 0, startToken = 0, camHold = 0;
     let helpOn = window.matchMedia('(min-width: 1272px) and (pointer: fine)').matches;
     let guy = null;
-    let weapon = 0, cooldown = 0, nadeCooldown = 0, firing = false, shotQueued = false, muzzleFlash = 0, shakeAmt = 0;
+    let weapon = 0, cooldown = 0, nadeCooldown = 0, firing = false, shotQueued = false, muzzleFlash = 0, shakeAmt = 0, deployT = 0;
+    let camo = false, camoE = 1, camoReveal = 0, lastSeenX = 0, lastSeenY = 0;
     let bullets = [], rockets = [], nades = [], parts = [], beams = [], flashes = [];
     let scrollX = 0, scrollY = 0, fly = null, flyRect = null, toggle = null, toggleRect = null, toggleCd = 0;
     let origAlp = null, origPal = null, tileDirty = null, dirtyTiles = new Set(), TW = 0, hadDamage = false;
@@ -182,7 +207,7 @@
     const tapped = {};   // presses not yet seen by a physics step, so quick taps still count
 
     let gunColors = GUN_COLORS.light, botColors = BOT_COLORS.light, keeperColors = KEEPER_COLORS.light, bgColor = '#fff';
-    let gunSprites = [], botSprites = null, flySprites = [], keeperSprites = null, partSprites = {};
+    let gunSprites = [], armSprites = [], botSprites = null, flySprites = [], keeperSprites = null, partSprites = {};
 
     // Pixel art from strings, `px` pixels per character; `white` gives the flash when something is hit
     function artCanvas(rows, colors, white, px = 2) {
@@ -201,6 +226,7 @@
 
     function buildSprites() {
         gunSprites = WEAPONS.map(w => artCanvas(w.art, gunColors));
+        armSprites = ARMS.map(a => artCanvas(a.art, ARM_COLORS));
         const evil = { ...botColors, e: '#ff2020' };
         botSprites = {
             normal: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), botColors)),
@@ -855,6 +881,11 @@
         return { s, a, cos, sin, flip: cos < 0 ? -1 : 1, hx: s.x + cos * reach, hy: s.y + sin * reach, reach };
     }
 
+    // What his gun looks like, and where it fires from: in his hand, or (merged) part of his arm
+    function gunOf(i) {
+        return merged ? ARMS[i] : WEAPONS[i];
+    }
+
     function muzzleOf(w, pose) {
         const mx = (w.muzzle[0] - w.grip[0]) * 2, my = (w.muzzle[1] - w.grip[1]) * 2 * pose.flip;
         return { x: pose.hx + pose.cos * mx - pose.sin * my, y: pose.hy + pose.sin * mx + pose.cos * my };
@@ -864,8 +895,9 @@
 
     function fire() {
         if (guy.dead) return;
-        const w = WEAPONS[weapon], pose = gunPose(), m = muzzleOf(w, pose);
+        const w = WEAPONS[weapon], pose = gunPose(), m = muzzleOf(gunOf(weapon), pose);
         cooldown = w.cooldown;
+        if (camo) camoReveal = CAMO.reveal;   // the shot gives him away
         guy.kick = w.kick;
         muzzleFlash = 0.05;
         addShake(w.shake);
@@ -886,7 +918,12 @@
             const a = pose.a + rand(-w.spread, w.spread), v = w.speed * rand(0.9, 1.1);
             bullets.push({ x: m.x, y: m.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1.5, hole: w.hole, pierce: w.pierce || 0 });
         }
-        if (parts.length < MAX_PARTICLES) {
+        if (merged) {
+            // no brass from an arm cannon, just the heat coming off it
+            for (let i = 0; i < 2 && parts.length < MAX_PARTICLES; i++) {
+                parts.push({ type: SPARK, x: m.x, y: m.y, vx: rand(-60, 60) - pose.cos * 40, vy: rand(-80, 20), life: rand(0.08, 0.16), color: '#2de2e6' });
+            }
+        } else if (parts.length < MAX_PARTICLES) {
             parts.push({ type: SHELL, x: pose.hx, y: pose.hy, vx: -guy.facing * rand(40, 110), vy: -rand(120, 220), life: 1.2, bounces: 0 });
         }
     }
@@ -903,6 +940,49 @@
             fuse: GRENADE.fuse, spin: 0,
         });
         sfx('throw');
+    }
+
+    // Right-click (G, the pad's CAMO): a grenade, or once he's merged, thermoptic camouflage
+    function altFire() {
+        if (merged) toggleCamo();
+        else throwGrenade();
+    }
+
+    // It drains while it's on and charges while it's off. Hidden, nothing can find
+    // him: the flies lose him, the fly guy and the evil clankers stop shooting and
+    // chasing, and the fly spits at where he was, until a shot gives him away.
+    function toggleCamo() {
+        if (!active || guy.dead) return;
+        if (!camo && camoE < CAMO.min) {
+            sfx('glitch');
+            return;
+        }
+        camo = !camo;
+        camoReveal = 0;
+        sfx(camo ? 'cloak' : 'decloak');
+        for (let i = 0; i < 14 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x: guy.x + rand(-8, 8), y: guy.y - rand(0, HEIGHT), vx: rand(-50, 50), vy: rand(-70, 10), life: rand(0.2, 0.45), color: i % 2 ? '#d8fff8' : '#2de2e6' });
+        }
+    }
+
+    function updateCamo(dt) {
+        camoReveal -= dt;
+        deployT -= dt;
+        if (camo) {
+            camoE = Math.max(0, camoE - CAMO.drain * dt);
+            if (camoE <= 0 || guy.dead) {
+                camo = false;
+                sfx('decloak');
+            }
+        } else camoE = Math.min(1, camoE + CAMO.charge * dt);
+        if (!hidden()) {
+            lastSeenX = guy.x;
+            lastSeenY = guy.y - HEIGHT / 2;
+        }
+    }
+
+    function hidden() {
+        return camo && camoReveal <= 0 && !guy.dead;
     }
 
     function rail(x, y, cos, sin, hole) {
@@ -1161,6 +1241,10 @@
         if (i === weapon || i < 0 || i >= WEAPONS.length || !owned.has(i)) return;
         weapon = i;
         cooldown = Math.max(cooldown, 0.12);
+        if (merged) {
+            deployT = DEPLOY;
+            sfx('deploy');
+        }
         renderHud();
     }
 
@@ -1228,6 +1312,7 @@
                 saveProgress();
                 weapon = p.w;
                 cooldown = Math.max(cooldown, 0.12);
+                if (merged) deployT = DEPLOY;
                 banner(`you found the ${WEAPONS[p.w].name}`);
                 renderHud();
             }
@@ -1291,6 +1376,7 @@
         hurt: ['ow', 'argh', 'hey!'],
         die: ['Geraaald...', 'tell Gerald I tried', 'avenge me, flies'],
         win: ['and stay down', "that's for Gerald", 'pest control!'],
+        lost: ['where did he go?', 'I know you are here', 'come out and fight', 'is that a shimmer?'],
     };
     const pick = a => a[Math.floor(Math.random() * a.length)];
 
@@ -1744,7 +1830,7 @@
             bigFly.spawnT = rand(4, 8) / (1 + bigFly.stage * 0.35);
         }
         if ((bigFly.spitT -= dt) <= 0) {
-            if (!guy.dead) spit();
+            if (!guy.dead) spit();   // hidden, it spits at where he was
             bigFly.spitT = rand(2.2, 3.6) / (1 + bigFly.stage * 0.3);
         }
         // left alone too long: it either grows or dies of old age
@@ -1769,7 +1855,7 @@
     }
 
     function updateFlies(dt) {
-        const cx = guy.x, cy = guy.y - HEIGHT / 2;
+        const seen = !hidden(), cx = seen ? guy.x : lastSeenX, cy = seen ? guy.y - HEIGHT / 2 : lastSeenY;
         let touching = 0;
         const n = flies.length, tick = Math.floor(clock * 120);
         for (let i = 0; i < n; i++) {
@@ -1804,7 +1890,7 @@
             f.y += f.vy * dt;
             if (!leaving && Math.abs(f.x - cx) < 20 && Math.abs(f.y - cy) < 24) touching++;
         }
-        if (!touching || guy.dead) return;
+        if (!touching || guy.dead || !seen) return;
         sfx('buzz');
         hurtGuy(Math.min(touching, 6) * FLY_BITE * dt);
         guy.vx += rand(-1, 1) * touching * 60 * dt;
@@ -1859,7 +1945,11 @@
                 k.attack = 'recover';
                 k.attackT = 0.4;
             } else if (k.attack === 'recover' && k.attackT <= 0) k.attack = null;
+        } else if (hidden()) {
+            if (!k.lost) say(k, KEEPER_LINES.lost, true);
+            k.lost = true;
         } else if (!guy.dead) {
+            k.lost = false;
             const dx = guy.x - k.x;
             k.facing = dx >= 0 ? 1 : -1;
             const close = Math.abs(dx) < 34 && Math.abs(guy.y - HEIGHT / 2 - (k.y - 20)) < 34;
@@ -1875,7 +1965,7 @@
 
     function swat(k) {
         k.cd = 1.1;
-        if (guy.dead) return;
+        if (guy.dead || hidden()) return;
         const dx = guy.x - k.x, dy = guy.y - HEIGHT / 2 - (k.y - 20);
         if (Math.abs(dx) > 40 || Math.abs(dy) > 36 || Math.sign(dx || k.facing) !== k.facing) return;
         hurtGuy(KEEPER_DMG);
@@ -1931,7 +2021,7 @@
             return;
         }
         if (scene === 'net') {
-            updateNet();
+            updateNet(dt);
             return;
         }
         updateBigFly(dt);
@@ -2584,7 +2674,7 @@
         const dx = guy.x - b.x, dy = guy.y - HEIGHT / 2 - (b.y - 12), d = Math.hypot(dx, dy);
         let dir = 0;
         b.shootT -= dt;
-        if (!guy.dead) {
+        if (!guy.dead && !hidden()) {
             if (Math.abs(dx) > 2) b.facing = Math.sign(dx);
             if (d < 300 && b.shootT <= 0) {
                 b.shootT = rand(1.8, 3);
@@ -2628,7 +2718,7 @@
             b.facing = p.line.dir;
             b.vx = 0;
         }
-        if (robotsEvil && !guy.dead && (b.shootT -= dt) <= 0 && Math.hypot(guy.x - b.x, guy.y - b.y) < 220) {
+        if (robotsEvil && !guy.dead && !hidden() && (b.shootT -= dt) <= 0 && Math.hypot(guy.x - b.x, guy.y - b.y) < 220) {
             b.shootT = rand(2, 3.5);
             fireLaser(b);
         }
@@ -2841,7 +2931,7 @@
     function spit() {
         const c = bigFlyCenter();
         for (let i = 0; i <= bigFly.stage; i++) {
-            const tx = guy.x + rand(-40, 40), ty = guy.y - HEIGHT / 2;
+            const tx = (hidden() ? lastSeenX : guy.x) + rand(-40, 40), ty = hidden() ? lastSeenY : guy.y - HEIGHT / 2;
             const T = clamp(Math.hypot(tx - c.x, ty - c.y) / 380, 0.55, 1.5) * rand(0.9, 1.15);
             globs.push({ x: c.x, y: c.y, vx: (tx - c.x) / T, vy: (ty - c.y) / T - 0.5 * GLOB_G * T, life: 4 });
         }
@@ -3604,7 +3694,7 @@
         } else if (what === 'fire') {
             padFire = down;
             if (down) shotQueued = cooldown < 0.25;
-        } else if (down && what === 'nade') throwGrenade();
+        } else if (down && what === 'nade') altFire();
         else if (down && what === 'swap') cycleWeapon();
     }
 
@@ -3891,9 +3981,7 @@
             return;
         }
         closeDialog();
-        merged = true;
-        saveProgress();
-        shell.mergeT = 1.2;
+        shell.mergeT = 1.2;   // it pours itself into him, then he's taken apart and made again (startBirth)
         sfx('merge');
     }
 
@@ -3916,7 +4004,7 @@
                 const a = rand(0, Math.PI * 2);
                 parts.push({ type: SPARK, x: b.x + Math.cos(a) * 20, y: b.y + Math.sin(a) * 20, vx: (guy.x - b.x) * 2, vy: (guy.y - HEIGHT / 2 - b.y) * 2, life: 0.5, color: i % 2 ? '#2de2e6' : '#ffffff' });
             }
-            if (shell.mergeT <= 0) transition(enterNet);
+            if (shell.mergeT <= 0) transition(startBirth);
         } else if (!dialog && !guy.dead && d < 44 && b.armed) {
             b.armed = false;
             if (merged) transition(enterNet);   // where it was is a way back in now
@@ -3978,28 +4066,428 @@
         ctx.textBaseline = 'alphabetic';
     }
 
+    // ------------------------------------------------------------- the rebirth
+    //
+    // Saying yes to 2501 takes him apart and builds him again on a fabrication line,
+    // like the clankers' upstairs but grander, and (like everything in the shell) a
+    // little biological: the old body comes apart into bits, two industrial arms
+    // print an endoskeleton, fit muscle over it and grow skin down it, then he's
+    // dipped in the tank and comes out with his eyes lit. It's pixel art, drawn on a
+    // small canvas and scaled up, and a click, a tap or any key skips it.
+
+    const REBORN = [
+        '....hhhh....', '...hhhhhh...', '..hhsssshh..', '..hsessesh..', '..hssssssh..', '..h.ssss.h..', '.....ss.....',
+        '...kvvvvk...', '..kkvccvkk..', '.kk.vvvv.kk.', '.kk.kvvk.kk.', '.kk.kcck.kk.', '.ss.kkkk.ss.', '.ss.kkkk.ss.',
+        '...kk..kk...', '...kk..kk...', '...cc..cc...', '...kk..kk...', '...kk..kk...', '...kk..kk...', '..kkk..kkk..',
+    ];
+    const OLD_SELF = [
+        '....hhhh....', '...hhhhhh...', '...ssssss...', '...sesses...', '...ssssss...', '....ssss....', '.....ss.....',
+        '...wwwwww...', '..wwwwwwww..', '.ss.wwww.ss.', '.ss.wwww.ss.', '.ss.bbbb.ss.', '.ss.bbbb.ss.', '....bbbb....',
+        '...bb..bb...', '...ss..ss...', '...ss..ss...', '...ss..ss...', '...ss..ss...', '...ss..ss...', '..sss..sss..',
+    ];
+    const ENDO = [
+        '............', '....mmmm....', '...m....m...', '...m.oo.m...', '...m....m...', '....mmmm....', '.....mm.....',
+        '...mmmmmm...', '..mm.mm.mm..', '.m..mmmm..m.', '.m...mm...m.', '.m..mmmm..m.', '.o...mm...o.', '.m..mmmm..m.',
+        '...m....m...', '...m....m...', '...o....o...', '...m....m...', '...m....m...', '...m....m...', '..mm....mm..',
+    ];
+    const REBORN_COLORS = { h: '#6a3fa0', s: '#ecd5c4', e: '#2de2e6', k: '#3b4252', v: '#6b7590', c: '#2de2e6' };
+    const OLD_COLORS = { h: '#000000', s: SKIN, e: '#000000', w: SHIRT, b: BLUE };
+    const ENDO_COLORS = { m: '#9aa4b4', o: '#2de2e6' };
+    // when each stage starts, in seconds, and what the line's display says
+    const BIRTH = { lights: 1.0, frame: 1.6, muscle: 3.4, skin: 5.6, tank: 6.8, wake: 8.6, done: 9.6 };
+    const BIRTH_CAPTIONS = [
+        [0, 'merging with project 2501'], [BIRTH.lights, 'fabrication line 2501 online'], [BIRTH.frame, 'printing endoskeleton'],
+        [BIRTH.muscle, 'fitting artificial muscle'], [BIRTH.skin, 'growing skin'], [BIRTH.tank, 'immersion'], [BIRTH.wake, 'ghost: synchronized'],
+    ];
+    const ARM_L1 = 26, ARM_L2 = 24;
+
+    let birth = null;
+
+    const cellsOf = rows => rows.flatMap((row, y) => [...row].map((ch, x) => ({ x, y, ch })).filter(c => c.ch !== '.'));
+    const bottomUp = cells => cells.sort((a, b) => b.y - a.y || a.x - b.x);   // the way the arms build him
+    const stageCount = (t, t0, t1, n) => clamp(Math.floor((t - t0) / (t1 - t0) * n), 0, n);
+
+    function startBirth() {
+        releaseAll();
+        merged = true;
+        saveProgress();
+        document.documentElement.classList.add('destroy-cine');
+        const cv = document.createElement('canvas');
+        birth = {
+            t: 0, done: false, parts: [], cv, g: cv.getContext('2d'), placed: 0,
+            old: cellsOf(OLD_SELF).map(c => ({ ...c, gone: rand(0.25, 1.05) })),
+            endo: bottomUp(cellsOf(ENDO)), body: bottomUp(cellsOf(REBORN)),
+            arms: [{ side: -1, x: 0, y: 0 }, { side: 1, x: 0, y: 0 }],
+        };
+        const L = birthLayout();
+        for (const arm of birth.arms) {
+            const [bx, by] = L.bases[arm.side < 0 ? 0 : 1];
+            arm.x = bx + arm.side * 4;
+            arm.y = by - 10;
+        }
+        sfx('glitch');
+        renderHud();
+    }
+
+    function endBirth() {
+        birth = null;
+        document.documentElement.classList.remove('destroy-cine');
+    }
+
+    // Done, or skipped: on into the ether, with his new arm unfolding
+    function finishBirth() {
+        if (!birth || birth.done) return;
+        birth.done = true;
+        transition(() => {
+            endBirth();
+            enterNet();
+            deployT = DEPLOY;
+        });
+    }
+
+    function skipBirth() {
+        if (birth && birth.t > 0.4) finishBirth();
+    }
+
+    // The bay in low-res pixels: P screen pixels each, the floor across the middle,
+    // and him standing on the cradle in the middle of it
+    function birthLayout() {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const P = clamp(Math.round(Math.min(vw, vh * 0.75) / 100), 2, 6);
+        const lw = Math.ceil(vw / P), lh = Math.ceil(vh / P), cx = Math.floor(lw / 2), floorY = Math.round(lh * 0.5 + 26);
+        return { P, lw, lh, cx, floorY, bx: cx - 12, by: floorY - 46, rail: Math.max(3, floorY - 78), bases: [[cx - 34, floorY - 5], [cx + 34, floorY - 5]] };
+    }
+
+    function skinRow(t) {
+        return clamp((t - BIRTH.skin) / (BIRTH.tank - BIRTH.skin - 0.15) * 21, 0, 21);
+    }
+
+    function updateBirth(dt) {
+        const b = birth, t0 = b.t, L = birthLayout();
+        const t = (b.t += dt), at = s => t0 < s && t >= s;
+        const spark = (x, y, vx, vy, g, life, color) => { if (b.parts.length < 700) b.parts.push({ x, y, vx, vy, g, life, color }); };
+        // the old body comes apart into bits
+        for (const c of b.old) {
+            if (!at(c.gone)) continue;
+            spark(L.bx + c.x * 2 + 1, L.by + c.y * 2 + 1, rand(-14, 14), rand(-45, -15), -30, rand(0.6, 1.2), OLD_COLORS[c.ch]);
+            spark(L.bx + c.x * 2 + 1, L.by + c.y * 2, rand(-10, 10), rand(-60, -25), -20, rand(0.5, 1), '#2de2e6');
+        }
+        if (at(BIRTH.lights)) sfx('clank');
+        if (at(BIRTH.lights + 0.3)) sfx('beep');
+        // every piece goes on with a weld
+        const n = stageCount(t, BIRTH.frame, BIRTH.muscle, b.endo.length) + stageCount(t, BIRTH.muscle, BIRTH.skin, b.body.length);
+        for (; b.placed < n; b.placed++) {
+            const c = b.placed < b.endo.length ? b.endo[b.placed] : b.body[b.placed - b.endo.length];
+            for (let k = 0; k < 3; k++) spark(L.bx + c.x * 2 + 1, L.by + c.y * 2 + 1, rand(-45, 45), rand(-55, 0), 140, rand(0.15, 0.35), k ? '#ffd24a' : '#ffffff');
+            sfx(b.placed % 9 ? 'weld2' : 'clank');
+        }
+        const row = skinRow(t), skinning = t >= BIRTH.skin && t < BIRTH.tank;
+        if (at(BIRTH.skin)) sfx('whoosh');
+        // the arms: folded, then ready, then each on the newest piece on its side,
+        // then spraying skin down him, then folded away for the tank
+        for (const arm of b.arms) {
+            const [bx, by] = L.bases[arm.side < 0 ? 0 : 1];
+            let tx = L.cx + arm.side * 22, ty = L.floorY - 30;
+            if (t < BIRTH.lights || t >= BIRTH.tank) {
+                tx = bx + arm.side * 4;
+                ty = by - 10;
+            } else if (skinning) {
+                tx = L.bx + 12 + arm.side * (9 + 4 * Math.sin(t * 13 + arm.side));
+                ty = L.by + row * 2;
+                if (Math.random() < 0.5) spark(arm.x, arm.y, -arm.side * rand(20, 50), rand(-10, 10), 30, 0.25, Math.random() < 0.5 ? '#ecd5c4' : '#2de2e6');
+            } else if (t >= BIRTH.frame) {
+                for (let i = n - 1; i >= 0; i--) {
+                    const c = i < b.endo.length ? b.endo[i] : b.body[i - b.endo.length];
+                    if ((c.x < 6 ? -1 : 1) !== arm.side) continue;
+                    tx = L.bx + c.x * 2 + 1 + arm.side * 2;
+                    ty = L.by + c.y * 2 + 1;
+                    break;
+                }
+            }
+            const k = Math.min(1, dt * 14);
+            arm.x += (tx - arm.x) * k;
+            arm.y += (ty - arm.y) * k;
+        }
+        // the tank: bubbles while it's full
+        const fill = tankFill(t);
+        if (fill > 0.3 && Math.random() < 0.6) {
+            spark(L.bx - 6 + rand(0, 36), L.floorY - 6, rand(-3, 3), rand(-30, -15), -10, rand(0.5, 1.2), '#ffffff');
+            sfx('bubble');
+        }
+        if (at(BIRTH.tank + 0.4)) sfx('squish');
+        if (at(BIRTH.wake + 0.15)) sfx('ding');
+        if (at(BIRTH.wake + 0.3)) sfx('merge');
+        for (let i = b.parts.length - 1; i >= 0; i--) {
+            const q = b.parts[i];
+            q.vy += q.g * dt;
+            q.x += q.vx * dt;
+            q.y += q.vy * dt;
+            if ((q.life -= dt) <= 0) b.parts.splice(i, 1);
+        }
+        if (t >= BIRTH.done) finishBirth();
+    }
+
+    // How full of milky fluid the tank is: up, a moment under, then drained
+    function tankFill(t) {
+        const k = t - BIRTH.tank;
+        return clamp((k - 0.35) / 0.45, 0, 1) - clamp((k - 1.2) / 0.4, 0, 1);
+    }
+
+    // A crisp line of w x w pixels
+    function pxLine(g, x0, y0, x1, y1, w, color) {
+        g.fillStyle = color;
+        const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)))), h = Math.floor(w / 2);
+        for (let i = 0; i <= n; i++) g.fillRect(Math.round(x0 + (x1 - x0) * i / n) - h, Math.round(y0 + (y1 - y0) * i / n) - h, w, w);
+    }
+
+    // An industrial arm, two links, elbow up, reaching for its tip
+    function drawRobotArm(g, base, arm, lit, working) {
+        const [bx, by] = base, dx = arm.x - bx, dy = arm.y - by, d = Math.hypot(dx, dy) || 1;
+        const reach = clamp(d, Math.abs(ARM_L1 - ARM_L2) + 1, ARM_L1 + ARM_L2 - 0.5);
+        const a = Math.atan2(dy, dx) + Math.acos(clamp((ARM_L1 * ARM_L1 + reach * reach - ARM_L2 * ARM_L2) / (2 * ARM_L1 * reach), -1, 1)) * arm.side;
+        const ex = bx + Math.cos(a) * ARM_L1, ey = by + Math.sin(a) * ARM_L1, tx = bx + dx / d * reach, ty = by + dy / d * reach;
+        const yellow = lit ? '#f2c230' : '#5c4f1c';
+        g.fillStyle = '#1b202b';
+        g.fillRect(bx - 7, by, 14, 6);
+        g.fillStyle = yellow;
+        for (let x = bx - 6; x < bx + 6; x += 4) g.fillRect(x, by + 4, 2, 1);
+        pxLine(g, bx, by, ex, ey, 5, '#0b0d12');
+        pxLine(g, bx, by, ex, ey, 3, yellow);
+        pxLine(g, ex, ey, tx, ty, 4, '#0b0d12');
+        pxLine(g, ex, ey, tx, ty, 2, yellow);
+        g.fillStyle = '#2b303b';
+        g.fillRect(Math.round(bx) - 2, Math.round(by) - 2, 5, 5);
+        g.fillRect(Math.round(ex) - 2, Math.round(ey) - 2, 5, 5);
+        g.fillStyle = '#8a94a6';
+        g.fillRect(Math.round(ex), Math.round(ey), 1, 1);
+        g.fillStyle = '#1b202b';
+        g.fillRect(Math.round(tx) - 2, Math.round(ty) - 2, 4, 4);
+        if (working && Math.random() < 0.7) {
+            g.fillStyle = Math.random() < 0.5 ? '#ffffff' : '#8ff0ff';
+            g.fillRect(Math.round(tx) - arm.side - 1, Math.round(ty) - 1, 2, 2);
+        }
+    }
+
+    function drawBirth(vw, vh) {
+        const b = birth, t = b.t, L = birthLayout(), g = b.g;
+        if (b.cv.width !== L.lw || b.cv.height !== L.lh) {
+            b.cv.width = L.lw;
+            b.cv.height = L.lh;
+        }
+        const lit = t < BIRTH.lights ? 0 : t < BIRTH.lights + 0.4 && Math.random() < 0.35 ? 0.3 : 1;   // the lights stutter on
+        const { lw, lh, cx, floorY, rail } = L;
+
+        // the bay: back wall, pillars, girders, the line's name stencilled up
+        g.fillStyle = '#05060a';
+        g.fillRect(0, 0, lw, lh);
+        g.fillStyle = lit ? '#0a0d14' : '#07080c';
+        g.fillRect(0, rail, lw, floorY - rail);
+        for (let x = (cx % 40) - 40; x < lw; x += 40) {
+            g.fillStyle = lit ? '#10141e' : '#0a0c11';
+            g.fillRect(x, rail, 6, floorY - rail);
+            g.fillStyle = lit ? '#181e2b' : '#0c0e14';
+            g.fillRect(x, rail, 1, floorY - rail);
+        }
+        g.fillStyle = lit ? '#0c0f16' : '#08090d';
+        for (let y = rail - 6; y > 0; y -= 9) g.fillRect(0, y, lw, 2);
+        for (let x = (cx % 40) - 37; x < lw; x += 40) g.fillRect(x, 0, 1, rail);
+        g.fillStyle = lit ? '#1a2030' : '#0d1017';
+        g.fillRect(0, rail, lw, 3);
+        g.fillRect(0, floorY - 30, lw, 2);
+        g.fillStyle = lit ? '#2b3346' : '#11141c';
+        for (let x = 2; x < lw; x += 8) g.fillRect(x, rail + 1, 1, 1);
+        g.globalAlpha = 0.1 * lit;
+        g.fillStyle = '#2de2e6';
+        g.font = 'bold 14px monospace';
+        g.textBaseline = 'alphabetic';
+        g.textAlign = 'center';
+        const apart = Math.min(52, Math.round(lw * 0.3));
+        g.fillText('2501', cx - apart, floorY - 40);
+        g.fillText('2501', cx + apart, floorY - 40);
+        g.font = '6px monospace';
+        g.fillText('SECTION 9', cx, rail + 12);
+        g.globalAlpha = 1;
+        // lamps along the rail, and a cone of light down onto the cradle
+        for (let x = (cx % 30) + 4; x < lw; x += 30) {
+            g.fillStyle = lit ? '#fff3b0' : '#3a3626';
+            g.fillRect(x - 2, rail + 3, 4, 1);
+            if (lit) {
+                g.fillStyle = 'rgba(255,243,176,0.035)';
+                g.beginPath();
+                g.moveTo(x - 2, rail + 4);
+                g.lineTo(x + 2, rail + 4);
+                g.lineTo(x + 12, floorY);
+                g.lineTo(x - 12, floorY);
+                g.fill();
+            }
+        }
+        if (lit) {
+            g.fillStyle = 'rgba(45,226,230,0.07)';
+            g.beginPath();
+            g.moveTo(cx - 4, rail + 3);
+            g.lineTo(cx + 4, rail + 3);
+            g.lineTo(cx + 22, floorY);
+            g.lineTo(cx - 22, floorY);
+            g.fill();
+        }
+        // floor, hazard stripes, the cradle
+        g.fillStyle = '#090b10';
+        g.fillRect(0, floorY, lw, lh - floorY);
+        g.fillStyle = '#0d1017';
+        for (let y = floorY + 6; y < lh; y += 7) g.fillRect(0, y, lw, 1);
+        for (let x = 0; x < lw; x += 4) {
+            g.fillStyle = (x >> 2) % 2 ? '#111318' : lit ? '#f2c230' : '#4a3f17';
+            g.fillRect(x, floorY, 4, 2);
+        }
+        g.fillStyle = '#1b202b';
+        g.fillRect(cx - 16, floorY - 4, 32, 4);
+        g.fillStyle = '#2b303b';
+        g.fillRect(cx - 18, floorY - 1, 36, 1);
+        g.fillStyle = lit ? '#2de2e6' : '#123a3c';
+        g.fillRect(cx - 13, floorY - 4, 26, 1);
+
+        // him: the old self coming apart, then frame, muscle, skin
+        const floating = t > BIRTH.tank + 0.5 && t < BIRTH.wake ? Math.round(Math.sin((t - BIRTH.tank) * 3) - 1.5) : 0;
+        const ox = L.bx, oy = L.by + floating;
+        const cell = (c, color) => {
+            g.fillStyle = color;
+            g.fillRect(ox + c.x * 2, oy + c.y * 2, 2, 2);
+        };
+        for (const c of b.old) if (t < c.gone) cell(c, c.gone - t < 0.15 && Math.random() < 0.5 ? '#2de2e6' : OLD_COLORS[c.ch]);
+        // the cables he hangs from while he's made
+        if (t >= BIRTH.frame && t < BIRTH.wake + 0.6) {
+            const up = clamp((t - BIRTH.wake) / 0.6, 0, 1), end = Math.round(oy + 16 - up * (oy + 16 - rail));
+            g.fillStyle = '#2b303b';
+            g.fillRect(ox + 5, rail + 3, 1, end - rail - 3);
+            g.fillRect(ox + 18, rail + 3, 1, end - rail - 3);
+        }
+        const ne = stageCount(t, BIRTH.frame, BIRTH.muscle, b.endo.length);
+        for (let i = 0; i < ne; i++) cell(b.endo[i], ENDO_COLORS[b.endo[i].ch]);
+        const nb = stageCount(t, BIRTH.muscle, BIRTH.skin, b.body.length), row = skinRow(t), awake = t > BIRTH.wake + 0.15;
+        for (let i = 0; i < nb; i++) {
+            const c = b.body[i];
+            if (c.y < row) cell(c, c.ch === 'e' ? (awake ? '#2de2e6' : '#1a1d26') : REBORN_COLORS[c.ch]);
+            else cell(c, (c.x + c.y) % 2 ? '#a8324a' : '#c4495e');   // bare muscle
+        }
+        if (t >= BIRTH.skin && t < BIRTH.tank) {
+            g.fillStyle = '#8ff0ff';
+            g.fillRect(ox - 4, oy + Math.round(row * 2), 32, 1);
+        }
+        // eyes on: a ring of light going out from them
+        if (awake && t < BIRTH.wake + 1.2) {
+            const r = (t - BIRTH.wake - 0.15) * 70;
+            g.fillStyle = '#2de2e6';
+            g.globalAlpha = clamp(1 - r / 70, 0, 1);
+            for (let i = 0; i < 48; i++) {
+                const a = i / 48 * Math.PI * 2;
+                g.fillRect(Math.round(ox + 12 + Math.cos(a) * r), Math.round(oy + 7 + Math.sin(a) * r * 0.8), 1, 1);
+            }
+            g.globalAlpha = 1;
+        }
+        const working = (t >= BIRTH.frame && t < BIRTH.skin) || (t >= BIRTH.skin && t < BIRTH.tank);
+        b.arms.forEach((arm, i) => drawRobotArm(g, L.bases[i], arm, lit, working));
+        // the tank comes down over him, fills with white, drains, lifts away
+        if (t >= BIRTH.tank && t < BIRTH.wake + 0.4) {
+            g.save();
+            g.beginPath();
+            g.rect(0, rail + 3, lw, lh);
+            g.clip();
+            const k = t - BIRTH.tank, top = oy - 10 - floating, bot = floorY - 4, h = bot - top;
+            const off = Math.round((clamp(k / 0.3, 0, 1) - 1 - clamp((t - BIRTH.wake) / 0.4, 0, 1)) * (h + 16));
+            const x0 = ox - 8, w = 40, lvl = Math.round(h * tankFill(t));
+            g.fillStyle = 'rgba(150,225,255,0.08)';
+            g.fillRect(x0, top + off, w, h);
+            if (lvl > 0) {
+                g.fillStyle = 'rgba(236,244,248,0.85)';
+                g.fillRect(x0 + 1, bot - lvl + off, w - 2, lvl);
+            }
+            g.fillStyle = 'rgba(200,245,255,0.55)';
+            g.fillRect(x0, top + off, 1, h);
+            g.fillRect(x0 + w - 1, top + off, 1, h);
+            g.fillRect(x0 + 3, top + off + 2, 1, h - 6);
+            g.fillStyle = '#2b303b';
+            g.fillRect(x0 - 2, top + off - 3, w + 4, 3);
+            g.fillRect(x0 - 2, bot + off, w + 4, 2);
+            g.fillStyle = '#2de2e6';
+            g.fillRect(x0 + 4, top + off - 2, 2, 1);
+            g.restore();
+        }
+        for (const q of b.parts) {
+            g.fillStyle = q.color;
+            g.fillRect(Math.round(q.x), Math.round(q.y), 1, 1);
+        }
+
+        // scaled up, then the line's display over it at full resolution
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(b.cv, 0, 0, lw * L.P, lh * L.P);
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        for (let y = 0; y < vh; y += 3) ctx.fillRect(0, y, vw, 1);
+        ctx.font = "bold 11px 'IBM Plex Mono', monospace";
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ff3fa4';
+        ctx.fillText('PROJECT 2501 // FABRICATION', 16, coarsePointer ? 16 : 20);
+        const pct = clamp(t / BIRTH.done, 0, 1), y0 = coarsePointer ? 34 : 38;
+        ctx.strokeStyle = '#2de2e6';
+        ctx.strokeRect(16.5, y0 + 0.5, 140, 7);
+        ctx.fillStyle = '#2de2e6';
+        ctx.fillRect(18, y0 + 2, Math.round(137 * pct), 4);
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.fillText(`UNIT 2501-B  ${Math.floor(pct * 100)}%`, 164, y0 - 1);
+        let cap = BIRTH_CAPTIONS[0];
+        for (const c of BIRTH_CAPTIONS) if (t >= c[0]) cap = c;
+        ctx.font = "13px 'IBM Plex Mono', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#d8fff8';
+        const shown = cap[1].slice(0, Math.floor((t - cap[0]) * 32));
+        ctx.fillText(`> ${shown}${Math.floor(t * 3) % 2 ? '_' : ' '}`, vw / 2, (floorY + 10) * L.P);
+        if (t > 0.4) {
+            ctx.font = "10px 'IBM Plex Mono', monospace";
+            ctx.fillStyle = 'rgba(216,255,248,0.45)';
+            ctx.fillText(coarsePointer ? 'tap to skip' : 'click or press any key to skip', vw / 2, vh - 28);
+        }
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+    }
+
     // ------------------------------------------------------------------ the net
     //
-    // The fourth level, once you've merged: a tunnel of light with the bits running
-    // down it in orderly lanes, and around it nodes to plug yourself into, things
-    // with an address all over the world. Each shows a little of what it sees, at its
-    // own local time. One node goes home to the website; another unplugs, back to
-    // the shell.
+    // The fourth level, once you've merged: the ether, a tunnel of light with the
+    // bits running down it in orderly lanes, and around it nodes to plug yourself
+    // into. The outer ring is live: Twitch streams, and street cameras in London (TfL's
+    // jam cams, a fresh clip every few minutes) and New York (the city's traffic
+    // cams, a new frame every few seconds); plug into one and a little window opens
+    // onto it. The inner ring is things with an address (a satellite, a fridge, a
+    // toaster), each showing a little of what it sees at its own local time. One
+    // node goes home to the website; another unplugs, back to the shell.
 
+    const TFL = 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/', NYC = 'https://webcams.nyctmc.org/api/cameras/';
+    const TWITCH_NOTE = 'live on twitch \u00b7 muted';
+    const TFL_NOTE = 'TfL jam cam \u00b7 a new clip every few minutes', NYC_NOTE = 'NYC DOT traffic cam \u00b7 a new frame every few seconds';
     const NODES = [
-        { name: 'traffic light', place: 'Lagos', tz: 'Africa/Lagos', art: 'traffic', note: 'cycle 90 s \u00b7 queue: 41 cars' },
-        { name: 'weather station', place: 'Troms\u00f8', tz: 'Europe/Oslo', art: 'aurora', note: 'kp index 6 \u00b7 -11\u00b0C' },
-        { name: 'smart fridge', place: 'Osaka', tz: 'Asia/Tokyo', art: 'fridge', note: 'door opened 14 times today' },
-        { name: 'satellite', place: '408 km over the Pacific', tz: 'UTC', art: 'satellite', note: '7.66 km/s \u00b7 ping 512 ms' },
-        { name: 'harbour webcam', place: 'Reykjav\u00edk', tz: 'Atlantic/Reykjavik', art: 'harbour', note: '3 boats in \u00b7 wind 9 m/s' },
-        { name: 'lighthouse', place: 'Cape Point', tz: 'Africa/Johannesburg', art: 'lighthouse', note: 'one flash every 10 s' },
-        { name: 'server rack', place: 'Ashburn, Virginia', tz: 'America/New_York', art: 'servers', note: '1.2 Tbps \u00b7 24\u00b0C' },
-        { name: 'radio telescope', place: 'the high Arctic', tz: 'America/Resolute', art: 'radio', note: 'listening for the cosmic dark ages' },
-        { name: 'toaster', place: 'Leeds', tz: 'Europe/London', art: 'toaster', note: 'setting 4 of 6' },
-        { name: 'robot vacuum', place: 'Montr\u00e9al', tz: 'America/Toronto', art: 'vacuum', note: 'battery 63% \u00b7 stuck under the couch' },
+        { name: 'lofi girl', place: 'twitch.tv/lofigirl', tz: 'Europe/Paris', stream: { kind: 'twitch', id: 'lofigirl' }, note: 'beats to relax/study to \u00b7 muted' },
+        { name: 'lofi lounge', place: 'twitch.tv/lofi_loungee', tz: 'UTC', stream: { kind: 'twitch', id: 'lofi_loungee' }, note: TWITCH_NOTE },
+        { name: 'empty tv', place: 'twitch.tv/emptyveetv', tz: 'UTC', stream: { kind: 'twitch', id: 'emptyveetv' }, note: TWITCH_NOTE },
+        { name: 'piccadilly', place: 'Piccadilly Circus, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.07450' }, note: TFL_NOTE },
+        { name: 'trafalgar sq', place: 'Trafalgar Square, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.06502' }, note: TFL_NOTE },
+        { name: 'tower bridge', place: 'Tower Bridge, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.03500' }, note: TFL_NOTE },
+        { name: 'times square', place: 'Times Square, New York', tz: 'America/New_York', stream: { kind: 'still', id: '1927b469-e2dc-4943-a70c-e6e52fd4c48c' }, note: NYC_NOTE },
+        { name: 'brooklyn br.', place: 'Brooklyn Bridge walkway, New York', tz: 'America/New_York', stream: { kind: 'still', id: '0f3b6031-fe36-43df-b2c7-6120e0580309' }, note: NYC_NOTE },
+        { name: 'union sq', place: 'Union Square, New York', tz: 'America/New_York', stream: { kind: 'still', id: 'd47d2f63-cdc1-4f28-bc4c-e64ac07e4f1d' }, note: NYC_NOTE },
+        { name: '5th ave', place: '5th Avenue at 42nd St, New York', tz: 'America/New_York', stream: { kind: 'still', id: 'f4e822f7-d2a2-4146-851c-04b2fa6d5265' }, note: NYC_NOTE },
+        { name: 'parliament sq', place: 'Parliament Square, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.06501' }, note: TFL_NOTE },
         { name: 'home', place: 'back to your website', go: 'site' },
-        { name: 'unplug', place: 'back to the shell', go: 'shell' },
+        { name: 'satellite', place: '408 km over the Pacific', tz: 'UTC', art: 'satellite', note: '7.66 km/s \u00b7 ping 512 ms', inner: true },
+        { name: 'weather station', place: 'Troms\u00f8', tz: 'Europe/Oslo', art: 'aurora', note: 'kp index 6 \u00b7 -11\u00b0C', inner: true },
+        { name: 'smart fridge', place: 'Osaka', tz: 'Asia/Tokyo', art: 'fridge', note: 'door opened 14 times today', inner: true },
+        { name: 'lighthouse', place: 'Cape Point', tz: 'Africa/Johannesburg', art: 'lighthouse', note: 'one flash every 10 s', inner: true },
+        { name: 'unplug', place: 'back to the shell', go: 'shell', inner: true },
+        { name: 'radio telescope', place: 'the high Arctic', tz: 'America/Resolute', art: 'radio', note: 'listening for the cosmic dark ages', inner: true },
+        { name: 'toaster', place: 'Leeds', tz: 'Europe/London', art: 'toaster', note: 'setting 4 of 6', inner: true },
+        { name: 'robot vacuum', place: 'Montr\u00e9al', tz: 'America/Toronto', art: 'vacuum', note: 'battery 63% \u00b7 stuck under the couch', inner: true },
     ];
+    const NODE_COLORS = { twitch: '#a970ff', clip: '#ff4d6d', still: '#ff4d6d', go: '#f6e05e', thing: '#2de2e6' };
+    const nodeColor = node => NODE_COLORS[node.go ? 'go' : node.stream ? node.stream.kind : 'thing'];
 
     function localTime(tz) {
         const d = new Date();
@@ -4015,12 +4503,16 @@
     function enterNet() {
         shellState = saveScene();
         scene = 'net';
+        closeStream();
         allocWorld(document.documentElement.clientWidth, sceneHeight());
         repaint();
-        const n = NODES.length, rx = W * 0.4, ry = H * 0.36;
+        const ring = (list, rx, ry, turn) => list.map((node, i) => {
+            const a = (i + turn) / list.length * Math.PI * 2 - Math.PI / 2;
+            return { ...node, x: W / 2 + Math.cos(a) * rx, y: H / 2 + Math.sin(a) * ry };
+        });
         net = {
-            nodes: NODES.map((node, i) => ({ ...node, x: W / 2 + Math.cos(i / n * Math.PI * 2 - Math.PI / 2) * rx, y: H / 2 + Math.sin(i / n * Math.PI * 2 - Math.PI / 2) * ry })),
-            plugged: null, armed: true,
+            nodes: ring(NODES.filter(n => !n.inner), W * 0.42, H * 0.4, 0).concat(ring(NODES.filter(n => n.inner), W * 0.21, H * 0.2, 0.5)),
+            plugged: null, plugT: 0, armed: true,
         };
         scrollX = scrollY = 0;
         guy.x = W / 2;
@@ -4028,7 +4520,7 @@
         guy.vx = guy.vy = 0;
         guy.grounded = false;
         guy.state = 'air';
-        banner('inside the net');
+        banner('the ether');
         renderHud();
     }
 
@@ -4038,14 +4530,18 @@
         shellState = saved;
     }
 
-    function updateNet() {
+    function updateNet(dt) {
         let near = null;
         for (const node of net.nodes) if (Math.hypot(guy.x - node.x, guy.y - HEIGHT / 2 - node.y) < 22) near = node;
         if (!near) net.armed = true;
         if (near !== net.plugged) {
             net.plugged = near;
+            net.plugT = 0;
+            closeStream();
             if (near && !near.go) sfx('plug');
         }
+        // a moment's pause before a window opens, so drifting past a node doesn't
+        if (near && near.stream && !stream && (net.plugT += dt) > 0.3) openStream(near);
         if (near && near.go && net.armed) {
             net.armed = false;
             transition(() => exitNet(near.go));
@@ -4054,6 +4550,7 @@
 
     function exitNet(to) {
         net = null;
+        closeStream();
         scene = to;
         if (to === 'shell') {
             loadScene(shellState);
@@ -4079,6 +4576,113 @@
         guy.state = 'air';
         guy.grounded = false;
         renderHud();
+    }
+
+    // ----- the windows
+    //
+    // A live node opens a real little window over the canvas (it lets clicks through,
+    // so the shooting carries on): a muted Twitch player, a TfL clip on a loop, or a
+    // New York frame swapped for the next one as it arrives. Behind it is static, which
+    // is all you see if the feed won't load.
+
+    let stream = null;
+
+    function openStream(node) {
+        closeStream();
+        const s = node.stream, el = document.createElement('div');
+        el.id = 'destroy-stream';
+        el.innerHTML = '<div class="ds-bar"><span class="ds-rec"></span><span class="ds-live">LIVE</span><b></b><i></i></div>' +
+            '<div class="ds-media"><div class="ds-static">tuning in&hellip;</div></div><div class="ds-note"></div>';
+        el.querySelector('b').textContent = node.place;
+        el.querySelector('.ds-note').textContent = node.note;
+        const media = el.querySelector('.ds-media'), staticEl = el.querySelector('.ds-static');
+        let feed = null, timer = 0;
+        const lost = () => {
+            staticEl.textContent = 'no signal';
+            if (feed) feed.style.visibility = 'hidden';
+        };
+        if (s.kind === 'twitch') {
+            if (location.hostname) {
+                feed = document.createElement('iframe');
+                feed.src = `https://player.twitch.tv/?channel=${s.id}&parent=${location.hostname}&muted=true&autoplay=true`;
+                feed.allow = 'autoplay; keyboard-map';
+                feed.title = node.place;
+                feed.setAttribute('scrolling', 'no');
+            } else lost();
+        } else if (s.kind === 'clip') {
+            feed = document.createElement('video');
+            feed.muted = feed.loop = feed.autoplay = feed.playsInline = true;
+            feed.setAttribute('playsinline', '');
+            feed.poster = `${TFL}${s.id}.jpg`;
+            feed.src = `${TFL}${s.id}.mp4`;
+            feed.addEventListener('error', lost);
+            const play = feed.play();
+            if (play) play.catch(() => {});
+        } else {
+            feed = document.createElement('img');
+            feed.alt = '';
+            feed.addEventListener('error', lost);
+            feed.src = `${NYC}${s.id}/image?t=${Date.now()}`;
+            // the next frame loads off to the side, then takes the old one's place
+            timer = setInterval(() => {
+                const next = new Image();
+                next.onload = () => { if (stream && stream.feed === feed) feed.src = next.src; };
+                next.src = `${NYC}${s.id}/image?t=${Date.now()}`;
+            }, 2500);
+        }
+        if (feed) {
+            feed.className = 'ds-feed';
+            media.appendChild(feed);
+        }
+        document.body.appendChild(el);
+        stream = { node, el, feed, timer, rect: null, time: '' };
+        placeStream(true);
+        sfx('beep');
+    }
+
+    function closeStream() {
+        if (!stream) return;
+        clearInterval(stream.timer);
+        if (stream.feed && stream.feed.tagName === 'VIDEO') {
+            stream.feed.pause();
+            stream.feed.removeAttribute('src');
+            stream.feed.load();
+        }
+        stream.el.remove();
+        stream = null;
+    }
+
+    // Where a node's window goes: over the node, on the other half of the screen from
+    // it, and clear of the HUD (a Twitch player won't play with anything over it)
+    function feedRect(node) {
+        const vw = window.innerWidth, vh = window.innerHeight, live = !!node.stream;
+        const w = Math.min(live ? 400 : 300, vw - 24);
+        const h = live ? Math.round((w - 12) * 9 / 16) + 50 : Math.round(w * 0.62) + 50;
+        const top = coarsePointer ? 64 : 56, bottom = vh - (coarsePointer && vh > vw ? 190 : 24) - h;
+        let x = clamp(node.x - w / 2, 12, vw - w - 12), y = node.y < H / 2 ? Math.max(top, bottom) : top;
+        const hr = hud && hud.getBoundingClientRect();
+        if (hr && hr.width && x < hr.right + 6 && x + w > hr.left - 6 && y < hr.bottom + 6 && y + h > hr.top - 6) {
+            if (hr.right + 6 + w <= vw - 12) x = hr.right + 6;
+            else if (hr.left - 6 - w >= 12) x = hr.left - 6 - w;
+            else y = y < hr.top ? Math.max(0, hr.top - 6 - h) : hr.bottom + 6;
+        }
+        return { x: Math.round(x), y: Math.round(y), w, h };
+    }
+
+    function placeStream(opening) {
+        if (!stream) return;
+        const r = feedRect(stream.node), el = stream.el, key = `${r.x},${r.y},${r.w},${r.h}`;
+        if (key !== stream.rect) {
+            stream.rect = key;
+            Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+        }
+        // it grows out of the hexagon
+        if (opening) el.style.transformOrigin = `${Math.round(stream.node.x - r.x)}px ${Math.round(stream.node.y - r.y)}px`;
+        const time = localTime(stream.node.tz).time;
+        if (time !== stream.time) {
+            stream.time = time;
+            el.querySelector('i').textContent = time;
+        }
     }
 
     // Rings rushing out of the middle, and the bits running down orderly lanes
@@ -4120,8 +4724,24 @@
         ctx.font = "9px 'IBM Plex Mono', monospace";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+        // the inner ring wired to the outer, packets running along the wires
+        ctx.strokeStyle = 'rgba(45,226,230,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
         for (const node of net.nodes) {
-            const on = node === net.plugged, r = on ? 13 : 10, col = node.go ? '#f6e05e' : '#2de2e6';
+            if (node.inner) continue;
+            ctx.moveTo(node.x, node.y);
+            ctx.lineTo(W / 2, H / 2);
+        }
+        ctx.stroke();
+        for (const node of net.nodes) {
+            if (node.inner) continue;
+            const k = (clock * 0.5 + node.x * 0.013) % 1;
+            ctx.fillStyle = nodeColor(node);
+            ctx.fillRect(node.x + (W / 2 - node.x) * k - 1, node.y + (H / 2 - node.y) * k - 1, 2, 2);
+        }
+        for (const node of net.nodes) {
+            const on = node === net.plugged, r = on ? 13 : 10, col = nodeColor(node);
             ctx.globalAlpha = on ? 0.6 : 0.25 + 0.1 * Math.sin(clock * 3 + node.x);
             ctx.fillStyle = col;
             ctx.beginPath();
@@ -4129,22 +4749,62 @@
             ctx.fill();
             ctx.globalAlpha = 1;
             hexPath(node.x, node.y, r);
+            ctx.fillStyle = '#02030a';
+            ctx.fill();
             ctx.strokeStyle = col;
             ctx.lineWidth = 2;
             ctx.stroke();
+            if (node.stream) {
+                // a play mark, and the red light of something live
+                ctx.fillStyle = col;
+                ctx.beginPath();
+                ctx.moveTo(node.x - 3, node.y - 4);
+                ctx.lineTo(node.x + 4, node.y);
+                ctx.lineTo(node.x - 3, node.y + 4);
+                ctx.fill();
+                if (Math.floor(clock * 2 + node.x) % 2) {
+                    ctx.fillStyle = '#ff2b4a';
+                    ctx.fillRect(node.x + r - 2, node.y - r - 1, 3, 3);
+                }
+            }
             ctx.fillStyle = '#d8fff8';
-            ctx.fillText(node.name, node.x, node.y + r + 4);
+            const tw = ctx.measureText(node.name).width / 2;
+            ctx.fillText(node.name, clamp(node.x, tw + 2, window.innerWidth - tw - 2), node.y + r + 4);
         }
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
     }
 
-    // Plugged in: a little window onto wherever that is, at its local time
+    // Plugged in: a little window onto wherever that is, at its local time (a real
+    // one, for the live nodes), with a cable from the node to it
     function drawFeed() {
         const node = net && net.plugged;
         if (!node || node.go) return;
-        const vw = window.innerWidth, w = Math.min(300, vw - 32), h = Math.round(w * 0.62) + 50;
-        const x = Math.round((vw - w) / 2), y = coarsePointer ? 150 : 100, lt = localTime(node.tz);
+        const r = feedRect(node);
+        const tx = clamp(node.x, r.x + 8, r.x + r.w - 8), ty = node.y < r.y ? r.y : r.y + r.h;
+        ctx.strokeStyle = nodeColor(node);
+        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        ctx.lineDashOffset = -clock * 40;
+        ctx.beginPath();
+        ctx.moveTo(node.x, node.y);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+        if (node.stream) {
+            placeStream(false);
+            if (!stream) {
+                // about to open: the window flickering into being
+                ctx.strokeStyle = nodeColor(node);
+                ctx.globalAlpha = 0.5 * Math.min(1, net.plugT / 0.3);
+                ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+                ctx.globalAlpha = 1;
+            }
+            return;
+        }
+        const { x, y, w, h } = r, lt = localTime(node.tz);
         ctx.fillStyle = 'rgba(2,3,10,0.9)';
         ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = '#2de2e6';
@@ -4187,32 +4847,6 @@
     }
 
     const FEEDS = {
-        traffic(x, y, w, h, hour) {
-            const night = skyBox(x, y, w, h, hour);
-            ctx.fillStyle = '#2a2d33';
-            ctx.fillRect(x, y + h * 0.7, w, h * 0.3);
-            ctx.fillStyle = '#d9d9d9';
-            for (let i = 0; i < w; i += 24) ctx.fillRect(x + ((i - clock * 40) % w + w) % w, y + h * 0.84, 12, 2);
-            for (let i = 0; i < 4; i++) {
-                const cx = x + ((i * w / 4 + clock * 50) % (w + 30)) - 30;
-                ctx.fillStyle = ['#d0412b', '#2e7dd1', '#f2c230', '#eeeeee'][i];
-                ctx.fillRect(cx, y + h * 0.74, 22, 8);
-                if (night) {
-                    ctx.fillStyle = '#fff3b0';
-                    ctx.fillRect(cx + 21, y + h * 0.75, 3, 3);
-                }
-            }
-            const phase = Math.floor(clock / 3) % 3, lx = x + w * 0.78, ly = y + h * 0.18;
-            ctx.fillStyle = '#111';
-            ctx.fillRect(lx, ly, 14, 36);
-            ctx.fillRect(lx + 6, ly + 36, 2, h * 0.36);
-            ['#ff3b2a', '#ffb02a', '#3ad16b'].forEach((c, i) => {
-                ctx.fillStyle = 2 - i === phase ? c : '#333';
-                ctx.beginPath();
-                ctx.arc(lx + 7, ly + 7 + i * 11, 4, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        },
         aurora(x, y, w, h) {
             ctx.fillStyle = '#040915';
             ctx.fillRect(x, y, w, h);
@@ -4267,30 +4901,6 @@
             ctx.fillRect(8, -4, 26, 8);
             ctx.restore();
         },
-        harbour(x, y, w, h, hour) {
-            skyBox(x, y, w, h, hour);
-            ctx.fillStyle = '#3d4654';
-            ctx.beginPath();
-            ctx.moveTo(x, y + h * 0.55);
-            for (let i = 0; i <= w; i += 20) ctx.lineTo(x + i, y + h * (0.32 + 0.12 * Math.abs(Math.sin(i * 0.03))));
-            ctx.lineTo(x + w, y + h * 0.55);
-            ctx.fill();
-            ctx.fillStyle = '#1f3d5c';
-            ctx.fillRect(x, y + h * 0.55, w, h * 0.45);
-            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-            for (let i = 0; i < 6; i++) {
-                ctx.beginPath();
-                ctx.moveTo(x, y + h * (0.6 + i * 0.07));
-                for (let j = 0; j <= w; j += 10) ctx.lineTo(x + j, y + h * (0.6 + i * 0.07) + Math.sin(j * 0.1 + clock * 2 + i) * 1.5);
-                ctx.stroke();
-            }
-            for (let i = 0; i < 3; i++) {
-                const bx = x + w * (0.2 + i * 0.28), by = y + h * 0.62 + Math.sin(clock * 1.5 + i) * 2;
-                ctx.fillStyle = '#eee';
-                ctx.fillRect(bx, by, 22, 6);
-                ctx.fillRect(bx + 10, by - 16, 2, 16);
-            }
-        },
         lighthouse(x, y, w, h) {
             ctx.fillStyle = '#060a18';
             ctx.fillRect(x, y, w, h);
@@ -4311,19 +4921,6 @@
             }
             ctx.fillStyle = '#fff3b0';
             ctx.fillRect(lx - 4, ly - 2, 8, 8);
-        },
-        servers(x, y, w, h) {
-            ctx.fillStyle = '#0b0d12';
-            ctx.fillRect(x, y, w, h);
-            for (let r = 0; r < 8; r++) {
-                ctx.fillStyle = '#1a1f29';
-                ctx.fillRect(x + 6, y + 6 + r * (h - 12) / 8, w - 12, (h - 12) / 8 - 3);
-                for (let c = 0; c < 18; c++) {
-                    const on = (Math.floor(clock * 8) * 7 + r * 13 + c * 29) % 5 < 2;
-                    ctx.fillStyle = on ? (c % 6 === 0 ? '#ffb02a' : '#3ad16b') : '#20262f';
-                    ctx.fillRect(x + 12 + c * (w - 30) / 18, y + 10 + r * (h - 12) / 8, 3, 3);
-                }
-            }
         },
         radio(x, y, w, h, hour) {
             skyBox(x, y, w / 2, h, hour);
@@ -4463,8 +5060,13 @@
         plug: t => { tone(t, 0.12, 'square', 700, 1400, 0.05); tone(t + 0.1, 0.12, 'square', 1400, 1400, 0.04); },
         merge: t => { for (let i = 0; i < 4; i++) tone(t + i * 0.12, 0.9, 'sine', [262, 330, 392, 523][i], [262, 330, 392, 523][i] * 2, 0.06); },
         glitch: t => { tone(t, 0.15, 'square', 90, 60, 0.06); noise(t, 0.1, 'highpass', 4000, 3000, 0.08); },
+        deploy: t => { tone(t, 0.08, 'square', 300, 900, 0.035); noise(t, 0.06, 'bandpass', 2500, 4000, 0.08, 2); },
+        cloak: t => { tone(t, 0.4, 'sine', 1100, 180, 0.07); noise(t, 0.35, 'highpass', 6000, 2000, 0.05); },
+        decloak: t => { tone(t, 0.25, 'sine', 180, 900, 0.05); noise(t, 0.15, 'highpass', 3000, 6000, 0.04); },
+        bubble: t => tone(t, 0.06, 'sine', 500, 1400, 0.04),
+        weld2: t => { noise(t, 0.09, 'highpass', 4500, 3000, 0.07); tone(t, 0.05, 'square', 2400, 1800, 0.015); },
     };
-    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2, jet: 0.09 };
+    const SOUND_GAP = { weld: 0.08, weld2: 0.07, bubble: 0.09, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2, jet: 0.09 };
 
     function sfx(name) {
         if (audio.muted || !audio.ctx || audio.ctx.state !== 'running') return;
@@ -4487,6 +5089,11 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, vw, vh);
         ctx.imageSmoothingEnabled = false;
+        if (birth) {
+            drawBirth(vw, vh);
+            drawFade();
+            return;
+        }
         let ox = 0, oy = 0;
         if (shakeAmt > 0.3) {
             ox = rand(-shakeAmt, shakeAmt);
@@ -4633,8 +5240,12 @@
             for (const [x, y] of CANOPY) ctx.fillRect(x, y, 4, 4);
         }
         const tint = g.hurtT > 0 ? '#ff4b3a' : null;
-        if (merged && !g.dead) {
-            ctx.fillStyle = `rgba(45,226,230,${0.14 + Math.sin(clock * 3) * 0.06})`;
+        const body = merged ? CY_BODY : BODY, legs = (merged ? CY_POSES : POSES)[pose][frame];
+        // camouflaged: next to invisible, except for a moment after he fires
+        const cloak = camo && !g.dead ? 0.08 + Math.min(0.6, Math.max(0, camoReveal) * 2.5) : 1;
+        if (cloak < 1) ctx.globalAlpha = cloak;
+        else if (merged && !g.dead) {
+            ctx.fillStyle = `rgba(45,226,230,${0.12 + Math.sin(clock * 3) * 0.05})`;
             ctx.fillRect(-4, -4, 32, 44);
         }
         if (hasJetpack && !g.dead) {
@@ -4645,35 +5256,65 @@
                 ctx.fillRect(6, 20, 3, rand(4, 9));
             }
         }
-        drawPixels(BODY, tint);
-        drawPixels(POSES[pose][frame], tint);
+        if (merged && !tint && cloak === 1) {
+            // an outline, then the seams and the eye
+            ctx.fillStyle = '#161922';
+            for (const [x, y] of body) ctx.fillRect(x - 1, y - 1, 6, 6);
+            for (const [x, y] of legs) ctx.fillRect(x - 1, y - 1, 6, 6);
+        }
+        drawPixels(body, tint);
+        drawPixels(legs, tint);
+        if (merged && !tint) {
+            ctx.fillStyle = '#2de2e6';
+            ctx.fillRect(13, 6, 3, 2);
+            ctx.fillRect(8, 16, 8, 1);
+            ctx.fillRect(11, 12, 2, 4);
+        }
+        if (cloak < 1) {
+            // the light bending round him
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = 'rgba(210,250,255,0.2)';
+            for (const [x, y] of body) ctx.fillRect(x + Math.sin(clock * 19 + y * 0.7) * 1.5, y, 4, 4);
+            for (const [x, y] of legs) ctx.fillRect(x + Math.sin(clock * 19 + y * 0.7) * 1.5, y, 4, 4);
+            ctx.globalAlpha = cloak;
+        }
         ctx.restore();
-        ctx.globalAlpha = 1;
-        if (g.dead) return;
-        if (g.hp < MAX_HP) drawBar(g.x - 12, g.y - HEIGHT - 9, 24, g.hp / MAX_HP);
+        if (g.dead) {
+            ctx.globalAlpha = 1;
+            return;
+        }
+        if (g.hp < MAX_HP && cloak === 1) drawBar(g.x - 12, g.y - HEIGHT - 9, 24, g.hp / MAX_HP);
 
         // the arm that holds the gun, then the gun, pointing wherever he's aiming
-        const w = WEAPONS[weapon], p = gunPose();
+        // (merged, the gun is the arm, and it unfolds out of it when he switches)
+        const w = gunOf(weapon), p = gunPose();
+        ctx.globalAlpha = cloak;
         ctx.save();
         ctx.translate(p.s.x, p.s.y);
         ctx.rotate(p.a);
         if (p.flip < 0) ctx.scale(1, -1);
-        ctx.fillStyle = SKIN;
-        ctx.fillRect(-1, -2, p.reach + 2, 4);
-        ctx.drawImage(gunSprites[weapon], p.reach - w.grip[0] * 2, -w.grip[1] * 2);
+        if (merged) {
+            const spr = armSprites[weapon], sw = Math.max(4, Math.round(spr.width * (1 - Math.max(0, deployT) / DEPLOY)));
+            ctx.drawImage(spr, 0, 0, sw, spr.height, p.reach - w.grip[0] * 2, -w.grip[1] * 2, sw, spr.height);
+        } else {
+            ctx.fillStyle = SKIN;
+            ctx.fillRect(-1, -2, p.reach + 2, 4);
+            ctx.drawImage(gunSprites[weapon], p.reach - w.grip[0] * 2, -w.grip[1] * 2);
+        }
         if (muzzleFlash > 0) {
             const mx = p.reach + (w.muzzle[0] - w.grip[0]) * 2, my = (w.muzzle[1] - w.grip[1]) * 2;
-            ctx.fillStyle = '#fff3b0';
+            ctx.fillStyle = merged ? '#e8ffff' : '#fff3b0';
             ctx.fillRect(mx, my - 3, 6, 6);
-            ctx.fillStyle = '#ffb02a';
+            ctx.fillStyle = merged ? '#2de2e6' : '#ffb02a';
             ctx.fillRect(mx + 6, my - 1, 4, 2);
             ctx.fillRect(mx + 2, my - 5, 2, 10);
         }
         ctx.restore();
+        ctx.globalAlpha = 1;
     }
 
     function drawBullets() {
-        ctx.strokeStyle = '#ffcf40';
+        ctx.strokeStyle = merged ? '#7ff6ff' : '#ffcf40';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         for (const b of bullets) {
@@ -4719,7 +5360,7 @@
         for (const b of beams) {
             const f = b.t / 0.3;
             ctx.globalAlpha = f;
-            ctx.strokeStyle = '#36c6d9';
+            ctx.strokeStyle = merged ? '#ff3fa4' : '#36c6d9';
             ctx.lineWidth = 5 * f;
             ctx.beginPath();
             ctx.moveTo(b.x0, b.y0);
@@ -4782,6 +5423,7 @@
         cooldown -= dt;
         nadeCooldown -= dt;
         muzzleFlash -= dt;
+        updateCamo(dt);
         if ((firing || shotQueued || padFire) && cooldown <= 0) {
             fire();
             shotQueued = false;
@@ -4815,6 +5457,10 @@
         toggleCd -= dt;
         if (dialog) {
             updateDialog(dt);
+            acc = 0;
+        }
+        if (birth) {
+            updateBirth(dt);
             acc = 0;
         }
         if (fade) {
@@ -4877,7 +5523,7 @@
         hud.classList.toggle('dh-sky', active && scene !== 'site');
         if (!active) {
             hud.innerHTML = `<button data-act="gun">[${coarsePointer ? 'tap' : 'g'}] give him the gun back</button>`;
-            pctEl = muteEl = killsEl = hpFill = hpNum = null;
+            pctEl = muteEl = killsEl = hpFill = hpNum = camoFill = camoNum = null;
             return;
         }
         const weapons = WEAPONS.map((w, i) => owned.has(i)
@@ -4885,13 +5531,18 @@
             : `<span class="dh-locked">${coarsePointer ? '' : i + 1 + ' '}?</span>`
         ).join(' ');
         const help = coarsePointer
-            ? 'stick: move<br>JUMP: jump, again to flip, hold to glide<br>FIRE: shoot (it aims itself)<br>tap: shoot right there<br>BOMB: grenade &middot; SWAP: next gun<br>push into the screen edge: climb<br>kill the fly: something opens'
-            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page';
+            ? `stick: move<br>JUMP: jump, again to flip, hold to glide<br>FIRE: shoot (it aims itself)<br>tap: shoot right there<br>${merged ? 'CAMO: go invisible (shooting shows you)' : 'BOMB: grenade'} &middot; SWAP: next gun<br>push into the screen edge: climb<br>kill the fly: something opens`
+            : `wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: ${merged ? 'thermoptic camo, on and off (shooting shows you)' : 'grenade'}<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page`;
         const jetHelp = hasJetpack ? `<br>${coarsePointer ? 'JET' : 'space'}: jetpack` : '';
         const key = k => coarsePointer ? '' : `[${k}] `;
-        if (pad) pad.querySelector('[data-pad="jump"]').textContent = hasJetpack ? 'JET' : 'JUMP';
+        if (pad) {
+            pad.querySelector('[data-pad="jump"]').textContent = hasJetpack ? 'JET' : 'JUMP';
+            pad.querySelector('[data-pad="nade"]').textContent = merged ? 'CAMO' : 'BOMB';
+        }
+        const camoBar = merged ? `<div class="dh-hp">camo <span class="dh-bar"><span class="dh-cfill"></span></span> <span class="dh-cst"></span></div>` : '';
         if (coarsePointer) hud.innerHTML =
             `<div><span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span> &middot; ${WEAPONS[weapon].name}${hasJetpack ? ' + jetpack' : ''} <button data-act="menu">[${menuOpen ? 'close' : 'menu'}]</button></div>` +
+            camoBar +
             `<div class="dh-pct"></div>` +
             (menuOpen
                 ? `<div>${weapons}</div>` + (botsOn ? `<div class="dh-kills"></div>` : '') +
@@ -4903,6 +5554,7 @@
             `<div>${weapons}</div>` +
             `<div class="dh-pct"></div>` +
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
+            camoBar +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
             (helpOn && scene !== 'net' ? `<div class="dh-help">${help}${jetHelp}</div>` : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button>${coarsePointer ? ' <button data-act="taunt">taunt</button>' : ''} <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
@@ -4910,6 +5562,9 @@
         killsEl = hud.querySelector('.dh-kills');
         hpFill = hud.querySelector('.dh-fill');
         hpNum = hud.querySelector('.dh-hpn');
+        camoFill = hud.querySelector('.dh-cfill');
+        camoNum = hud.querySelector('.dh-cst');
+        shownCamo = '';
         shownKills = '';
         shownHp = -1;
         muteEl = hud.querySelector('[data-act="mute"]');
@@ -4928,6 +5583,15 @@
                 hpNum.textContent = guy.dead ? 'ow' : hp;
             }
         }
+        if (camoFill) {
+            const pct = Math.round(camoE * 100), st = camo ? (hidden() ? 'on' : 'seen!') : camoE >= CAMO.min ? 'ready' : 'charging';
+            if (pct + st !== shownCamo) {
+                shownCamo = pct + st;
+                camoFill.style.width = pct + '%';
+                camoFill.style.background = camo ? '#2de2e6' : camoE >= CAMO.min ? '#5f8f9a' : '#8a8a8a';
+                camoNum.textContent = st;
+            }
+        }
         if (!killsEl) return;
         let text = `clankers scrapped: ${scrapped} \u00b7 flies swatted: ${swatted}`;
         if (keepersBeaten) text += ` \u00b7 fly guys beaten: ${keepersBeaten}`;
@@ -4944,7 +5608,7 @@
         if (scene === 'site' && shown === shownPct) return;
         shownPct = shown;
         if (scene === 'net') {
-            const text = net && net.plugged ? `plugged into: ${net.plugged.name}, ${net.plugged.place}` : 'inside the net: plug into something';
+            const text = net && net.plugged ? `plugged into: ${net.plugged.name}, ${net.plugged.place}` : 'the ether: plug into something';
             if (pctEl.textContent !== text) pctEl.textContent = text;
             return;
         }
@@ -5013,7 +5677,10 @@
         beams = [];
         flashes = [];
         firing = false;
-        cooldown = nadeCooldown = shakeAmt = 0;
+        cooldown = nadeCooldown = shakeAmt = deployT = 0;
+        camo = false;
+        camoE = 1;
+        camoReveal = 0;
         camHold = 0;
         bots = [];
         flies = [];
@@ -5040,6 +5707,8 @@
         portalArmed = true;
         weather = {};
         shell = shellState = net = null;
+        closeStream();
+        endBirth();
         if (dialog) closeDialog();
         globs = [];
         lasers = [];
@@ -5069,6 +5738,8 @@
             scene = 'site';
         }
         shell = shellState = net = null;
+        closeStream();
+        endBirth();
         if (dialog) closeDialog();
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
@@ -5176,6 +5847,11 @@
             else if (e.code === 'Escape' && starting) holster();
             return;
         }
+        if (birth) {
+            if (!e.repeat) skipBirth();
+            e.preventDefault();
+            return;
+        }
         if (dialog) {
             if (e.code === 'KeyY') answerDialog(true);
             else if (e.code === 'KeyN' || e.code === 'Escape') {
@@ -5195,7 +5871,7 @@
         }
         if (/^Digit[1-9]$/.test(e.code)) selectWeapon(+e.code.slice(5) - 1);
         else if (e.code === 'KeyQ') cycleWeapon();
-        else if (e.code === 'KeyG') throwGrenade();
+        else if (e.code === 'KeyG') altFire();
         else if (e.code === 'KeyM') toggleMute();
         else if (e.code === 'KeyH') toggleHelp();
         else if (e.code === 'KeyB') toggleBots();
@@ -5240,10 +5916,15 @@
         pointer.y = e.clientY;
         pointer.has = true;
         initAudio();
+        if (birth) {
+            skipBirth();
+            e.preventDefault();
+            return;
+        }
         if (e.button === 0) {
             firing = true;
             shotQueued = cooldown < 0.25;   // a quick click just before the gun is ready still counts
-        } else if (e.button === 2) throwGrenade();
+        } else if (e.button === 2) altFire();
         e.preventDefault();
     });
 
@@ -5261,6 +5942,10 @@
         for (const t of e.changedTouches) {
             if (isUi(t.target)) continue;
             e.preventDefault();
+            if (birth) {
+                skipBirth();
+                return;
+            }
             if (pointer.touchId !== null) continue;
             pointer.touchId = t.identifier;
             pointer.x = t.clientX;

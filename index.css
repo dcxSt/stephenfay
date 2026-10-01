@@ -1050,3 +1050,128 @@ html.destroying #pixelated-person {
         bottom: 210px;
     }
 }
+
+#destroy-hud .dh-cfill {
+    display: block;
+    height: 100%;
+    background: #5f8f9a;
+}
+
+/* A window onto a live node in the ether (destroy.js): it lets clicks through to the game,
+   except on a Twitch player */
+#destroy-stream {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-sizing: border-box;
+    padding: 5px 6px 4px;
+    background: rgba(2, 3, 10, 0.92);
+    border: 1px solid #2de2e6;
+    box-shadow: 0 0 18px rgba(45, 226, 230, 0.35);
+    color: #d8fff8;
+    font: 10px/1.3 'IBM Plex Mono', monospace;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    animation: ds-open 0.3s ease-out;
+}
+
+#destroy-stream .ds-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+#destroy-stream .ds-bar b {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+}
+
+#destroy-stream .ds-bar i {
+    font-style: normal;
+    color: #2de2e6;
+}
+
+#destroy-stream .ds-rec {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ff2b4a;
+    animation: ds-blink 1s steps(2) infinite;
+}
+
+#destroy-stream .ds-live {
+    color: #ff2b4a;
+    font-weight: bold;
+}
+
+#destroy-stream .ds-media {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: #000;
+}
+
+#destroy-stream .ds-feed {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: cover;
+}
+
+#destroy-stream .ds-static {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ad7ff;
+    background: repeating-linear-gradient(0deg, #0b0d12 0 2px, #171a22 2px 4px);
+    animation: ds-roll 0.5s steps(5) infinite;
+}
+
+/* nothing may sit over a Twitch player, or it won't play; you can click it to unmute */
+#destroy-stream iframe.ds-feed {
+    pointer-events: auto;
+}
+
+#destroy-stream .ds-note {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #9ad7ff;
+}
+
+@keyframes ds-open {
+    from {
+        transform: scale(0.04);
+        opacity: 0.2;
+    }
+}
+
+@keyframes ds-blink {
+    50% {
+        opacity: 0.25;
+    }
+}
+
+@keyframes ds-roll {
+    to {
+        background-position: 0 20px;
+    }
+}
+
+/* the rebirth plays full screen, with nothing over it */
+html.destroy-cine #destroy-hud,
+html.destroy-cine #destroy-pad,
+html.destroy-cine #destroy-dialog,
+html.destroy-cine #virtual-joystick {
+    visibility: hidden;
+}
