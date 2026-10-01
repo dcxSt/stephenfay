@@ -169,7 +169,7 @@
     const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, spitT: 0, engaged: false, deathT: 0, startSrc: '' };
     let botsOn = true;
     let scene = 'site', siteState = null, skyState = null, sky = null, portal = null, robotsEvil = false;
-    let globs = [], lasers = [], fade = null, siteWords = [], factoryDown = false, portalWait = 0, tauntN = 0, tauntT = 0, retortT = 0;
+    let globs = [], lasers = [], fade = null, siteWords = [], factoryDown = false, portalArmed = true, tauntN = 0, tauntT = 0, retortT = 0;
     const splatImg = new Image();
     splatImg.src = 'assets/squashed-fly.webp';
     try { botsOn = localStorage.getItem('destroyBots') !== '0'; } catch (_) { /* storage unavailable */ }
@@ -1765,8 +1765,9 @@
         updateFlies(dt);
         if (keeper) updateKeeper(dt);
         if (flies.some(f => f.dead)) flies = flies.filter(f => !f.dead);
-        portalWait -= dt;
-        if (portal && portalWait <= 0 && !guy.dead && nearPortal(portal)) transition(() => enterSky('portal'));
+        // a portal works once you've stepped out of it (you come out of one inside it)
+        if (portal && !nearPortal(portal)) portalArmed = true;
+        else if (portal && portalArmed && !guy.dead) transition(() => enterSky('portal'));
         if (!botsOn) return;
 
         const pct = solidTotal ? solidRemoved / solidTotal * 100 : 0;
@@ -2227,7 +2228,6 @@
             const w = latentWord();
             placeWord(w.text, mono(w.size), w.p, sky.latent, 12);
         }
-        sky.arriveX = Math.min(W - EDGE, sky.holeX1 + 60);
         // and a portal back down at the far end of the floor
         sky.portal = { x: W - Math.max(EDGE + PORTAL_W, Math.round(60 * s)), y: sky.floorY - 12 - PORTAL_H / 2, t: 0 };
 
@@ -2310,8 +2310,8 @@
             }
             if (sky.booms.every(bm => bm.done)) sky.booms = null;
         }
-        portalWait -= dt;
-        if (portalWait <= 0 && !guy.dead && nearPortal(sky.portal)) transition(() => exitSky('portal'));
+        if (!nearPortal(sky.portal)) portalArmed = true;
+        else if (portalArmed && !guy.dead) transition(() => exitSky('portal'));
         // and the latent space keeps growing
         if (botsOn && (sky.buildT -= dt) <= 0) {
             sky.buildT = rand(4, 7);
@@ -2721,12 +2721,13 @@
         guy.state = 'air';
         guy.dropping = false;
         guy.vx = 0;
-        portalWait = 1.2;
+        portalArmed = how !== 'portal';
         if (how === 'portal') {
-            guy.x = sky.arriveX;
-            guy.y = sky.floorY - 60;
+            // out of the factory's portal
+            guy.x = sky.portal.x;
+            guy.y = sky.portal.y + PORTAL_H / 2;
             guy.vy = 0;
-            flashes.push({ x: guy.x, y: guy.y - 20, r: 26, t: 0, life: 0.3, ring: true });
+            flashes.push({ x: sky.portal.x, y: sky.portal.y, r: 26, t: 0, life: 0.3, ring: true });
         } else {
             // up through the floor from the website below
             guy.x = clamp(guy.x, EDGE, W - EDGE);
@@ -2746,12 +2747,12 @@
         scene = 'site';
         loadScene(siteState);
         siteState = null;
-        portalWait = 1.2;
+        portalArmed = !(how === 'portal' && portal);
         guy.state = 'air';
         guy.grounded = false;
         if (how === 'portal' && portal) {
-            // out of the website's portal, a step to one side of it
-            guy.x = clamp(portal.x + (portal.x < W / 2 ? 30 : -30), EDGE, W - EDGE);
+            // out of the website's portal
+            guy.x = portal.x;
             guy.y = portal.y + PORTAL_H / 2 - 2;
             guy.vy = 0;
             window.scrollTo(window.scrollX, Math.max(0, guy.y - window.innerHeight / 2));
@@ -3463,6 +3464,7 @@
         scene = 'site';
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
+        portalArmed = true;
         globs = [];
         lasers = [];
         bannerT = 0;
