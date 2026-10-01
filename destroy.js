@@ -843,6 +843,7 @@
                 else if (g.y < 0) {
                     g.y = 0;
                     g.vy = Math.max(0, g.vy);
+                    if (scene === 'sky' && !factoryDown) sealZap();
                 }
                 if (scene !== 'site' && g.y > H + 30) transition(() => (scene === 'sky' ? exitSky('fall') : exitShell()));
             }
@@ -851,9 +852,10 @@
     }
 
     // The top of the website is sealed until the fly's dead, and the top of the
-    // factory level is out of reach without the jetpack
+    // factory level until the factory's been blown up (and it's out of reach
+    // without the jetpack anyway)
     function canRiseOut() {
-        return scene === 'site' ? !bigFly.alive : scene === 'sky' && hasJetpack;
+        return scene === 'site' ? !bigFly.alive : scene === 'sky' && hasJetpack && factoryDown;
     }
 
     function riseOut() {
@@ -2723,7 +2725,23 @@
             if (sky.booms.every(bm => bm.done)) sky.booms = null;
         }
         if (sky.jetpack) {
-            sky.jetpack.t += dt;
+            const j = sky.jetpack;
+            j.t += dt;
+            if (j.vy === undefined) {
+                let held = false;
+                for (let dx = -3; dx <= 3 && !held; dx++) held = solidAt(Math.round(j.x) + dx, Math.round(j.y)) || solidAt(Math.round(j.x) + dx, Math.round(j.y) + 1);
+                if (!held) j.vy = 0;
+            } else {
+                j.vy = Math.min(j.vy + GRAVITY * dt, 600);
+                const ny = j.y + j.vy * dt, land = surfaceBetween(Math.round(j.x), Math.ceil(j.y) + 1, Math.floor(ny));
+                if (land !== null) {
+                    j.y = land;
+                    j.vy = undefined;
+                } else if (ny >= sky.floorY) {
+                    j.y = sky.floorY;
+                    j.vy = undefined;
+                } else j.y = ny;
+            }
             if (!guy.dead && Math.abs(guy.x - sky.jetpack.x) < (coarsePointer ? 20 : 14) && Math.abs(guy.y - HEIGHT / 2 - (sky.jetpack.y - 8)) < (coarsePointer ? 32 : 26)) {
                 hasJetpack = true;
                 saveProgress();
@@ -2731,6 +2749,15 @@
                 banner(coarsePointer ? 'you found a jetpack. hold JET to fly' : 'you found a jetpack. hold space to fly');
                 sfx('ding');
                 renderHud();
+            }
+        }
+        if (sky.sealT > 0) {
+            sky.sealT -= dt;
+            for (const sh of sky.seal) {
+                sh.vy += 300 * dt;
+                sh.x += sh.vx * dt;
+                sh.y += sh.vy * dt;
+                sh.rot += sh.spin * dt;
             }
         }
         if (!nearPortal(sky.portal)) portalArmed = true;
@@ -2774,9 +2801,28 @@
         else factoryBoom();
     }
 
-    // The whole factory goes up, and no more clankers come for the website
+    // Flying into the seal over the factory: a zap, a shove back down, and why
+    function sealZap() {
+        if (clock < (sky.zapT || 0)) return;
+        sky.zapT = clock + 0.35;
+        guy.vy = 280;
+        for (let i = 0; i < 12 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x: guy.x + rand(-12, 12), y: rand(0, 6), vx: rand(-140, 140), vy: rand(20, 160), life: rand(0.15, 0.35), color: i % 2 ? '#ff3fa4' : '#2de2e6' });
+        }
+        sfx('glitch');
+        buzz(25);
+        if (clock > (sky.sayT || 0)) {
+            sky.sayT = clock + 4;
+            banner('sealed: blow up the factory first');
+        }
+    }
+
+    // The whole factory goes up, and no more clankers come for the website (and the
+    // seal over it breaks: the way up is open)
     function factoryBoom() {
         factoryDown = true;
+        sky.seal = Array.from({ length: 40 }, (_, i) => ({ x: (i + Math.random()) * W / 40, y: rand(2, 8), vx: rand(-40, 40), vy: rand(20, 120), rot: rand(0, 6), spin: rand(-8, 8), color: i % 2 ? '#ff3fa4' : '#2de2e6' }));
+        sky.sealT = 2.2;
         sky.booms = [];
         const l0 = sky.lines[0], l1 = sky.lines[sky.lines.length - 1];
         const x0 = Math.min(l0.x0, l1.x0) - 30, x1 = Math.max(l0.x1, l1.x1) + 30, y0 = sky.latent.y1 + 20, y1 = sky.floorY - 10;
@@ -2785,7 +2831,7 @@
         flashes.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: (x1 - x0) / 2, t: 0, life: 0.4 });
         addShake(16);
         sfx('alarm');
-        banner('THE FACTORY IS DESTROYED. no more clankers');
+        banner(coarsePointer ? 'FACTORY DESTROYED: the way up is open' : hasJetpack ? 'THE FACTORY IS DESTROYED. the way up is open: fly up' : 'THE FACTORY IS DESTROYED. the way up is open');
         bannerT = 6;
     }
 
@@ -2982,7 +3028,46 @@
         for (const line of sky.lines) for (const it of line.items) if (!it.dead && it.have.chassis) fn(it, line, it.x, line.top - 9);
     }
 
+    // While the factory stands, each working line has a target over it, and a bar of
+    // how close it is to wrecked (it goes when it's down to 35%)
+    function drawTargets() {
+        if (factoryDown) return;
+        for (const line of sky.lines) {
+            if (!line.alive) continue;
+            const x = Math.round((line.x0 + line.x1) / 2), y = Math.round(line.y0 - 26), r = 12 + Math.sin(clock * 5) * 2, done = clamp((1 - line.health) / 0.65, 0, 1);
+            // the whole line throbs red
+            ctx.globalAlpha = 0.07 + 0.05 * Math.sin(clock * 5);
+            ctx.fillStyle = '#e8283c';
+            ctx.fillRect(line.x0, line.y0 - 4, line.x1 - line.x0, line.y1 - line.y0 + 6);
+            ctx.globalAlpha = 0.9;
+            ctx.strokeStyle = '#e8283c';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.moveTo(x - r - 5, y);
+            ctx.lineTo(x - r + 4, y);
+            ctx.moveTo(x + r - 4, y);
+            ctx.lineTo(x + r + 5, y);
+            ctx.moveTo(x, y - r - 5);
+            ctx.lineTo(x, y - r + 4);
+            ctx.moveTo(x, y + r - 4);
+            ctx.lineTo(x, y + r + 5);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.fillRect(x - 22, y + r + 8, 44, 5);
+            ctx.fillStyle = '#e8283c';
+            ctx.fillRect(x - 21, y + r + 9, Math.round(42 * done), 3);
+            ctx.font = "bold 9px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('WRECK', x, y - r - 6);
+            ctx.textAlign = 'left';
+            ctx.globalAlpha = 1;
+        }
+    }
+
     function drawLines() {
+        drawTargets();
         for (const line of sky.lines) {
             if (line.alive) {
                 // the belt moving
@@ -3160,7 +3245,8 @@
         }
         if (!sky.visited) {
             sky.visited = true;
-            banner('the space above the website');
+            banner(factoryDown ? 'the space above the website' : 'the robot factory. goal: blow it up');
+            bannerT = 5;
         }
         renderHud();
     }
@@ -3284,6 +3370,20 @@
                 ctx.fillRect(L.x1 - 2, L.top + 6, 2, L.bottom - L.top - 10);
                 ctx.globalAlpha = 1;
             }
+            if (!factoryDown) drawSeal();
+            else if (sky.sealT > 0) {
+                // the seal coming down in pieces
+                ctx.lineWidth = 2;
+                for (const sh of sky.seal) {
+                    ctx.globalAlpha = Math.min(1, sky.sealT);
+                    ctx.strokeStyle = sh.color;
+                    ctx.beginPath();
+                    ctx.moveTo(sh.x - Math.cos(sh.rot) * 6, sh.y - Math.sin(sh.rot) * 6);
+                    ctx.lineTo(sh.x + Math.cos(sh.rot) * 6, sh.y + Math.sin(sh.rot) * 6);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
             return;
         }
         if (scene === 'shell') {
@@ -3338,8 +3438,19 @@
         }
         if (scene === 'sky' && sky) {
             const L = sky.ladder;
+            if (!factoryDown) {
+                let best = null, bd = Infinity;
+                for (const line of sky.lines) {
+                    const d = line.alive ? Math.hypot((line.x0 + line.x1) / 2 - gx, line.y0 - gy) : Infinity;
+                    if (d < bd) {
+                        bd = d;
+                        best = line;
+                    }
+                }
+                if (best) return { x: (best.x0 + best.x1) / 2, y: best.y0 - 26, label: 'blow up the factory' };
+            }
             if (sky.jetpack && L) {
-                if (guy.y < L.top + 2) return { x: sky.jetpack.x, y: sky.jetpack.y - 8, label: 'the jetpack' };
+                if (guy.y < L.top + 2 || sky.jetpack.y > L.top + 2) return { x: sky.jetpack.x, y: sky.jetpack.y - 8, label: 'the jetpack' };
                 if (Math.abs(gx - L.x) > 14) return { x: L.x, y: clamp(gy, L.top + 40, L.bottom - 20), label: 'a ladder' };
                 return { x: L.x, y: L.top - 40, label: 'jump up it', ring: false };
             }
@@ -3426,6 +3537,35 @@
             ctx.fillStyle = '#ffd88a';
             ctx.fillText(h.label, bx + 4, by + 7.5);
         }
+        ctx.globalAlpha = 1;
+    }
+
+    // The seal over the factory: two crackling lines of current along the top, and
+    // what it would take to break it
+    function drawSeal() {
+        ctx.lineWidth = 2;
+        for (const [col, ph, y0] of [['#ff3fa4', 0, 3], ['#2de2e6', 2.1, 7]]) {
+            ctx.strokeStyle = col;
+            ctx.globalAlpha = 0.55 + 0.3 * Math.sin(clock * 7 + ph);
+            ctx.beginPath();
+            for (let x = 0; x <= W; x += 6) {
+                const y = y0 + Math.sin(x * 0.07 + clock * 9 + ph) * 2 + (Math.random() < 0.06 ? rand(-3, 3) : 0);
+                if (x) ctx.lineTo(x, y);
+                else ctx.moveTo(x, y);
+            }
+            ctx.stroke();
+        }
+        const text = coarsePointer ? '\u25b2 sealed: blow up the factory \u25b2' : '\u25b2 SEALED UNTIL THE FACTORY IS DESTROYED \u25b2';
+        ctx.font = "bold 10px 'IBM Plex Mono', monospace";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(text).width, y = coarsePointer ? 62 : 20;
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = 'rgba(18,10,24,0.82)';
+        ctx.fillRect(Math.round(W / 2 - tw / 2 - 6), y - 8, Math.round(tw + 12), 16);
+        ctx.fillStyle = Math.floor(clock * 2) % 2 ? '#ff3fa4' : '#ff7cc4';
+        ctx.fillText(text, W / 2, y + 0.5);
+        ctx.textAlign = 'left';
         ctx.globalAlpha = 1;
     }
 
@@ -7571,7 +7711,7 @@
         }
         if (scene === 'sky') {
             const left = sky.lines.filter(l => l.alive).length;
-            const text = left ? `assembly lines left: ${left}` : 'the factory is destroyed';
+            const text = left && !factoryDown ? `goal: blow up the factory (${left} line${left > 1 ? 's' : ''} left)` : hasJetpack ? 'the factory is destroyed: fly up' : 'the factory is destroyed: get the jetpack, fly up';
             if (pctEl.textContent !== text) pctEl.textContent = text;
             return;
         }
