@@ -162,7 +162,7 @@
     let guy = null;
     let weapon = 0, cooldown = 0, nadeCooldown = 0, firing = false, shotQueued = false, muzzleFlash = 0, shakeAmt = 0;
     let bullets = [], rockets = [], nades = [], parts = [], beams = [], flashes = [];
-    let scrollX = 0, scrollY = 0, fly = null, flyRect = null;
+    let scrollX = 0, scrollY = 0, fly = null, flyRect = null, toggle = null, toggleRect = null, toggleCd = 0;
     let origAlp = null, origPal = null, tileDirty = null, dirtyTiles = new Set(), TW = 0, hadDamage = false;
     let bots = [], flies = [], clock = 0, botTimer = 3, lastSay = -10, scrapped = 0, swatted = 0;
     let keeper = null, keeperWait = 0, keepersBeaten = 0, stack = null, deaths = 0, regen = 0;
@@ -866,6 +866,7 @@
             if (px < -hole || px > W + hole || py < -hole || py > H) break;
             carve(px, py, hole, { debris: 0.2, speed: 160, fx: -sin * (Math.random() < 0.5 ? 1 : -1), fy: cos });
             if (!flyHit) flyHit = hitFly(px, py, 10);
+            hitToggle(px, py);
         }
         const x1 = x + cos * len, y1 = y + sin * len;
         beams.push({ x0: x, y0: y, x1, y1, t: 0.3 });
@@ -956,7 +957,7 @@
             const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
             b.life -= dt;
             const hit = trace(b.x, b.y, nx, ny);
-            if (hitFly((b.x + nx) / 2, (b.y + ny) / 2) || hitFly(nx, ny)) {
+            if (hitFly((b.x + nx) / 2, (b.y + ny) / 2) || hitFly(nx, ny) || hitToggle((b.x + nx) / 2, (b.y + ny) / 2) || hitToggle(nx, ny)) {
                 bullets.splice(i, 1);
                 continue;
             }
@@ -1005,7 +1006,7 @@
                 rockets.splice(i, 1);
                 continue;
             }
-            if (hit || hitFly(nx, ny, 8) || r.life <= 0) {
+            if (hit || hitFly(nx, ny, 8) || hitToggle(nx, ny) || r.life <= 0) {
                 explode(hit ? hit.x : nx, hit ? hit.y : ny, r.blast);
                 rockets.splice(i, 1);
                 continue;
@@ -1511,6 +1512,20 @@
     function bigFlyCenter() {
         const r = fly.getBoundingClientRect();
         return { x: r.left + r.width / 2 + scrollX, y: r.top + r.height / 2 + scrollY };
+    }
+
+    // Shoot the light/dark toggle and it flips (index.html's own click handler does the switching)
+    function hitToggle(x, y) {
+        if (!toggleRect || toggleCd > 0) return false;
+        const sx = x - scrollX, sy = y - scrollY;
+        if (sx < toggleRect.left || sx > toggleRect.right || sy < toggleRect.top || sy > toggleRect.bottom) return false;
+        toggleCd = 0.5;
+        toggle.click();
+        for (let i = 0; i < 8 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x, y, vx: rand(-150, 150), vy: rand(-180, 40), life: rand(0.1, 0.3), color: i % 2 ? '#ffffff' : '#000000' });
+        }
+        sfx('clank');
+        return true;
     }
 
     // Bullets etc. call this as they travel; true if they hit the fly
@@ -3276,6 +3291,8 @@
         scrollX = inSky ? 0 : window.scrollX;
         scrollY = inSky ? 0 : window.scrollY;
         flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
+        toggleRect = !inSky && toggle ? toggle.getBoundingClientRect() : null;
+        toggleCd -= dt;
         if (fade) {
             fade.t += dt;
             if (!fade.fired && fade.t >= fade.dur / 2) {
@@ -3461,6 +3478,7 @@
         deaths = 0;
         regen = 0;
         resetBigFly();
+        toggle = document.getElementById('theme-toggle');
         scene = 'site';
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
