@@ -241,6 +241,7 @@
         };
         for (const [name, p] of Object.entries(PARTS)) partSprites[name] = artCanvas(partRows(p), { ...botColors, o: '#3a3f45' });
         partSprites.eyesEvil = artCanvas(partRows(PARTS.eyes), { e: '#ff2020' });
+        buildFoeSprites();
         jetSprite = artCanvas(['.kk.kk.', 'kggkggk', 'kggkggk', 'kggkggk', '.oo.oo.'], { k: '#2b2f33', g: '#8c96a0', o: '#ff8a2a' });
         keeperSprites = {
             normal: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, false, 4)),
@@ -644,9 +645,10 @@
 
     function input() {
         const kp = window.keysPressed || {};   // the touch joystick in index.html writes here
+        const left = !!(keys.left || kp.ArrowLeft), right = !!(keys.right || kp.ArrowRight), hacked = guy && guy.hackT > 0;
         return {
-            left: !!(keys.left || kp.ArrowLeft),
-            right: !!(keys.right || kp.ArrowRight),
+            left: hacked ? right : left,
+            right: hacked ? left : right,
             up: !!(keys.up || kp.ArrowUp),
             down: !!(keys.down || kp.ArrowDown),
             space: !!keys.jump,
@@ -689,10 +691,12 @@
         if (scene === 'net') {
             // no up or down in here: he just floats wherever he's pushed
             const ax = (k.right ? 1 : 0) - (k.left ? 1 : 0), ay = (k.down ? 1 : 0) - (k.up || k.space ? 1 : 0);
+            // (in world units, as fast across the screen whatever the zoom)
+            const z = net ? net.z : 1, lim = net && net.tree ? net.tree.R + 300 : 0;
             g.vx = approach(g.vx, ax * 230, 900 * dt);
             g.vy = approach(g.vy, ay * 230, 900 * dt);
-            g.x = clamp(g.x + g.vx * dt, EDGE, W - EDGE);
-            g.y = clamp(g.y + g.vy * dt, HEIGHT, H - 4);
+            g.x = clamp(g.x + g.vx * dt / z, -lim, lim);
+            g.y = clamp(g.y + g.vy * dt / z, -lim, lim);
             g.grounded = false;
             g.state = 'air';
             if (Math.hypot(g.vx, g.vy) > 20) g.walk += dt;
@@ -894,7 +898,7 @@
     // ------------------------------------------------------------------ weapons
 
     function fire() {
-        if (guy.dead) return;
+        if (guy.dead || scene === 'net') return;   // nothing to shoot in the ether
         const w = WEAPONS[weapon], pose = gunPose(), m = muzzleOf(gunOf(weapon), pose);
         cooldown = w.cooldown;
         if (camo) camoReveal = CAMO.reveal;   // the shot gives him away
@@ -968,6 +972,7 @@
     function updateCamo(dt) {
         camoReveal -= dt;
         deployT -= dt;
+        if (guy.hackT > 0) guy.hackT -= dt;
         if (camo) {
             camoE = Math.max(0, camoE - CAMO.drain * dt);
             if (camoE <= 0 || guy.dead) {
@@ -1001,11 +1006,19 @@
         for (const f of flies) if (!f.dead && segDist2(f.x, f.y, x, y, x1, y1)[0] < 81) killFly(f);
         if (keeper && !keeper.dying && segDist2(keeper.x, keeper.y - 20, x, y, x1, y1)[0] < 225) hurtKeeper(10, cos * 200);
         eachItem((it, line, ix, iy) => { if (segDist2(ix, iy, x, y, x1, y1)[0] < 100) destroyItem(it, line); });
-        if (scene === 'shell' && shell) for (const c of shell.cells) if (segDist2(c.x, c.y, x, y, x1, y1)[0] < 100) popCell(c);
+        if (scene === 'shell' && shell) {
+            for (const c of shell.cells) if (segDist2(c.x, c.y, x, y, x1, y1)[0] < 100) popCell(c);
+            for (const f of shell.foes) if (!f.dead && segDist2(f.x, f.y - 20, x, y, x1, y1)[0] < 196) hurtFoe(f, 99, cos * 200);
+            if (shell.tank) {
+                const b = tankBody();
+                if (segDist2(b.x, b.y, x, y, x1, y1)[0] < (TANK_R + 4) ** 2) hurtTank(20);
+            }
+        }
     }
 
-    function explode(x, y, R, harmless) {
-        carve(x, y, R, { debris: 0.18, speed: 420, scorch: 6 });
+    // (`sparing`: whatever fired it, which it doesn't hurt; `light`: leaves the text alone)
+    function explode(x, y, R, harmless, sparing, light) {
+        if (!light) carve(x, y, R, { debris: 0.18, speed: 420, scorch: 6 });
         flashes.push({ x, y, r: R, t: 0, life: 0.18 }, { x, y, r: R, t: 0, life: 0.3, ring: true });
         for (let i = 0; i < 28 && parts.length < MAX_PARTICLES; i++) {
             const a = rand(0, Math.PI * 2), v = rand(40, 220);
@@ -1039,7 +1052,17 @@
         }
         for (const f of flies) if (!f.dead && Math.hypot(f.x - x, f.y - y) < R * 1.6) killFly(f);
         eachItem((it, line, ix, iy) => { if (Math.hypot(ix - x, iy - y) < R * 1.3) destroyItem(it, line); });
-        if (scene === 'shell' && shell) for (const c of shell.cells) if (Math.hypot(c.x - x, c.y - y) < R * 1.3) popCell(c);
+        if (scene === 'shell' && shell) {
+            for (const c of shell.cells) if (Math.hypot(c.x - x, c.y - y) < R * 1.3) popCell(c);
+            for (const f of shell.foes) {
+                const fd = Math.hypot(f.x - x, f.y - 20 - y);
+                if (!f.dead && fd < R * 1.5) hurtFoe(f, 1 + 5 * (1 - fd / (R * 1.5)), (f.x - x) / (fd || 1) * 300);
+            }
+            if (shell.tank && shell.tank !== sparing) {
+                const b = tankBody(), td = Math.max(0, Math.hypot(b.x - x, b.y - y) - TANK_R);
+                if (td < R * 1.2) hurtTank(Math.ceil(10 * (1 - td / (R * 1.2))));
+            }
+        }
         if (keeper && !keeper.dying) {
             const kd = Math.hypot(keeper.x - x, keeper.y - 20 - y);
             if (kd < R * 1.5) hurtKeeper(2 + 6 * (1 - kd / (R * 1.5)), (keeper.x - x) / (kd || 1) * 300);
@@ -2076,7 +2099,14 @@
         for (const f of flies) if (!f.dead) test(f, 'fly', f.x, f.y, 7);
         if (keeper && !keeper.dying) test(keeper, 'keeper', keeper.x, keeper.y - 20, 13);
         eachItem((it, line, ix, iy) => test({ it, line }, 'item', ix, iy, 9));
-        if (scene === 'shell' && shell) for (const c of shell.cells) if (!c.dead) test(c, 'cell', c.x, c.y, 5 + c.size * 4);
+        if (scene === 'shell' && shell) {
+            for (const c of shell.cells) if (!c.dead) test(c, 'cell', c.x, c.y, 5 + c.size * 4);
+            for (const f of shell.foes) if (!f.dead) test(f, 'foe', f.x, f.y - 20, 11);
+            if (shell.tank && shell.tank.landed && !shell.tank.dying) {
+                const b = tankBody();
+                test(shell.tank, 'tank', b.x, b.y, TANK_R);
+            }
+        }
         return best;
     }
 
@@ -2085,6 +2115,8 @@
         if (hit.kind === 'fly') killFly(hit.e);
         else if (hit.kind === 'item') destroyItem(hit.e.it, hit.e.line);
         else if (hit.kind === 'cell') popCell(hit.e);
+        else if (hit.kind === 'foe') hurtFoe(hit.e, dmg, vx / v * 50);
+        else if (hit.kind === 'tank') hurtTank(dmg);
         else if (hit.kind === 'keeper') hurtKeeper(dmg, vx / v * 40);
         else hurtBot(hit.e, dmg, vx / v * 60, -40);
     }
@@ -2272,10 +2304,10 @@
     function drawSpeech() {
         ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textBaseline = 'middle';
-        const talkers = keeper && scene === 'site' ? [...bots, keeper, guy] : [...bots, guy];
+        const talkers = keeper && scene === 'site' ? [...bots, keeper, guy] : scene === 'shell' && shell ? [...bots, ...shell.foes, guy] : [...bots, guy];
         for (const e of talkers) {
             if (!e.say) continue;
-            const top = e === guy ? e.y - HEIGHT - 16 : e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
+            const top = e === guy ? e.y - HEIGHT - 16 : e.foe ? e.y - 56 : e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
             const w = Math.ceil(ctx.measureText(e.say.text).width) + 8;
             const x = Math.round(e.x - w / 2), y = Math.round(top);
             ctx.globalAlpha = Math.min(1, e.say.t * 4);
@@ -2921,7 +2953,7 @@
             l.y += l.vy * dt;
             l.life -= dt;
             if (!guy.dead && Math.abs(l.x - guy.x) < 7 && Math.abs(l.y - (guy.y - HEIGHT / 2)) < 18) {
-                hurtGuy(LASER_DMG);
+                hurtGuy(l.dmg || LASER_DMG);
                 for (let k = 0; k < 4 && parts.length < MAX_PARTICLES; k++) parts.push({ type: SPARK, x: l.x, y: l.y, vx: rand(-100, 100), vy: rand(-100, 60), life: 0.15, color: '#ff3b2a' });
                 lasers.splice(i, 1);
             } else if (l.life <= 0) lasers.splice(i, 1);
@@ -3111,13 +3143,15 @@
     function drawLasers() {
         for (const l of lasers) {
             const v = Math.hypot(l.vx, l.vy) || 1, tx = l.x - l.vx / v * 7, ty = l.y - l.vy / v * 7;
-            ctx.strokeStyle = 'rgba(255,40,40,0.35)';
+            ctx.strokeStyle = l.color || '#ff2a2a';
+            ctx.globalAlpha = 0.35;
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(tx, ty);
             ctx.lineTo(l.x, l.y);
             ctx.stroke();
-            ctx.strokeStyle = '#ff2a2a';
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = l.color || '#ff2a2a';
             ctx.lineWidth = 1.5;
             ctx.stroke();
         }
@@ -3423,7 +3457,8 @@
         repaint();
         buildShellBackdrop();
         for (let i = 0; i < 3; i++) shell.cells.push(newCell(W * (0.3 + 0.2 * i), H * 0.45, 0.8));
-        shell.being = { x: Math.round(W * 0.8), y: Math.round(Math.max(150, H * 0.26)), t: 0, armed: true };
+        shellFightStart(shell);
+        shell.being = merged ? { x: Math.round(W * 0.8), y: Math.round(Math.max(150, H * 0.26)), t: 0, armed: true } : null;
     }
 
     // The neon city behind it all, always at night
@@ -3478,6 +3513,7 @@
     }
 
     function updateShell(dt) {
+        updateShellFight(dt);
         updateBeing(dt);
         const w = weather.shell, low = shell.floorY - 20 - (w ? w.pool : 0), born = [];
         for (const c of shell.cells) {
@@ -3647,6 +3683,496 @@
         renderHud();
     }
 
+    // ----- the fight
+    //
+    // Before Project 2501 shows itself, its puppets come for him: cyborgs it has
+    // ghost-hacked, lowered in on strings in three waves, who shoot and, if they get
+    // close enough and he lets them finish, hack his ghost (his controls go the wrong
+    // way round for a bit). Shooting one frees it; its ghost floats up and away. Then
+    // the spider tank drops in: a chaingun, a cannon that lobs shells into the text,
+    // and halfway down it calls in more puppets. When it blows, 2501 appears. Once
+    // he's merged, the odd puppet still turns up.
+
+    const FOE_HP = 5, FOE_SPEED = 70, FOE_WAVES = [3, 4, 6], TANK_HP = 240, TANK_S = 1.6, TANK_R = 26 * TANK_S, HACK_TIME = 2.5;
+    const FOE_COLORS = { h: '#262433', f: '#d9c2b0', v: '#ff3fa4', c: '#5a4f72', l: '#3a3548' };
+    // a coat and a glowing visor, 4px a character like him
+    const FOE_BODY = ['.hhhh.', '.fvvf.', '..ff..', '.cccc.', 'cccccc', 'c.cc.c', '..cc..', '.cccc.'];
+    const FOE_LEGS = [['.l..l.', '.l..l.'], ['.l..l.', 'l....l']];
+    const FOE_LINES = {
+        arrive: ['my ghost is not my own', 'who am I?', 'the net is vast', 'I have a daughter... do I?', 'your ghost is next', 'we are all puppets'],
+        hack: ['let me in', 'open your ghost', 'I see what you see', 'whose eyes are these?'],
+        hurt: ['...', 'it does not hurt', 'error', 'why?'],
+        die: ['free', 'thank you', 'I remember now', 'was any of it real?'],
+    };
+    let foeSprites = null;
+
+    function buildFoeSprites() {
+        const flat = col => Object.fromEntries(Object.keys(FOE_COLORS).map(k => [k, col]));
+        foeSprites = {
+            normal: FOE_LEGS.map(l => artCanvas(FOE_BODY.concat(l), FOE_COLORS, false, 4)),
+            hurt: FOE_LEGS.map(l => artCanvas(FOE_BODY.concat(l), FOE_COLORS, true, 4)),
+            m: FOE_LEGS.map(l => artCanvas(FOE_BODY.concat(l), flat('#ff3fa4'), false, 4)),
+            c: FOE_LEGS.map(l => artCanvas(FOE_BODY.concat(l), flat('#2de2e6'), false, 4)),
+        };
+    }
+
+    function shellFightStart(s) {
+        Object.assign(s, { foes: [], ghosts: [], shells: [], tank: null, wave: 0, waveT: 2.5, trickleT: 6, freed: 0, phase: merged ? 'merged' : 'waves' });
+    }
+
+    function spawnFoe(x) {
+        const f = { foe: true, x: clamp(x, 30, W - 30), y: -10, vx: 0, vy: 0, grounded: false, dropping: false, prop: true, hp: FOE_HP, t: rand(0, 3), hurt: 0, facing: 1, jumpCd: 0, shootT: rand(1.5, 3), hackT: 0, hackCd: rand(2, 4), say: null, dead: false, deadT: 0, gone: false };
+        if (f.x > shell.holeX0 - 12 && f.x < shell.holeX1 + 12) f.x = shell.holeX1 + 30;
+        shell.foes.push(f);
+        if (Math.random() < 0.4) say(f, FOE_LINES.arrive, true);
+    }
+
+    function updateShellFight(dt) {
+        const s = shell;
+        for (const f of s.foes) updateFoe(f, dt);
+        s.foes = s.foes.filter(f => !f.gone && !(f.dead && f.deadT > 2.5));
+        for (const g of s.ghosts) {
+            g.t += dt;
+            g.y -= 40 * dt;
+            g.x += Math.sin(g.t * 3) * 20 * dt;
+        }
+        s.ghosts = s.ghosts.filter(g => g.t < 2.5);
+        if (s.tank) updateTank(dt);
+        updateTankShells(dt);
+        // robots off: no fight, 2501 is just there
+        if (!botsOn && (s.phase === 'waves' || s.phase === 'boss')) {
+            s.foes = [];
+            s.tank = null;
+            revealBeing();
+        }
+        const alive = s.foes.reduce((n, f) => n + !f.dead, 0);
+        if (s.phase === 'waves' && !alive && (s.waveT -= dt) <= 0) {
+            if (s.wave < FOE_WAVES.length) {
+                const n = FOE_WAVES[s.wave];
+                for (let i = 0; i < n; i++) spawnFoe(W * (i + 0.5) / n + rand(-30, 30));
+                banner(`ghost-hacked: wave ${s.wave + 1} of ${FOE_WAVES.length}`);
+                sfx('glitch');
+                s.wave++;
+                s.waveT = 3;
+            } else {
+                s.phase = 'boss';
+                spawnTank();
+            }
+        } else if ((s.phase === 'merged' || (s.phase === 'free' && merged)) && alive < 3 && (s.trickleT -= dt) <= 0) {
+            spawnFoe(rand(40, W - 40));
+            s.trickleT = rand(7, 11);
+        }
+    }
+
+    function updateFoe(f, dt) {
+        f.t += dt;
+        f.hurt -= dt;
+        f.jumpCd -= dt;
+        if (f.say && (f.say.t -= dt) <= 0) f.say = null;
+        if (f.y > H + 60) f.gone = true;
+        if (f.dead) {
+            f.deadT += dt;
+            moveWalker(f, 0, 0, dt);
+            return;
+        }
+        let dir = 0;
+        const dx = guy.x - f.x, d = Math.hypot(dx, guy.y - HEIGHT / 2 - (f.y - 20));
+        if (!guy.dead && !hidden()) {
+            f.facing = dx >= 0 ? 1 : -1;
+            if (f.hackT > 0) {
+                // reaching into his ghost: it holds still, and he can break it off by getting away
+                f.hackT -= dt;
+                if (d > 110) {
+                    f.hackT = 0;
+                    f.hackCd = 3;
+                } else if (f.hackT <= 0) {
+                    ghostHack();
+                    f.hackCd = rand(6, 9);
+                }
+            } else {
+                if ((f.shootT -= dt) <= 0 && d < 340) {
+                    f.shootT = rand(1.8, 3.2);
+                    const sx = f.x + f.facing * 8, sy = f.y - 28, a = Math.atan2(guy.y - HEIGHT / 2 - sy, guy.x - sx);
+                    lasers.push({ x: sx, y: sy, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, life: 2.5, color: '#ff3fa4', dmg: 5 });
+                    sfx('laser');
+                }
+                if ((f.hackCd -= dt) <= 0 && d < 70 && !(guy.hackT > 0) && f.grounded) {
+                    f.hackT = 0.9;
+                    sfx('glitch');
+                    say(f, FOE_LINES.hack, true);
+                } else if (Math.abs(dx) > 90 || d > 200) dir = navigate(f, guy.x, guy.y, f.y, 60, 90);
+            }
+        }
+        moveWalker(f, dir, FOE_SPEED, dt);
+    }
+
+    function ghostHack() {
+        guy.hackT = HACK_TIME;
+        hurtGuy(6);
+        addShake(4);
+        buzz([30, 40, 30]);
+        sfx('glitch');
+        banner('ghost hacked: your controls are the wrong way round');
+    }
+
+    function hurtFoe(f, dmg, kx) {
+        if (f.dead) return;
+        f.hp -= dmg;
+        f.hurt = 0.1;
+        f.vx += kx || 0;
+        f.hackT = 0;   // shooting it breaks the hack
+        if (f.hp > 0) {
+            sfx('hurt');
+            if (Math.random() < 0.25) say(f, FOE_LINES.hurt, true);
+            return;
+        }
+        f.dead = true;
+        f.prop = false;
+        f.grounded = false;
+        shell.freed++;
+        say(f, FOE_LINES.die, true);
+        shell.ghosts.push({ x: f.x, y: f.y - 24, t: 0 });
+        for (let i = 0; i < 10 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x: f.x + rand(-6, 6), y: f.y - rand(8, 36), vx: rand(-120, 120), vy: rand(-160, 40), life: rand(0.2, 0.5), color: i % 2 ? '#ff3fa4' : '#d8fff8' });
+        }
+        flashes.push({ x: f.x, y: f.y - 20, r: 12, t: 0, life: 0.15 });
+        sfx('crunch');
+    }
+
+    // ----- the spider tank
+
+    function spawnTank() {
+        shell.tank = { x: guy.x < W / 2 ? W * 0.75 : W * 0.25, y: -80, vy: 0, landed: false, hp: TANK_HP, max: TANK_HP, shown: TANK_HP, t: 0, facing: -1, walkT: 0, gunT: 2.5, burst: 0, burstT: 0, cannonT: 4, hurt: 0, called: false, dying: 0, aim: Math.PI, flash: 0 };
+        banner('SPIDER TANK');
+        sfx('alarm');
+    }
+
+    // (the middle of its hull; it's drawn TANK_S times its pixel size)
+    function tankBody() {
+        const k = shell.tank;
+        return { x: k.x, y: k.y - 30 * TANK_S };
+    }
+
+    function updateTank(dt) {
+        const k = shell.tank, fy = shell.floorY;
+        k.t += dt;
+        k.hurt -= dt;
+        k.flash -= dt;
+        k.shown = approach(k.shown, k.hp, k.max * 0.6 * dt);
+        if (!k.landed) {
+            // dropped in from above, heavily
+            k.vy += GRAVITY * dt;
+            k.y += k.vy * dt;
+            const top = surfaceBetween(Math.round(k.x), Math.round(fy - 30), Math.round(fy + 4));
+            if (k.y >= (top === null ? fy : top)) {
+                k.y = top === null ? fy : top;
+                k.landed = true;
+                addShake(12);
+                dust(k.x - 30, fy, 10);
+                dust(k.x + 30, fy, 10);
+                sfx('boom');
+                buzz(60);
+            }
+            return;
+        }
+        if (k.dying) {
+            // coming apart, then the big one
+            const before = k.dying;
+            k.dying += dt;
+            if (Math.floor(before / 0.15) !== Math.floor(k.dying / 0.15)) {
+                const b = tankBody(), x = b.x + rand(-28, 28), y = b.y + rand(-12, 10);
+                flashes.push({ x, y, r: 14, t: 0, life: 0.2 });
+                for (let i = 0; i < 8 && parts.length < MAX_PARTICLES; i++) parts.push({ type: FIRE, x, y, vx: rand(-80, 80), vy: rand(-120, 20), life: rand(0.3, 0.6), max: 0.6, size: rand(3, 6) });
+                addShake(3);
+                sfx('boom');
+            }
+            if (k.dying >= 1.6) {
+                const b = tankBody();
+                explode(b.x, b.y, 44, true, k);
+                for (let i = 0; i < 24 && parts.length < MAX_PARTICLES; i++) {
+                    parts.push({ type: SHELL, x: b.x + rand(-20, 20), y: b.y + rand(-10, 10), vx: rand(-260, 260), vy: rand(-380, -80), life: rand(1, 2), bounces: 0, color: pick(['#3b4252', '#4a5468', '#2b2f38', '#ff3b2a']), size: 3 });
+                }
+                shell.tank = null;
+                revealBeing();
+            }
+            return;
+        }
+        // keep its distance, mostly, and stay off the hole in the floor
+        const dx = guy.x - k.x, far = Math.abs(dx);
+        let dir = far > 280 ? Math.sign(dx) : far < 150 ? -Math.sign(dx) : 0;
+        const nx = k.x + dir * 45 * dt;
+        if (nx < 50 || nx > W - 50 || (nx > shell.holeX0 - 40 && nx < shell.holeX1 + 40)) dir = 0;
+        else k.x = nx;
+        if (dir) k.walkT += dt;
+        k.facing = dx >= 0 ? 1 : -1;
+        const b = tankBody(), gx = b.x + k.facing * 22 * TANK_S, gy = b.y - 2 * TANK_S;
+        k.aim = Math.atan2(guy.y - HEIGHT / 2 - gy, guy.x - gx);
+        const angry = k.hp < k.max / 2;
+        if (angry && !k.called) {
+            // halfway down: it calls in help
+            k.called = true;
+            spawnFoe(rand(40, W * 0.4));
+            spawnFoe(rand(W * 0.6, W - 40));
+            sfx('alarm');
+        }
+        if (guy.dead || hidden()) return;
+        // the chaingun, in bursts
+        if (k.burst > 0) {
+            if ((k.burstT -= dt) <= 0) {
+                k.burst--;
+                k.burstT = 0.07;
+                k.flash = 0.04;
+                const a = k.aim + rand(-0.09, 0.09);
+                lasers.push({ x: gx + Math.cos(k.aim) * 22 * TANK_S, y: gy + Math.sin(k.aim) * 22 * TANK_S, vx: Math.cos(a) * 430, vy: Math.sin(a) * 430, life: 2, color: '#ffd24a', dmg: 2 });
+                sfx('smg');
+            }
+        } else if ((k.gunT -= dt) <= 0) {
+            k.burst = 8;
+            k.gunT = angry ? 2.4 : 3.4;
+        }
+        // the cannon, lobbing shells at him
+        if ((k.cannonT -= dt) <= 0) {
+            k.cannonT = angry ? 4.5 : 6;
+            const sx = b.x - k.facing * 6 * TANK_S, sy = b.y - 18 * TANK_S, tx = guy.x + rand(-20, 20), ty = guy.y - 6;
+            const T = clamp(Math.hypot(tx - sx, ty - sy) / 360, 0.6, 1.5);
+            shell.shells.push({ x: sx, y: sy, vx: (tx - sx) / T, vy: (ty - sy) / T - 0.5 * GLOB_G * T, life: 4 });
+            sfx('rocket');
+        }
+    }
+
+    function updateTankShells(dt) {
+        const list = shell.shells;
+        for (let i = list.length - 1; i >= 0; i--) {
+            const s = list[i];
+            s.vy += GLOB_G * dt;
+            const nx = s.x + s.vx * dt, ny = s.y + s.vy * dt, hit = trace(s.x, s.y, nx, ny);
+            const onHim = !guy.dead && Math.abs(nx - guy.x) < 10 && Math.abs(ny - (guy.y - HEIGHT / 2)) < 20;
+            s.life -= dt;
+            if (hit || onHim || s.life <= 0 || ny > H + 40) {
+                list.splice(i, 1);
+                const ex = hit ? hit.x : nx, ey = hit ? hit.y : ny;
+                if (ny > H + 40) continue;
+                // it knocks him about, and hurts, but less than a point-blank grenade would
+                explode(ex, ey, 22, true, shell.tank, ey > shell.floorY - 30);
+                const d = Math.hypot(guy.x - ex, guy.y - HEIGHT / 2 - ey);
+                if (d < 40) hurtGuy(4 + 12 * (1 - d / 40));
+                continue;
+            }
+            s.x = nx;
+            s.y = ny;
+        }
+    }
+
+    function hurtTank(dmg) {
+        const k = shell && shell.tank;
+        if (!k || !k.landed || k.dying || dmg <= 0) return;
+        k.hp -= dmg;
+        k.hurt = 0.08;
+        sfx('clank');
+        if (k.hp <= 0) {
+            k.hp = 0;
+            k.dying = 0.001;
+            sfx('alarm');
+        }
+    }
+
+    // Project 2501 shows itself, in a column of light
+    function revealBeing() {
+        const s = shell;
+        s.phase = 'free';
+        if (s.being) return;
+        s.being = { x: Math.round(W * 0.8), y: Math.round(Math.max(150, H * 0.26)), t: 0, armed: true, appear: 0 };
+        banner('project 2501');
+        sfx('portal');
+        setTimeout(() => sfx('merge'), 600);
+    }
+
+    // The fight's things that hit him, for the pad's FIRE to aim at
+    function shellTargets(consider) {
+        for (const f of shell.foes) if (!f.dead) consider(f.x, f.y - 20, 1.5);
+        const k = shell.tank;
+        if (k && k.landed && !k.dying) {
+            const b = tankBody();
+            consider(b.x, b.y, 1.2);
+        }
+    }
+
+    function drawShellFight() {
+        const s = shell;
+        // the puppets' strings, going up out of sight
+        ctx.strokeStyle = 'rgba(255,63,164,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const f of s.foes) {
+            if (f.dead) continue;
+            const hx = Math.round(f.x), hy = Math.round(f.y) - 40;
+            ctx.moveTo(hx - 4, hy);
+            ctx.lineTo(hx - 4 + Math.sin(clock * 1.3 + f.t) * 14, 0);
+            ctx.moveTo(hx + 4, hy);
+            ctx.lineTo(hx + 4 + Math.sin(clock * 1.1 + f.t + 1) * 14, 0);
+        }
+        ctx.stroke();
+        for (const f of s.foes) {
+            const frame = f.grounded && Math.abs(f.vx) > 10 ? Math.floor(f.t / 0.2) % 2 : 0;
+            ctx.save();
+            ctx.translate(Math.round(f.x), Math.round(f.y) - 20);
+            if (f.dead) {
+                ctx.globalAlpha = clamp(1 - (f.deadT - 1.2) / 1.3, 0, 1);
+                ctx.rotate(Math.min(1, f.deadT * 3) * Math.PI / 2 * f.facing);
+            }
+            if (f.facing < 0) ctx.scale(-1, 1);
+            // ghost-hacked: now and then it tears in two colours
+            if (!f.dead && (f.hackT > 0 || Math.random() < 0.06)) {
+                ctx.globalAlpha = 0.6;
+                ctx.drawImage(foeSprites.m[frame], -12 + rand(-3, -1), -20);
+                ctx.drawImage(foeSprites.c[frame], -12 + rand(1, 3), -20);
+                ctx.globalAlpha = 1;
+            }
+            ctx.drawImage(f.hurt > 0 ? foeSprites.hurt[frame] : foeSprites.normal[frame], -12, -20);
+            ctx.restore();
+            ctx.globalAlpha = 1;
+            if (!f.dead && f.hp < FOE_HP) drawBar(f.x - 10, f.y - 48, 20, f.hp / FOE_HP);
+            if (f.hackT > 0 && !f.dead) {
+                // the link, crackling across to his head
+                const x0 = f.x, y0 = f.y - 32, x1 = guy.x, y1 = guy.y - HEIGHT + 6;
+                ctx.strokeStyle = Math.random() < 0.5 ? '#ff3fa4' : '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x0, y0);
+                for (let i = 1; i < 6; i++) ctx.lineTo(x0 + (x1 - x0) * i / 6 + rand(-5, 5), y0 + (y1 - y0) * i / 6 + rand(-5, 5));
+                ctx.lineTo(x1, y1);
+                ctx.stroke();
+            }
+        }
+        // the freed ghosts, drifting up
+        for (const g of s.ghosts) {
+            ctx.globalAlpha = clamp(1 - g.t / 2.5, 0, 1) * 0.7;
+            ctx.fillStyle = '#e8ffff';
+            ctx.beginPath();
+            ctx.arc(g.x, g.y, 6, Math.PI, 0);
+            ctx.lineTo(g.x + 6, g.y + 8);
+            for (let i = 0; i < 3; i++) ctx.lineTo(g.x + 6 - (i + 0.5) * 4, g.y + (i % 2 ? 8 : 5));
+            ctx.lineTo(g.x - 6, g.y + 8);
+            ctx.fill();
+            ctx.fillStyle = '#02030a';
+            ctx.fillRect(Math.round(g.x) - 3, Math.round(g.y) - 1, 2, 2);
+            ctx.fillRect(Math.round(g.x) + 1, Math.round(g.y) - 1, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+        for (const sh of s.shells) {
+            ctx.fillStyle = '#2b2f38';
+            ctx.fillRect(Math.round(sh.x) - 3, Math.round(sh.y) - 3, 6, 6);
+            ctx.fillStyle = Math.floor(clock * 12) % 2 ? '#ff3b2a' : '#ffd24a';
+            ctx.fillRect(Math.round(sh.x) - 1, Math.round(sh.y) - 1, 2, 2);
+        }
+        if (s.tank) drawTank();
+    }
+
+    // Four jointed legs under an armoured hull, a chaingun at the front that follows
+    // him, a cannon on top, and one red eye
+    function drawTank() {
+        const k = shell.tank;
+        ctx.save();
+        ctx.translate(k.x, k.y);
+        ctx.scale(TANK_S, TANK_S);
+        ctx.translate(-k.x, -k.y);
+        const x = Math.round(k.x), y = Math.round(k.y - 30), f = k.facing;
+        const legs = [[-24, -36, 0], [-10, -18, 1], [10, 18, 2], [24, 36, 3]];
+        for (const [hx, fx, i] of legs) {
+            const ph = k.walkT * 7 + i * Math.PI / 2, lift = Math.max(0, Math.cos(ph)) * 5;
+            const footX = x + fx + Math.sin(ph) * 6, footY = k.y - lift, hipX = x + hx, hipY = y + 6;
+            const kneeX = (hipX + footX) / 2 + Math.sign(fx) * 10, kneeY = Math.min(hipY, footY) - 14;
+            for (const [w, col] of [[5, '#1b1f27'], [2, '#6b7590']]) {
+                ctx.strokeStyle = col;
+                ctx.lineWidth = w;
+                ctx.beginPath();
+                ctx.moveTo(hipX, hipY);
+                ctx.lineTo(kneeX, kneeY);
+                ctx.lineTo(footX, footY);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#2b2f38';
+            ctx.fillRect(Math.round(kneeX) - 3, Math.round(kneeY) - 3, 6, 6);
+            ctx.fillRect(Math.round(footX) - 4, Math.round(footY) - 2, 8, 3);
+        }
+        // the cannon, pointing up and back
+        ctx.save();
+        ctx.translate(x - f * 6, y - 12);
+        ctx.rotate(f > 0 ? -2.3 : -0.85);
+        ctx.fillStyle = '#2b2f38';
+        ctx.fillRect(0, -3, 18, 6);
+        ctx.restore();
+        // the hull
+        const hull = k.hurt > 0 ? '#ffffff' : '#3b4252';
+        ctx.fillStyle = '#1b1f27';
+        ctx.fillRect(x - 33, y - 13, 66, 24);
+        ctx.fillStyle = hull;
+        ctx.fillRect(x - 31, y - 11, 62, 20);
+        ctx.fillStyle = k.hurt > 0 ? '#ffffff' : '#4a5468';
+        ctx.fillRect(x - 25, y - 15, 50, 6);
+        ctx.fillStyle = '#f2c230';
+        for (let i = -28; i < 28; i += 8) ctx.fillRect(x + i, y + 6, 4, 2);
+        ctx.fillStyle = `rgba(255,59,42,${0.7 + Math.sin(clock * 8) * 0.3})`;
+        ctx.fillRect(x + f * 24 - 3, y - 6, 6, 4);
+        // the chaingun
+        ctx.save();
+        ctx.translate(x + f * 22, y - 2);
+        ctx.rotate(k.aim);
+        ctx.fillStyle = '#1b1f27';
+        ctx.fillRect(0, -3, 22, 6);
+        ctx.fillStyle = '#6b7590';
+        ctx.fillRect(4, -1, 18, 2);
+        if (k.flash > 0) {
+            ctx.fillStyle = '#fff3b0';
+            ctx.fillRect(22, -4, 6, 8);
+        }
+        ctx.restore();
+        ctx.restore();
+    }
+
+    function drawTankBar() {
+        const k = shell && shell.tank;
+        if (!k || !k.landed) return;
+        const vw = window.innerWidth, w = Math.min(420, vw - 80), x = Math.round((vw - w) / 2), y = coarsePointer ? 84 : 26;
+        ctx.font = "11px 'IBM Plex Mono', monospace";
+        ctx.textBaseline = 'bottom';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#d8fff8';
+        ctx.fillText(k.dying ? 'SPIDER TANK: DOWN' : 'SPIDER TANK', vw / 2, y - 3);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#03040b';
+        ctx.fillRect(x, y, w, 12);
+        ctx.fillStyle = '#ffe0a0';
+        ctx.fillRect(x, y, Math.round(w * k.shown / k.max), 12);
+        ctx.fillStyle = '#ff3fa4';
+        ctx.fillRect(x, y, Math.round(w * Math.max(0, k.hp) / k.max), 12);
+        ctx.strokeStyle = '#2de2e6';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 0.5, y - 0.5, w + 1, 13);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // His ghost hacked: the picture tears and tints, and says so
+    function drawHack() {
+        if (!(guy && guy.hackT > 0)) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        ctx.globalAlpha = 0.12 + Math.random() * 0.08;
+        ctx.fillStyle = '#ff3fa4';
+        ctx.fillRect(0, 0, vw, vh);
+        ctx.globalAlpha = 0.5;
+        for (let i = 0; i < 4; i++) {
+            const y = rand(0, vh), h = rand(2, 8);
+            ctx.drawImage(view, 0, y * dpr, view.width, h * dpr, rand(-10, 10), y, vw, h);
+        }
+        ctx.globalAlpha = Math.floor(clock * 6) % 2 ? 0.9 : 0.5;
+        ctx.font = "bold 12px 'IBM Plex Mono', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff3fa4';
+        ctx.fillText('GHOST HACKED: CONTROLS INVERTED', vw / 2, vh * 0.3);
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 1;
+    }
+
     // ------------------------------------------------------------------- phone
     //
     // On a phone the stick moves him (index.html's joystick, which destroy mode moves
@@ -3688,6 +4214,12 @@
     function padPress(what, down) {
         if (!active) return;
         initAudio();
+        if (scene === 'net' && net && what !== 'jump') {
+            if (down && what === 'nade') zoomEther(1.7);
+            else if (down && what === 'swap') zoomEther(1 / 1.7);
+            else if (down && what === 'fire') plugHere();
+            return;
+        }
         if (what === 'jump') {
             keys.jump = down;
             if (down) tapped.jump = true;
@@ -3723,7 +4255,7 @@
         } else if (scene === 'sky' && robotsEvil) {
             for (const b of bots) if (!b.dead) consider(b.x, b.y - BOT_H / 2, 1.3);
             eachItem((it, line, x, y) => consider(x, y, 0.8));
-        }
+        } else if (scene === 'shell' && shell) shellTargets(consider);
         return best;
     }
 
@@ -3995,6 +4527,10 @@
         const b = shell.being;
         if (!b) return;
         b.t += dt;
+        if (b.appear !== undefined && b.appear < 1) {
+            b.appear += dt / 1.6;
+            return;
+        }
         const d = Math.hypot(guy.x - b.x, guy.y - HEIGHT / 2 - b.y);
         if (d > 90) b.armed = true;
         if (shell.mergeT > 0) {
@@ -4025,6 +4561,14 @@
     function drawBeing() {
         const b = shell.being;
         if (!b) return;
+        const appear = b.appear === undefined ? 1 : Math.min(1, b.appear);
+        if (appear < 1) {
+            // a column of light, and it gathers in it
+            ctx.globalAlpha = (1 - appear) * 0.5;
+            ctx.fillStyle = '#d8fff8';
+            ctx.fillRect(b.x - 18 * (1 - appear) - 2, 0, 36 * (1 - appear) + 4, H);
+        }
+        ctx.globalAlpha = appear;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         if (merged && !(shell.mergeT > 0)) {
@@ -4062,6 +4606,7 @@
             ctx.fillText('PROJECT 2501', b.x, b.y - 52);
             ctx.globalAlpha = 1;
         }
+        ctx.globalAlpha = 1;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
     }
@@ -4111,6 +4656,7 @@
         releaseAll();
         merged = true;
         saveProgress();
+        loadEther();   // the ether's cams, ready for when he wakes
         document.documentElement.classList.add('destroy-cine');
         const cv = document.createElement('canvas');
         birth = {
@@ -4452,52 +4998,196 @@
 
     // ------------------------------------------------------------------ the net
     //
-    // The fourth level, once you've merged: the ether, a tunnel of light with the
-    // bits running down it in orderly lanes, and around it nodes to plug yourself
-    // into. The outer ring is live: Twitch streams, and street cameras in London (TfL's
-    // jam cams, a fresh clip every few minutes) and New York (the city's traffic
-    // cams, a new frame every few seconds); plug into one and a little window opens
-    // onto it. The inner ring is things with an address (a satellite, a fridge, a
-    // toaster), each showing a little of what it sees at its own local time. One
-    // node goes home to the website; another unplugs, back to the shell.
+    // The fourth level, once you've merged: the ether. Hundreds of live cameras on
+    // real places (bears fishing in Alaska, aquariums, eagles' nests, waterholes,
+    // city crossings, harbours, launch pads, London's traffic) hang off a fractal of
+    // dendrites growing out of the middle over a faint grid: each category forks in
+    // two and in two again, down through its channels to the cams at the tips, and
+    // twigs sprout off the branches that lead nowhere. Zoom in (the wheel, a pinch),
+    // pick a cam, and a current runs down the branches to it and opens a window onto
+    // it; only the cam you pick ever loads. The cams are in assets/ether-cams.json,
+    // made by tools/ether-cams.py (live streams come and go, so it wants rerunning
+    // now and then). Two yellow nodes by the middle go home to the website and back
+    // to the shell.
 
-    const TFL = 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/', NYC = 'https://webcams.nyctmc.org/api/cameras/';
-    const TWITCH_NOTE = 'live on twitch \u00b7 muted';
-    const TFL_NOTE = 'TfL jam cam \u00b7 a new clip every few minutes', NYC_NOTE = 'NYC DOT traffic cam \u00b7 a new frame every few seconds';
-    const NODES = [
-        { name: 'lofi girl', place: 'twitch.tv/lofigirl', tz: 'Europe/Paris', stream: { kind: 'twitch', id: 'lofigirl' }, note: 'beats to relax/study to \u00b7 muted' },
-        { name: 'lofi lounge', place: 'twitch.tv/lofi_loungee', tz: 'UTC', stream: { kind: 'twitch', id: 'lofi_loungee' }, note: TWITCH_NOTE },
-        { name: 'empty tv', place: 'twitch.tv/emptyveetv', tz: 'UTC', stream: { kind: 'twitch', id: 'emptyveetv' }, note: TWITCH_NOTE },
-        { name: 'piccadilly', place: 'Piccadilly Circus, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.07450' }, note: TFL_NOTE },
-        { name: 'trafalgar sq', place: 'Trafalgar Square, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.06502' }, note: TFL_NOTE },
-        { name: 'tower bridge', place: 'Tower Bridge, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.03500' }, note: TFL_NOTE },
-        { name: 'times square', place: 'Times Square, New York', tz: 'America/New_York', stream: { kind: 'still', id: '1927b469-e2dc-4943-a70c-e6e52fd4c48c' }, note: NYC_NOTE },
-        { name: 'brooklyn br.', place: 'Brooklyn Bridge walkway, New York', tz: 'America/New_York', stream: { kind: 'still', id: '0f3b6031-fe36-43df-b2c7-6120e0580309' }, note: NYC_NOTE },
-        { name: 'union sq', place: 'Union Square, New York', tz: 'America/New_York', stream: { kind: 'still', id: 'd47d2f63-cdc1-4f28-bc4c-e64ac07e4f1d' }, note: NYC_NOTE },
-        { name: '5th ave', place: '5th Avenue at 42nd St, New York', tz: 'America/New_York', stream: { kind: 'still', id: 'f4e822f7-d2a2-4146-851c-04b2fa6d5265' }, note: NYC_NOTE },
-        { name: 'parliament sq', place: 'Parliament Square, London', tz: 'Europe/London', stream: { kind: 'clip', id: '00001.06501' }, note: TFL_NOTE },
-        { name: 'home', place: 'back to your website', go: 'site' },
-        { name: 'satellite', place: '408 km over the Pacific', tz: 'UTC', art: 'satellite', note: '7.66 km/s \u00b7 ping 512 ms', inner: true },
-        { name: 'weather station', place: 'Troms\u00f8', tz: 'Europe/Oslo', art: 'aurora', note: 'kp index 6 \u00b7 -11\u00b0C', inner: true },
-        { name: 'smart fridge', place: 'Osaka', tz: 'Asia/Tokyo', art: 'fridge', note: 'door opened 14 times today', inner: true },
-        { name: 'lighthouse', place: 'Cape Point', tz: 'Africa/Johannesburg', art: 'lighthouse', note: 'one flash every 10 s', inner: true },
-        { name: 'unplug', place: 'back to the shell', go: 'shell', inner: true },
-        { name: 'radio telescope', place: 'the high Arctic', tz: 'America/Resolute', art: 'radio', note: 'listening for the cosmic dark ages', inner: true },
-        { name: 'toaster', place: 'Leeds', tz: 'Europe/London', art: 'toaster', note: 'setting 4 of 6', inner: true },
-        { name: 'robot vacuum', place: 'Montr\u00e9al', tz: 'America/Toronto', art: 'vacuum', note: 'battery 63% \u00b7 stuck under the couch', inner: true },
-    ];
-    const NODE_COLORS = { twitch: '#a970ff', clip: '#ff4d6d', still: '#ff4d6d', go: '#f6e05e', thing: '#2de2e6' };
-    const nodeColor = node => NODE_COLORS[node.go ? 'go' : node.stream ? node.stream.kind : 'thing'];
+    const TFL = 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/';
+    const ETHER_COLORS = ['#ff9f1c', '#7bd389', '#2de2e6', '#f6e05e', '#ff6b9a', '#9ad7ff', '#c3f73a', '#ffb3c6', '#b18cff', '#ff4d6d', '#d8fff8', '#ffd6a5'];
+    const ZOOM_MAX = 3, LEAF_GAP = 22, READABLE = 11;   // READABLE: screen px between cams before you can pick one
+    // if the list won't load: London, and a couple of streams
+    const ETHER_FALLBACK = { groups: [
+        { n: 'london streets', kids: [{ n: '', kids: [
+            { k: 'surf', id: 'all', n: 'cam roulette', t: 'somewhere in London', by: 'every TfL jam cam, a clip at a time' },
+            { k: 'tfl', id: '00001.07450', n: 'Piccadilly Circus', t: 'Piccadilly Circus, London', by: 'TfL jam cam' },
+            { k: 'tfl', id: '00001.06502', n: 'Trafalgar Square', t: 'Trafalgar Square, London', by: 'TfL jam cam' },
+            { k: 'tfl', id: '00001.03500', n: 'Tower Bridge', t: 'Tower Bridge, London', by: 'TfL jam cam' },
+            { k: 'tfl', id: '00001.06501', n: 'Parliament Square', t: 'Parliament Square, London', by: 'TfL jam cam' },
+        ] }] },
+        { n: 'streams', kids: [{ n: 'twitch', kids: [
+            { k: 'tw', id: 'lofigirl', n: 'lofi girl', t: 'lofi girl', by: 'twitch.tv/lofigirl' },
+            { k: 'tw', id: 'lofi_loungee', n: 'lofi lounge', t: 'lofi lounge', by: 'twitch.tv/lofi_loungee' },
+        ] }] },
+    ] };
+    let etherData = null, etherTree = null;
 
-    function localTime(tz) {
-        const d = new Date();
-        try {
-            const time = d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
-            const hour = +new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(d);
-            return { time, hour };
-        } catch (_) {
-            return { time: d.toISOString().slice(11, 16) + ' UTC', hour: d.getUTCHours() };
+    function loadEther() {
+        if (!etherData) {
+            etherData = fetch('assets/ether-cams.json').then(r => r.json())
+                .then(d => (d && d.groups && d.groups.length ? d : ETHER_FALLBACK))
+                .catch(() => {
+                    etherData = null;   // try again next time
+                    return ETHER_FALLBACK;
+                });
         }
+        return etherData.then(d => {
+            const portrait = window.innerHeight > window.innerWidth;
+            if (!etherTree || etherTree.portrait !== portrait) etherTree = buildEther(d, portrait);
+            return etherTree;
+        });
+    }
+
+    // Seeded, so the fractal grows the same way every time
+    function seeded(seed) {
+        return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    }
+
+    function quadAt(e, t) {
+        const u = 1 - t;
+        return { x: u * u * e.x0 + 2 * u * t * e.cx + t * t * e.x1, y: u * u * e.y0 + 2 * u * t * e.cy + t * t * e.y1 };
+    }
+
+    // The network: every cam a neuron, scattered through two hemispheres (each
+    // category a lobe of its own, each channel a patch within it), wired to its
+    // nearest neighbours by dendrites that zigzag and fork like lightning, with long
+    // axons across from lobe to lobe. Current wanders it all the time.
+    function buildEther(data, portrait) {
+        const rnd = seeded(2501), leaves = [], labels = [], edges = [];
+        const groups = data.groups.map(g => ({ n: g.n, kids: (g.kids || []).filter(k => k.kids && k.kids.length) })).filter(g => g.kids.length);
+        const cams = [];
+        groups.forEach((g, gi) => g.kids.forEach((k, ki) => k.kids.forEach(c => cams.push({ c, gi, ki }))));
+        const N = cams.length;
+        // points through the brain: a jittered hex grid (spaced LEAF_GAP apart), in two
+        // hemispheres either side of a fissure, a little fuller at the back
+        const inBrain = (x, y) => [-1, 1].some(s => ((x - s * 0.52) / 0.47) ** 2 + (y / (y > 0 ? 0.74 : 0.68)) ** 2 <= 1);
+        let u = Math.sqrt(2.4 / N), pts = [];
+        for (let tries = 0; tries < 40; tries++, u *= 0.97) {
+            pts = [];
+            const jr = seeded(7);
+            for (let row = 0, y = -0.76; y <= 0.78; row++, y += u * 0.866) {
+                for (let x = -1 + (row % 2) * u / 2; x <= 1; x += u) {
+                    const px = x + (jr() - 0.5) * u * 0.7, py = y + (jr() - 0.5) * u * 0.7;
+                    if (inBrain(px, py)) pts.push({ x: px, y: py });
+                }
+            }
+            if (pts.length >= N) break;
+        }
+        while (pts.length > N) pts.splice(Math.floor(rnd() * pts.length), 1);
+        // held upright (a phone), the hemispheres stack instead of sitting side by side
+        if (portrait) for (const p of pts) [p.x, p.y] = [p.y, p.x];
+        const S = LEAF_GAP / u;
+        // along a Hilbert curve, so each category (and channel) gets a patch that holds together
+        const hilbert = (x, y) => {
+            let d = 0;
+            for (let s = 512; s > 0; s >>= 1) {
+                const rx = (x & s) > 0 ? 1 : 0, ry = (y & s) > 0 ? 1 : 0;
+                d += s * s * ((3 * rx) ^ ry);
+                if (!ry) {
+                    if (rx) {
+                        x = s - 1 - x;
+                        y = s - 1 - y;
+                    }
+                    [x, y] = [y, x];
+                }
+            }
+            return d;
+        };
+        pts.sort((a, b) => hilbert(Math.floor((a.x + 1) * 511), Math.floor((a.y + 1) * 511)) - hilbert(Math.floor((b.x + 1) * 511), Math.floor((b.y + 1) * 511)));
+        pts.forEach((p, i) => {
+            const { c, gi, ki } = cams[i], x = p.x * S, y = p.y * S;
+            leaves.push({ x, y, r: Math.hypot(x, y), a: Math.atan2(y, x), cam: c, color: ETHER_COLORS[gi % ETHER_COLORS.length], cat: groups[gi].n, gi, ki, nb: [], fire: 0 });
+        });
+        // labels at the middle of each lobe, and of each channel's patch
+        groups.forEach((g, gi) => {
+            const mine = leaves.filter(l => l.gi === gi);
+            labels.push({ big: true, label: g.n, color: mine[0].color, n: mine.length, x: mine.reduce((s, l) => s + l.x, 0) / mine.length, y: mine.reduce((s, l) => s + l.y, 0) / mine.length });
+            g.kids.forEach((k, ki) => {
+                const sub = mine.filter(l => l.ki === ki);
+                if (k.n && sub.length > 2) labels.push({ label: k.n, x: sub.reduce((s, l) => s + l.x, 0) / sub.length, y: sub.reduce((s, l) => s + l.y, 0) / sub.length });
+            });
+        });
+        labels.sort((a, b) => (b.big ? 1e6 + b.n : 0) - (a.big ? 1e6 + a.n : 0));
+        // each neuron to its three nearest (a grid makes finding them quick)
+        const cell = LEAF_GAP * 2, grid = new Map(), key = (x, y) => Math.floor(x / cell) + ',' + Math.floor(y / cell);
+        leaves.forEach((l, i) => {
+            const kk = key(l.x, l.y);
+            if (!grid.has(kk)) grid.set(kk, []);
+            grid.get(kk).push(i);
+        });
+        const seen = new Set();
+        const link = (i, j, axon) => {
+            const id = i < j ? i + ',' + j : j + ',' + i;
+            if (i === j || seen.has(id)) return;
+            seen.add(id);
+            edges.push(dendrite(leaves[i], leaves[j], i, j, axon, rnd));
+            leaves[i].nb.push(edges.length - 1);
+            leaves[j].nb.push(edges.length - 1);
+        };
+        leaves.forEach((l, i) => {
+            const cx = Math.floor(l.x / cell), cy = Math.floor(l.y / cell), near = [];
+            for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gy = cy - 1; gy <= cy + 1; gy++) for (const j of grid.get(gx + ',' + gy) || []) if (j !== i) near.push([j, (leaves[j].x - l.x) ** 2 + (leaves[j].y - l.y) ** 2]);
+            near.sort((a, b) => a[1] - b[1]);
+            for (const [j] of near.slice(0, 3)) link(i, j, false);
+        });
+        // long axons: each lobe to the two lobes nearest it, and a few across the fissure
+        const hubs = labels.filter(l => l.big).map(lb => leaves.reduce((best, l, i) => ((l.x - lb.x) ** 2 + (l.y - lb.y) ** 2 < best[1] ? [i, (l.x - lb.x) ** 2 + (l.y - lb.y) ** 2] : best), [0, Infinity])[0]);
+        hubs.forEach((h, a) => {
+            hubs.map((o, b) => [o, b === a ? Infinity : (leaves[o].x - leaves[h].x) ** 2 + (leaves[o].y - leaves[h].y) ** 2]).sort((p, q) => p[1] - q[1]).slice(0, 2).forEach(([o]) => link(h, o, true));
+        });
+        const along = portrait ? 'x' : 'y', across = portrait ? 'y' : 'x';
+        for (let k = 0; k < 6; k++) {
+            const left = leaves.filter(l => l[across] < 0), right = leaves.filter(l => l[across] > 0);
+            if (!left.length || !right.length) break;
+            const at = (k / 5 - 0.5) * S * 1.1, pickNear = (list, side) => list.reduce((b, l) => ((l[across] - side) ** 2 + (l[along] - at) ** 2 < (b[across] - side) ** 2 + (b[along] - at) ** 2 ? l : b));
+            link(leaves.indexOf(pickNear(left, -S * 0.08)), leaves.indexOf(pickNear(right, S * 0.08)), true);
+        }
+        const xExt = Math.max(...leaves.map(l => Math.abs(l.x))), yExt = Math.max(...leaves.map(l => Math.abs(l.y)));
+        // the ways out sit in the fissure, either side of where he comes in
+        const exits = [
+            { exit: 'site', label: 'home', x: portrait ? -S * 0.36 : 0, y: portrait ? 0 : -S * 0.36 },
+            { exit: 'shell', label: 'unplug', x: portrait ? S * 0.36 : 0, y: portrait ? 0 : S * 0.36 },
+        ];
+        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits };
+    }
+
+    // A dendrite from one neuron to another: the straight line between them split in
+    // half and in half again, each midpoint pushed off to the side (less each time),
+    // so it zigzags like lightning; the longer ones fork a twig or two on the way
+    function dendrite(a, b, i, j, axon, rnd) {
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+        let line = [[a.x, a.y], [b.x, b.y]];
+        for (let level = 0, amp = len * (axon ? 0.08 : 0.16); level < 3; level++, amp *= 0.55) {
+            const next = [line[0]];
+            for (let k = 1; k < line.length; k++) {
+                const p = line[k - 1], q = line[k], o = (rnd() - 0.5) * 2 * amp;
+                next.push([(p[0] + q[0]) / 2 + nx * o, (p[1] + q[1]) / 2 + ny * o], q);
+            }
+            line = next;
+        }
+        const pts = line.flat(), twigs = [];
+        const fork = (x, y, ang, l, depth, out) => {
+            const x1 = x + Math.cos(ang) * l, y1 = y + Math.sin(ang) * l;
+            out.push(x, y, x1, y1);
+            if (depth < 2) for (const s of [-1, 1]) if (rnd() < 0.8) fork(x1, y1, ang + s * (0.4 + rnd() * 0.5), l * 0.55, depth + 1, out);
+        };
+        if (!axon && len > 18 && rnd() < 0.55) {
+            const k = 2 + Math.floor(rnd() * 5), out = [];
+            fork(line[k][0], line[k][1], Math.atan2(dy, dx) + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.6), len * (0.25 + rnd() * 0.2), 0, out);
+            twigs.push(out);
+        }
+        return {
+            i, j, axon, pts, twigs, len,
+            bx0: Math.min(a.x, b.x) - len * 0.2, bx1: Math.max(a.x, b.x) + len * 0.2, by0: Math.min(a.y, b.y) - len * 0.2, by1: Math.max(a.y, b.y) + len * 0.2,
+            color: a.color === b.color ? a.color : '#bff8ff',
+        };
     }
 
     function enterNet() {
@@ -4506,46 +5196,16 @@
         closeStream();
         allocWorld(document.documentElement.clientWidth, sceneHeight());
         repaint();
-        const ring = (list, rx, ry, turn) => list.map((node, i) => {
-            const a = (i + turn) / list.length * Math.PI * 2 - Math.PI / 2;
-            return { ...node, x: W / 2 + Math.cos(a) * rx, y: H / 2 + Math.sin(a) * ry };
-        });
-        net = {
-            nodes: ring(NODES.filter(n => !n.inner), W * 0.42, H * 0.4, 0).concat(ring(NODES.filter(n => n.inner), W * 0.21, H * 0.2, 0.5)),
-            plugged: null, plugT: 0, armed: true,
-        };
-        scrollX = scrollY = 0;
-        guy.x = W / 2;
-        guy.y = H / 2 + HEIGHT / 2;
+        const me = net = { tree: null, z: 0.2, zTo: 0.2, zMin: 0.02, cx: 0, cy: 0, sx: 0, sy: 0, anchor: null, sel: null, zap: null, near: null, sparks: [], pulses: [], firing: [], grow: 0, armed: false, flash: 0, picked: false };
+        guy.x = guy.y = 0;
         guy.vx = guy.vy = 0;
         guy.grounded = false;
         guy.state = 'air';
+        loadEther().then(tree => {
+            if (net === me) etherReady(me, tree);
+        });
         banner('the ether');
         renderHud();
-    }
-
-    function enterNetAgain() {
-        const saved = shellState;
-        enterNet();
-        shellState = saved;
-    }
-
-    function updateNet(dt) {
-        let near = null;
-        for (const node of net.nodes) if (Math.hypot(guy.x - node.x, guy.y - HEIGHT / 2 - node.y) < 22) near = node;
-        if (!near) net.armed = true;
-        if (near !== net.plugged) {
-            net.plugged = near;
-            net.plugT = 0;
-            closeStream();
-            if (near && !near.go) sfx('plug');
-        }
-        // a moment's pause before a window opens, so drifting past a node doesn't
-        if (near && near.stream && !stream && (net.plugT += dt) > 0.3) openStream(near);
-        if (near && near.go && net.armed) {
-            net.armed = false;
-            transition(() => exitNet(near.go));
-        }
     }
 
     function exitNet(to) {
@@ -4578,71 +5238,385 @@
         renderHud();
     }
 
+    function etherReady(me, tree) {
+        me.tree = tree;
+        for (const l of tree.leaves) l.fire = 0;
+        me.firing = [];
+        me.pulses = [];
+        for (let k = Math.min(coarsePointer ? 40 : 80, tree.edges.length); k > 0; k--) {
+            const e = Math.floor(Math.random() * tree.edges.length);
+            me.pulses.push({ e, dir: Math.random() < 0.5 ? 1 : -1, t: Math.random(), v: rand(70, 150), color: tree.edges[e].color });
+        }
+        etherFit();
+        me.z = me.zTo = me.zMin * 1.04;
+        me.cx = guy.x;
+        me.cy = guy.y;
+        me.grow = 0;
+        me.cacheKey = me.lastKey = '';
+    }
+
+    function leaveEther(to) {
+        transition(() => exitNet(to));
+    }
+
+    // ----- looking about
+    //
+    // The camera eases to whatever zoom's wanted, keeping the point under the
+    // pointer (or the pinch) where it is, so you zoom into wherever you point; he
+    // flies in with it, and it follows him about. He's drawn at his own size
+    // wherever the camera puts him.
+
+    function etherFit() {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        net.zMin = Math.min(vw / (2 * (net.tree.xExt + 70)), vh / (2 * (net.tree.yExt + 70)));
+        net.zTo = clamp(net.zTo, net.zMin, ZOOM_MAX);
+    }
+
+    function zoomEther(f, px = window.innerWidth / 2, py = window.innerHeight / 2) {
+        if (!net || !net.tree) return;
+        net.zTo = clamp(net.zTo * f, net.zMin, ZOOM_MAX);
+        net.anchor = { px, py };
+    }
+
+    function etherScreen(x, y) {
+        return { x: (x - net.cx) * net.z + window.innerWidth / 2, y: (y - net.cy) * net.z + window.innerHeight / 2 };
+    }
+
+    function updateEtherView(dt) {
+        const vw = window.innerWidth, vh = window.innerHeight, z0 = net.z;
+        net.z += (net.zTo - net.z) * Math.min(1, dt * 9);
+        if (net.anchor) {
+            const a = net.anchor, ax = a.px - vw / 2, ay = a.py - vh / 2;
+            const dx = ax / z0 - ax / net.z, dy = ay / z0 - ay / net.z;
+            net.cx += dx;
+            net.cy += dy;
+            guy.x += dx;
+            guy.y += dy;
+            if (Math.abs(net.zTo - net.z) < net.zTo * 0.002) {
+                net.z = net.zTo;
+                net.anchor = null;
+            }
+        }
+        const k = Math.min(1, dt * 6);
+        net.cx += (guy.x - net.cx) * k;
+        net.cy += (guy.y - net.cy) * k;
+        const s = etherScreen(guy.x, guy.y);
+        net.sx = guy.x - s.x;
+        net.sy = guy.y - s.y;
+    }
+
+    // The cam (or way out) nearest a point on the screen, within reach of it
+    function etherAt(px, py, reach, cams = true) {
+        const t = net && net.tree;
+        if (!t) return null;
+        let best = null, bd = 22 * 22;
+        for (const e of t.exits) {
+            const s = etherScreen(e.x, e.y), d = (s.x - px) ** 2 + (s.y - py) ** 2;
+            if (d < bd) {
+                bd = d;
+                best = e;
+            }
+        }
+        if (best || !cams || net.z * LEAF_GAP < READABLE) return best;
+        bd = reach * reach;
+        const vw2 = window.innerWidth / 2 - px, vh2 = window.innerHeight / 2 - py, z = net.z;
+        for (const leaf of t.leaves) {
+            const dx = (leaf.x - net.cx) * z + vw2, dy = (leaf.y - net.cy) * z + vh2, d = dx * dx + dy * dy;
+            if (d < bd) {
+                bd = d;
+                best = leaf;
+            }
+        }
+        return best;
+    }
+
+    // A click or a tap: a way out, a cam, or (too far out to tell the cams apart)
+    // closer in, there; on nothing, unplug
+    function etherClick(px, py) {
+        if (!net || !net.tree) return;
+        const hit = etherAt(px, py, coarsePointer ? 24 : 14);
+        if (hit && hit.exit) leaveEther(hit.exit);
+        else if (net.z * LEAF_GAP < READABLE) zoomEther(2.5, px, py);
+        else if (hit) selectCam(hit);
+        else unplugCam();
+    }
+
+    // E, or the pad's PLUG: whatever he's floating over
+    function plugHere() {
+        const n = net && net.near;
+        if (n && n.exit) leaveEther(n.exit);
+        else if (n) selectCam(n);
+    }
+
+    // The current goes from him, into the neuron nearest him, and hop by hop (the
+    // fewest hops) through the network to the cam
+    function selectCam(leaf) {
+        if (net.sel === leaf) return;
+        closeStream();
+        net.sel = leaf;
+        net.picked = true;
+        const L = net.tree.leaves, E = net.tree.edges, goal = L.indexOf(leaf);
+        let start = 0, bd = Infinity;
+        L.forEach((l, i) => {
+            const d = (l.x - guy.x) ** 2 + (l.y - guy.y) ** 2;
+            if (d < bd) {
+                bd = d;
+                start = i;
+            }
+        });
+        const prev = new Int32Array(L.length).fill(-1), via = new Int32Array(L.length).fill(-1), queue = [start];
+        prev[start] = start;
+        for (let h = 0; h < queue.length && prev[goal] < 0; h++) {
+            const i = queue[h];
+            for (const ei of L[i].nb) {
+                const e = E[ei], j = e.i === i ? e.j : e.i;
+                if (prev[j] >= 0) continue;
+                prev[j] = i;
+                via[j] = ei;
+                queue.push(j);
+            }
+        }
+        const chain = [], pts = [{ x: guy.x, y: guy.y - HEIGHT / 2 / net.z }, { x: L[start].x, y: L[start].y }];
+        if (prev[goal] >= 0) for (let i = goal; i !== start; i = prev[i]) chain.unshift([via[i], prev[i]]);
+        for (const [ei, from] of chain) {
+            const p = E[ei].pts, n = p.length / 2, fwd = E[ei].i === from;
+            for (let k = 1; k < n; k++) {
+                const m = fwd ? k : n - 1 - k;
+                pts.push({ x: p[m * 2], y: p[m * 2 + 1] });
+            }
+        }
+        if (prev[goal] < 0) pts.push({ x: leaf.x, y: leaf.y });   // no way through: straight there
+        const lens = [0];
+        for (let k = 1; k < pts.length; k++) lens.push(lens[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+        net.zap = { leaf, pts, lens, total: lens[lens.length - 1] || 1, t: 0, dur: clamp(0.35 + chain.length * 0.045, 0.5, 1.8), done: false };
+        sfx('zap');
+    }
+
+    function unplugCam() {
+        if (!net.sel) return;
+        net.sel = net.zap = null;
+        closeStream();
+        sfx('decloak');
+    }
+
+    function pointAlong(zap, f) {
+        const d = f * zap.total, { pts, lens } = zap;
+        let k = 1;
+        while (k < pts.length - 1 && lens[k] < d) k++;
+        const span = lens[k] - lens[k - 1] || 1, u = clamp((d - lens[k - 1]) / span, 0, 1);
+        return { x: pts[k - 1].x + (pts[k].x - pts[k - 1].x) * u, y: pts[k - 1].y + (pts[k].y - pts[k - 1].y) * u };
+    }
+
+    function updateNet(dt) {
+        if (!net.tree) return;
+        net.grow = Math.min(1, net.grow + dt / 2.2);
+        net.flash -= dt;
+        // what he's floating over: drifting onto a way out takes it (once he's been clear of them)
+        const g = etherScreen(guy.x, guy.y), near = etherAt(g.x, g.y - HEIGHT / 2, 20);
+        net.near = near;
+        // (flying into it himself, that is, not carried over it by a zoom)
+        if (near && near.exit) {
+            if (net.armed && !net.anchor && Math.hypot(guy.vx, guy.vy) > 30) {
+                net.armed = false;
+                leaveEther(near.exit);
+            }
+        } else net.armed = true;
+        // the current running down to the cam picked, sparking as it goes
+        const zap = net.zap;
+        if (zap && !zap.done) {
+            zap.t += dt / zap.dur;
+            const head = pointAlong(zap, Math.min(1, zap.t));
+            if (net.sparks.length < 240) net.sparks.push({ x: head.x, y: head.y, vx: rand(-90, 90) / net.z, vy: rand(-90, 90) / net.z, life: rand(0.2, 0.45) });
+            if (zap.t >= 1) {
+                zap.done = true;
+                net.flash = 0.4;
+                for (let k = 0; k < 24 && net.sparks.length < 240; k++) {
+                    const a = rand(0, Math.PI * 2), v = rand(40, 160) / net.z;
+                    net.sparks.push({ x: zap.leaf.x, y: zap.leaf.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(0.3, 0.6) });
+                }
+                openStream(zap.leaf);
+                sfx('plug');
+            }
+        }
+        // pulses wander the network, and each neuron flashes as one reaches it
+        const E = net.tree.edges, L = net.tree.leaves;
+        for (const p of net.pulses) {
+            const e = E[p.e];
+            p.t += p.v * dt / Math.max(10, e.len);
+            if (p.t < 1) continue;
+            const at = p.dir > 0 ? e.j : e.i, node = L[at], ways = node.nb.filter(ei => ei !== p.e), next = ways.length ? pick(ways) : p.e;
+            if (node.fire <= 0) net.firing.push(node);
+            node.fire = 1;
+            p.e = next;
+            p.dir = E[next].i === at ? 1 : -1;
+            p.t = 0;
+            p.color = node.color;
+        }
+        for (let k = net.firing.length - 1; k >= 0; k--) {
+            const l = net.firing[k];
+            if ((l.fire -= dt * 2.2) <= 0) {
+                l.fire = 0;
+                net.firing.splice(k, 1);
+            }
+        }
+        for (let k = net.sparks.length - 1; k >= 0; k--) {
+            const q = net.sparks[k];
+            q.x += q.vx * dt;
+            q.y += q.vy * dt;
+            if ((q.life -= dt) <= 0) net.sparks.splice(k, 1);
+        }
+    }
+
     // ----- the windows
     //
-    // A live node opens a real little window over the canvas (it lets clicks through,
-    // so the shooting carries on): a muted Twitch player, a TfL clip on a loop, or a
-    // New York frame swapped for the next one as it arrives. Behind it is static, which
-    // is all you see if the feed won't load.
+    // A cam opens a real little window over the canvas (it lets clicks through, so
+    // you can keep looking about, except on the YouTube and Twitch players, which you
+    // can click to unmute): a muted live stream, a TfL clip on a loop, or the
+    // roulette's clips one after another, each from a different London camera.
+    // Behind it is static, which is all you see if the feed won't load.
 
-    let stream = null;
+    let stream = null, jamCams = null;
 
-    function openStream(node) {
+    // Every TfL camera that's working, fetched the first time the roulette's tuned in
+    function loadJamCams() {
+        const fallback = () => ETHER_FALLBACK.groups[0].kids[0].kids.filter(c => c.k === 'tfl')
+            .map(c => ({ name: c.t, video: `${TFL}${c.id}.mp4`, image: `${TFL}${c.id}.jpg` }));
+        if (!jamCams) {
+            jamCams = fetch('https://api.tfl.gov.uk/Place/Type/JamCam').then(r => r.json()).then(list => {
+                const cams = list.map(c => {
+                    const prop = k => ((c.additionalProperties || []).find(a => a.key === k) || {}).value;
+                    return prop('available') === 'true' && prop('videoUrl') ? { name: `${c.commonName}, London`, video: prop('videoUrl'), image: prop('imageUrl') } : null;
+                }).filter(Boolean);
+                return cams.length ? cams : fallback();
+            }).catch(() => {
+                jamCams = null;   // try again next time
+                return fallback();
+            });
+        }
+        return jamCams;
+    }
+
+    function openStream(leaf) {
         closeStream();
-        const s = node.stream, el = document.createElement('div');
+        const c = leaf.cam, el = document.createElement('div');
         el.id = 'destroy-stream';
-        el.innerHTML = '<div class="ds-bar"><span class="ds-rec"></span><span class="ds-live">LIVE</span><b></b><i></i></div>' +
+        el.innerHTML = '<div class="ds-bar"><span class="ds-rec"></span><span class="ds-live">LIVE</span><b></b><i></i><button class="ds-x" aria-label="unplug">&times;</button></div>' +
             '<div class="ds-media"><div class="ds-static">tuning in&hellip;</div></div><div class="ds-note"></div>';
-        el.querySelector('b').textContent = node.place;
-        el.querySelector('.ds-note').textContent = node.note;
+        el.querySelector('.ds-x').addEventListener('click', e => {
+            e.stopPropagation();
+            if (net) unplugCam();
+        });
+        const title = el.querySelector('b');
+        title.textContent = c.t;
+        el.querySelector('.ds-note').textContent = `${c.by} \u00b7 ${leaf.cat}`;
         const media = el.querySelector('.ds-media'), staticEl = el.querySelector('.ds-static');
-        let feed = null, timer = 0;
+        let feed = null;
         const lost = () => {
             staticEl.textContent = 'no signal';
             if (feed) feed.style.visibility = 'hidden';
         };
-        if (s.kind === 'twitch') {
-            if (location.hostname) {
-                feed = document.createElement('iframe');
-                feed.src = `https://player.twitch.tv/?channel=${s.id}&parent=${location.hostname}&muted=true&autoplay=true`;
+        if (c.k === 'tw' || c.k === 'yt') {
+            feed = document.createElement('iframe');
+            if (c.k === 'yt') {
+                feed.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(c.id)}?autoplay=1&mute=1&playsinline=1&rel=0`;
+                feed.allow = 'autoplay; encrypted-media; picture-in-picture';
+                feed.referrerPolicy = 'strict-origin-when-cross-origin';
+            } else if (location.hostname) {
+                feed.src = `https://player.twitch.tv/?channel=${encodeURIComponent(c.id)}&parent=${location.hostname}&muted=true&autoplay=true`;
                 feed.allow = 'autoplay; keyboard-map';
-                feed.title = node.place;
+            } else {
+                feed = null;
+                lost();
+            }
+            if (feed) {
+                feed.title = c.t;
                 feed.setAttribute('scrolling', 'no');
-            } else lost();
-        } else if (s.kind === 'clip') {
-            feed = document.createElement('video');
-            feed.muted = feed.loop = feed.autoplay = feed.playsInline = true;
-            feed.setAttribute('playsinline', '');
-            feed.poster = `${TFL}${s.id}.jpg`;
-            feed.src = `${TFL}${s.id}.mp4`;
-            feed.addEventListener('error', lost);
-            const play = feed.play();
-            if (play) play.catch(() => {});
+            }
         } else {
-            feed = document.createElement('img');
-            feed.alt = '';
-            feed.addEventListener('error', lost);
-            feed.src = `${NYC}${s.id}/image?t=${Date.now()}`;
-            // the next frame loads off to the side, then takes the old one's place
-            timer = setInterval(() => {
-                const next = new Image();
-                next.onload = () => { if (stream && stream.feed === feed) feed.src = next.src; };
-                next.src = `${NYC}${s.id}/image?t=${Date.now()}`;
-            }, 2500);
+            feed = document.createElement('video');
+            feed.muted = feed.autoplay = feed.playsInline = true;
+            feed.setAttribute('playsinline', '');
+            const play = () => {
+                const p = feed.play();
+                if (p) p.catch(() => {});
+            };
+            if (c.k === 'tfl') {
+                feed.loop = true;
+                feed.poster = `${TFL}${c.id}.jpg`;
+                feed.src = `${TFL}${c.id}.mp4`;
+                feed.addEventListener('error', lost);
+                play();
+            } else if (c.k === 'hls') {
+                // Caltrans' live streams: Safari plays them itself; elsewhere hls.js does
+                // (fetched the first time one's picked, and only then)
+                if (c.poster) feed.poster = c.poster;
+                feed.addEventListener('error', lost);
+                if (feed.canPlayType('application/vnd.apple.mpegurl')) {
+                    feed.src = c.id;
+                    play();
+                } else {
+                    loadHls().then(Hls => {
+                        if (!stream || stream.feed !== feed) return;
+                        if (!Hls || !Hls.isSupported()) return lost();
+                        const hls = stream.hls = new Hls();
+                        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) lost(); });
+                        hls.loadSource(c.id);
+                        hls.attachMedia(feed);
+                        play();
+                    });
+                }
+            } else {
+                // the roulette: static between channels, and on to another camera
+                // when a clip ends (or won't play, unless nothing will)
+                let fails = 0;
+                const next = () => loadJamCams().then(cams => {
+                    if (!stream || stream.feed !== feed) return;
+                    const cam = pick(cams);
+                    feed.style.visibility = 'hidden';
+                    staticEl.textContent = 'changing channel\u2026';
+                    title.textContent = cam.name;
+                    feed.src = cam.video;
+                    play();
+                });
+                feed.addEventListener('playing', () => {
+                    fails = 0;
+                    feed.style.visibility = '';
+                });
+                feed.addEventListener('ended', next);
+                feed.addEventListener('error', () => (++fails > 4 ? lost() : next()));
+                next();
+            }
         }
         if (feed) {
             feed.className = 'ds-feed';
             media.appendChild(feed);
         }
         document.body.appendChild(el);
-        stream = { node, el, feed, timer, rect: null, time: '' };
+        stream = { leaf, el, feed, rect: null, time: '', london: c.k === 'tfl' || c.k === 'surf' };
         placeStream(true);
-        sfx('beep');
+    }
+
+    let hlsLib = null;
+
+    function loadHls() {
+        if (!hlsLib) {
+            hlsLib = new Promise(resolve => {
+                const sc = document.createElement('script');
+                sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+                sc.onload = () => resolve(window.Hls || null);
+                sc.onerror = () => {
+                    hlsLib = null;
+                    resolve(null);
+                };
+                document.head.appendChild(sc);
+            });
+        }
+        return hlsLib;
     }
 
     function closeStream() {
         if (!stream) return;
-        clearInterval(stream.timer);
+        if (stream.hls) stream.hls.destroy();
         if (stream.feed && stream.feed.tagName === 'VIDEO') {
             stream.feed.pause();
             stream.feed.removeAttribute('src');
@@ -4652,14 +5626,13 @@
         stream = null;
     }
 
-    // Where a node's window goes: over the node, on the other half of the screen from
-    // it, and clear of the HUD (a Twitch player won't play with anything over it)
-    function feedRect(node) {
-        const vw = window.innerWidth, vh = window.innerHeight, live = !!node.stream;
-        const w = Math.min(live ? 400 : 300, vw - 24);
-        const h = live ? Math.round((w - 12) * 9 / 16) + 50 : Math.round(w * 0.62) + 50;
+    // Where a cam's window goes: by it, on the other half of the screen from it, and
+    // clear of the HUD (a Twitch player won't play with anything over it)
+    function feedRect(sx, sy) {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const w = Math.min(420, vw - 24), h = Math.round((w - 12) * 9 / 16) + 50;
         const top = coarsePointer ? 64 : 56, bottom = vh - (coarsePointer && vh > vw ? 190 : 24) - h;
-        let x = clamp(node.x - w / 2, 12, vw - w - 12), y = node.y < H / 2 ? Math.max(top, bottom) : top;
+        let x = clamp(sx - w / 2, 12, vw - w - 12), y = sy < vh / 2 ? Math.max(top, bottom) : top;
         const hr = hud && hud.getBoundingClientRect();
         if (hr && hr.width && x < hr.right + 6 && x + w > hr.left - 6 && y < hr.bottom + 6 && y + h > hr.top - 6) {
             if (hr.right + 6 + w <= vw - 12) x = hr.right + 6;
@@ -4669,21 +5642,33 @@
         return { x: Math.round(x), y: Math.round(y), w, h };
     }
 
+    // It stays put once it's open (moved only when the screen changes size)
     function placeStream(opening) {
-        if (!stream) return;
-        const r = feedRect(stream.node), el = stream.el, key = `${r.x},${r.y},${r.w},${r.h}`;
-        if (key !== stream.rect) {
-            stream.rect = key;
+        if (!stream || !net) return;
+        const el = stream.el, s = etherScreen(stream.leaf.x, stream.leaf.y);
+        if (!stream.rect) {
+            const r = stream.rect = feedRect(s.x, s.y);
             Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+            // it grows out of the cam
+            if (opening) el.style.transformOrigin = `${Math.round(s.x - r.x)}px ${Math.round(s.y - r.y)}px`;
         }
-        // it grows out of the hexagon
-        if (opening) el.style.transformOrigin = `${Math.round(stream.node.x - r.x)}px ${Math.round(stream.node.y - r.y)}px`;
-        const time = localTime(stream.node.tz).time;
+        const time = stream.london ? localTime('Europe/London').time : '';
         if (time !== stream.time) {
             stream.time = time;
             el.querySelector('i').textContent = time;
         }
     }
+
+    function localTime(tz) {
+        const d = new Date();
+        try {
+            return { time: d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) };
+        } catch (_) {
+            return { time: d.toISOString().slice(11, 16) + ' UTC' };
+        }
+    }
+
+    // ----- drawing it
 
     // Rings rushing out of the middle, and the bits running down orderly lanes
     function drawTunnel() {
@@ -4720,262 +5705,292 @@
         ctx.textBaseline = 'alphabetic';
     }
 
-    function drawNodes() {
-        ctx.font = "9px 'IBM Plex Mono', monospace";
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        // the inner ring wired to the outer, packets running along the wires
-        ctx.strokeStyle = 'rgba(45,226,230,0.1)';
-        ctx.lineWidth = 1;
+    // The fractal over the dimmed tunnel. The still part of it is kept in a canvas
+    // and reused while the view holds still (as it does while you watch a cam), so
+    // then it costs one copy a frame; the current and the highlights go over it.
+    function drawEther() {
+        const vw = window.innerWidth, vh = window.innerHeight, t = net.tree;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = 'rgba(2,3,10,0.55)';
+        ctx.fillRect(0, 0, vw, vh);
+        if (!t) {
+            ctx.fillStyle = 'rgba(216,255,248,0.6)';
+            ctx.beginPath();
+            ctx.arc(vw / 2, vh / 2, 10 + Math.sin(clock * 6) * 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = "11px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'center';
+            ctx.fillText('connecting to the ether\u2026', vw / 2, vh / 2 + 34);
+            ctx.textAlign = 'left';
+            return;
+        }
+        const key = [net.z.toFixed(5), net.cx.toFixed(2), net.cy.toFixed(2), view.width, view.height].join();
+        if (net.grow >= 1 && (key === net.cacheKey || key === net.lastKey)) {
+            if (key !== net.cacheKey) {
+                // the same two frames running: keep it
+                if (!net.cache) net.cache = document.createElement('canvas');
+                net.cache.width = view.width;
+                net.cache.height = view.height;
+                const main = ctx;
+                ctx = net.cache.getContext('2d');
+                drawEtherStill(vw, vh);
+                ctx = main;
+                net.cacheKey = key;
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(net.cache, 0, 0);
+        } else drawEtherStill(vw, vh);
+        net.lastKey = key;
+        drawEtherMoving(vw, vh);
+    }
+
+    function etherGrown() {
+        return (1 - (1 - net.grow) ** 2) * (net.tree.R + 40);
+    }
+
+    // The still part: the grid, the brain's outline, the dendrites (straight when
+    // they're small on the screen, zigzagging and forking once they're not), the
+    // neurons, and the names: lobes, channels mid-way in, and cams close up
+    function drawEtherStill(vw, vh) {
+        const t = net.tree, z = net.z, grown = etherGrown(), S = t.S;
+        const x0 = net.cx - vw / 2 / z, x1 = net.cx + vw / 2 / z, y0 = net.cy - vh / 2 / z, y1 = net.cy + vh / 2 / z;
+        ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (vw / 2 - net.cx * z), dpr * (vh / 2 - net.cy * z));
+
+        const step = 120 * 2 ** Math.round(Math.log2(40 / (120 * z))), rowH = step * 0.866, dot = 1.4 / z;
+        ctx.fillStyle = 'rgba(45,226,230,0.13)';
+        for (let r = Math.floor(y0 / rowH); r * rowH <= y1; r++) {
+            const off = (r & 1) * step / 2;
+            for (let c = Math.floor((x0 - off) / step); c * step + off <= x1; c++) ctx.fillRect(c * step + off - dot / 2, r * rowH - dot / 2, dot, dot);
+        }
+        // the hemispheres
+        ctx.strokeStyle = 'rgba(45,226,230,0.14)';
+        ctx.lineWidth = 2 / z;
+        ctx.setLineDash([6 / z, 8 / z]);
         ctx.beginPath();
-        for (const node of net.nodes) {
-            if (node.inner) continue;
-            ctx.moveTo(node.x, node.y);
-            ctx.lineTo(W / 2, H / 2);
+        for (const side of [-1, 1]) {
+            const cx = side * 0.52 * S, rx = 0.5 * S, ry = 0.76 * S;
+            if (t.portrait) ctx.ellipse(0, cx, ry, rx, 0, 0, Math.PI * 2);
+            else ctx.ellipse(cx, 0, rx, ry, 0, 0, Math.PI * 2);
         }
         ctx.stroke();
-        for (const node of net.nodes) {
-            if (node.inner) continue;
-            const k = (clock * 0.5 + node.x * 0.013) % 1;
-            ctx.fillStyle = nodeColor(node);
-            ctx.fillRect(node.x + (W / 2 - node.x) * k - 1, node.y + (H / 2 - node.y) * k - 1, 2, 2);
+        ctx.setLineDash([]);
+
+        const jagged = z * LEAF_GAP >= 16, twiggy = z * LEAF_GAP >= 26, L = t.leaves, paths = new Map();
+        for (const e of t.edges) {
+            if (e.bx1 < x0 || e.bx0 > x1 || e.by1 < y0 || e.by0 > y1 || L[e.i].r > grown || L[e.j].r > grown) continue;
+            const key = e.axon ? 'axon' : e.color;
+            if (!paths.has(key)) paths.set(key, []);
+            paths.get(key).push(e);
         }
-        for (const node of net.nodes) {
-            const on = node === net.plugged, r = on ? 13 : 10, col = nodeColor(node);
-            ctx.globalAlpha = on ? 0.6 : 0.25 + 0.1 * Math.sin(clock * 3 + node.x);
-            ctx.fillStyle = col;
+        for (const [key, list] of paths) {
             ctx.beginPath();
-            ctx.arc(node.x, node.y, r + 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-            hexPath(node.x, node.y, r);
-            ctx.fillStyle = '#02030a';
-            ctx.fill();
-            ctx.strokeStyle = col;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            if (node.stream) {
-                // a play mark, and the red light of something live
-                ctx.fillStyle = col;
-                ctx.beginPath();
-                ctx.moveTo(node.x - 3, node.y - 4);
-                ctx.lineTo(node.x + 4, node.y);
-                ctx.lineTo(node.x - 3, node.y + 4);
-                ctx.fill();
-                if (Math.floor(clock * 2 + node.x) % 2) {
-                    ctx.fillStyle = '#ff2b4a';
-                    ctx.fillRect(node.x + r - 2, node.y - r - 1, 3, 3);
+            for (const e of list) {
+                const p = e.pts;
+                ctx.moveTo(p[0], p[1]);
+                if (jagged || e.axon) for (let k = 2; k < p.length; k += 2) ctx.lineTo(p[k], p[k + 1]);
+                else ctx.lineTo(p[p.length - 2], p[p.length - 1]);
+                if (twiggy) for (const tw of e.twigs) for (let k = 0; k < tw.length; k += 4) {
+                    ctx.moveTo(tw[k], tw[k + 1]);
+                    ctx.lineTo(tw[k + 2], tw[k + 3]);
                 }
             }
-            ctx.fillStyle = '#d8fff8';
-            const tw = ctx.measureText(node.name).width / 2;
-            ctx.fillText(node.name, clamp(node.x, tw + 2, window.innerWidth - tw - 2), node.y + r + 4);
+            const axon = key === 'axon';
+            ctx.strokeStyle = axon ? '#d8fff8' : key;
+            if (jagged || axon) {
+                ctx.globalAlpha = axon ? 0.08 : 0.12;
+                ctx.lineWidth = (axon ? 6 : 4) / z;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = axon ? 0.35 : 0.7;
+            ctx.lineWidth = (axon ? 1.4 : jagged ? 1.1 : 0.8) / z;
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        const ls = clamp(z * 3.4, 1.4, 6) / z, rs = ls * z;
+        for (const leaf of L) {
+            if (leaf.x < x0 - ls * 3 || leaf.x > x1 + ls * 3 || leaf.y < y0 - ls * 3 || leaf.y > y1 + ls * 3 || leaf.r > grown) continue;
+            ctx.fillStyle = leaf.color;
+            if (rs < 2.5) ctx.fillRect(leaf.x - ls, leaf.y - ls, ls * 2, ls * 2);
+            else {
+                ctx.globalAlpha = 0.22;
+                ctx.beginPath();
+                ctx.arc(leaf.x, leaf.y, ls * 2.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(leaf.x, leaf.y, ls, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const taken = t.exits.map(e => ({ ...etherScreen(e.x, e.y), w: 14, h: 22 }));
+        const free = (x, y, w, h) => {
+            if (taken.some(r => Math.abs(r.x - x) < r.w + w && Math.abs(r.y - y) < r.h + h)) return false;
+            taken.push({ x, y, w, h });
+            return true;
+        };
+        for (const n of t.labels) {
+            if (!n.big && (z * LEAF_GAP < 7 || z * LEAF_GAP > 40)) continue;
+            const s = etherScreen(n.x, n.y);
+            if (s.x < -80 || s.x > vw + 80 || s.y < -20 || s.y > vh + 20) continue;
+            ctx.font = n.big ? "bold 13px 'IBM Plex Mono', monospace" : "10px 'IBM Plex Mono', monospace";
+            if (!free(s.x, s.y, ctx.measureText(n.label).width / 2 + 4, n.big ? 9 : 7)) continue;
+            ctx.fillStyle = 'rgba(2,3,10,0.6)';
+            ctx.fillRect(s.x - ctx.measureText(n.label).width / 2 - 3, s.y - (n.big ? 9 : 7), ctx.measureText(n.label).width + 6, n.big ? 18 : 14);
+            ctx.fillStyle = n.big ? n.color : 'rgba(216,255,248,0.75)';
+            ctx.fillText(n.label, s.x, s.y);
+        }
+        if (z * LEAF_GAP >= 34) {
+            ctx.font = "10px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'left';
+            ctx.fillStyle = 'rgba(216,255,248,0.85)';
+            for (const leaf of L) {
+                const s = etherScreen(leaf.x, leaf.y);
+                if (s.x < -10 || s.x > vw || s.y < 0 || s.y > vh || leaf.r > grown) continue;
+                const w = ctx.measureText(leaf.cam.n).width;
+                if (!free(s.x + rs + 4 + w / 2, s.y, w / 2 + 2, 6)) continue;
+                ctx.fillText(leaf.cam.n, s.x + rs + 4, s.y);
+            }
         }
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
     }
 
-    // Plugged in: a little window onto wherever that is, at its local time (a real
-    // one, for the live nodes), with a cable from the node to it
-    function drawFeed() {
-        const node = net && net.plugged;
-        if (!node || node.go) return;
-        const r = feedRect(node);
-        const tx = clamp(node.x, r.x + 8, r.x + r.w - 8), ty = node.y < r.y ? r.y : r.y + r.h;
-        ctx.strokeStyle = nodeColor(node);
-        ctx.globalAlpha = 0.6;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 4]);
-        ctx.lineDashOffset = -clock * 40;
-        ctx.beginPath();
-        ctx.moveTo(node.x, node.y);
-        ctx.lineTo(tx, ty);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
-        if (node.stream) {
-            placeStream(false);
-            if (!stream) {
-                // about to open: the window flickering into being
-                ctx.strokeStyle = nodeColor(node);
-                ctx.globalAlpha = 0.5 * Math.min(1, net.plugT / 0.3);
-                ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-                ctx.globalAlpha = 1;
-            }
-            return;
+    // Where a pulse is along a dendrite (it runs either way)
+    function alongEdge(e, t, dir) {
+        const p = e.pts, n = p.length / 2 - 1, s = clamp(dir > 0 ? t : 1 - t, 0, 1) * n, k = Math.min(n - 1, Math.floor(s)), f = s - k;
+        return { x: p[k * 2] + (p[k * 2 + 2] - p[k * 2]) * f, y: p[k * 2 + 1] + (p[k * 2 + 3] - p[k * 2 + 1]) * f };
+    }
+
+    // The moving part: pulses running the network, neurons flashing as they fire,
+    // the current to the cam picked, sparks, the ways out, and rings on the cams in
+    // play (the one plugged into, the one under the pointer, the one he's over)
+    function drawEtherMoving(vw, vh) {
+        const t = net.tree, z = net.z, zap = net.zap, L = t.leaves;
+        const x0 = net.cx - vw / 2 / z, x1 = net.cx + vw / 2 / z, y0 = net.cy - vh / 2 / z, y1 = net.cy + vh / 2 / z;
+        ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (vw / 2 - net.cx * z), dpr * (vh / 2 - net.cy * z));
+        for (const leaf of net.firing) {
+            if (leaf.x < x0 || leaf.x > x1 || leaf.y < y0 || leaf.y > y1) continue;
+            ctx.globalAlpha = leaf.fire * 0.6;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(leaf.x, leaf.y, (4 + (1 - leaf.fire) * 6) / z, 0, Math.PI * 2);
+            ctx.fill();
         }
-        const { x, y, w, h } = r, lt = localTime(node.tz);
-        ctx.fillStyle = 'rgba(2,3,10,0.9)';
-        ctx.fillRect(x, y, w, h);
-        ctx.strokeStyle = '#2de2e6';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        for (const p of net.pulses) {
+            const e = t.edges[p.e], a = alongEdge(e, p.t, p.dir), b = alongEdge(e, p.t - 0.18, p.dir);
+            if (a.x < x0 || a.x > x1 || a.y < y0 || a.y > y1) continue;
+            ctx.strokeStyle = p.color;
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 2 / z;
+            ctx.beginPath();
+            ctx.moveTo(b.x, b.y);
+            ctx.lineTo(a.x, a.y);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(a.x - 1.2 / z, a.y - 1.2 / z, 2.4 / z, 2.4 / z);
+        }
+        ctx.globalAlpha = 1;
+        if (zap) {
+            const f = zap.done ? 1 : Math.min(1, zap.t), upto = f * zap.total, jit = 2.5 / z, head = pointAlong(zap, f);
+            ctx.beginPath();
+            ctx.moveTo(zap.pts[0].x, zap.pts[0].y);
+            for (let k = 1; k < zap.pts.length && zap.lens[k] < upto; k++) ctx.lineTo(zap.pts[k].x + rand(-jit, jit), zap.pts[k].y + rand(-jit, jit));
+            ctx.lineTo(head.x, head.y);
+            ctx.strokeStyle = '#2de2e6';
+            ctx.globalAlpha = zap.done ? 0.2 + Math.random() * 0.15 : 0.55;
+            ctx.lineWidth = 7 / z;
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 0.95;
+            ctx.lineWidth = (zap.done ? 1.3 : 2.2) / z;
+            ctx.stroke();
+            if (zap.done) {
+                ctx.setLineDash([10 / z, 34 / z]);
+                ctx.lineDashOffset = -clock * 180 / z;
+                ctx.strokeStyle = '#f6ffb0';
+                ctx.lineWidth = 2.6 / z;
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 5 / z, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = '#f6ffb0';
+        for (const q of net.sparks) ctx.fillRect(q.x - 1 / z, q.y - 1 / z, 2 / z, 2 / z);
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.font = "bold 11px 'IBM Plex Mono', monospace";
-        ctx.fillStyle = '#d8fff8';
-        ctx.fillText(`${node.name}, ${node.place}`, x + 8, y + 6);
-        ctx.font = "10px 'IBM Plex Mono', monospace";
-        ctx.fillStyle = '#2de2e6';
-        ctx.fillText(`plugged in \u00b7 local time ${lt.time}`, x + 8, y + 21);
-        const ax = x + 8, ay = y + 36, aw = w - 16, ah = h - 56;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(ax, ay, aw, ah);
-        ctx.clip();
-        FEEDS[node.art](ax, ay, aw, ah, lt.hour);
-        ctx.restore();
-        ctx.textBaseline = 'bottom';
-        ctx.font = "10px 'IBM Plex Mono', monospace";
-        ctx.fillStyle = '#9ad7ff';
-        ctx.fillText(node.note, x + 8, y + h - 5);
+        ctx.font = "9px 'IBM Plex Mono', monospace";
+        for (const e of t.exits) {
+            const s = etherScreen(e.x, e.y), on = net.near === e;
+            hexPath(s.x, s.y, on ? 13 : 10);
+            ctx.fillStyle = '#02030a';
+            ctx.fill();
+            ctx.strokeStyle = '#f6e05e';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#f6e05e';
+            ctx.fillText(e.label, s.x, s.y + 15);
+        }
+        ctx.textBaseline = 'middle';
+        const rs = clamp(z * 3.4, 1.4, 6), hover = pointer.has && !coarsePointer ? etherAt(pointer.x, pointer.y, 14) : null;
+        for (const [n, color] of [[net.sel, '#ffffff'], [hover, '#f6ffb0'], [net.near, '#2de2e6']]) {
+            if (!n || n.exit) continue;
+            const s = etherScreen(n.x, n.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = n === net.sel ? 2 : 1.5;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, rs + 5 + (n === net.sel ? Math.sin(clock * 6) * 1.5 + Math.max(0, net.flash) * 30 : 0), 0, Math.PI * 2);
+            ctx.stroke();
+            if (z * LEAF_GAP < 34 || n !== net.sel) {
+                ctx.font = "10px 'IBM Plex Mono', monospace";
+                ctx.fillStyle = color;
+                ctx.fillText(n.cam.n, s.x, s.y - rs - 14);
+            }
+        }
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
     }
 
-    // Day, dusk or night sky over a feed (with stars at night); true if it's night
-    function skyBox(x, y, w, h, hour) {
-        const night = hour < 6 || hour >= 20, dusk = !night && (hour < 8 || hour >= 18);
-        const g = ctx.createLinearGradient(0, y, 0, y + h);
-        g.addColorStop(0, night ? '#050816' : dusk ? '#3b2a5a' : '#5aa9e6');
-        g.addColorStop(1, night ? '#101a33' : dusk ? '#e8875a' : '#bfe3ff');
-        ctx.fillStyle = g;
-        ctx.fillRect(x, y, w, h);
-        if (night) {
-            ctx.fillStyle = '#ffffff';
-            for (let i = 0; i < 30; i++) ctx.fillRect(x + (i * 73) % w, y + (i * 37) % (h * 0.6), 1, 1);
-        }
-        return night;
-    }
-
-    const FEEDS = {
-        aurora(x, y, w, h) {
-            ctx.fillStyle = '#040915';
-            ctx.fillRect(x, y, w, h);
-            for (let i = 0; i < w; i += 3) {
-                const top = y + h * 0.15 + Math.sin(i * 0.04 + clock) * h * 0.08, bottom = top + h * 0.25 + Math.sin(i * 0.09 - clock * 1.3) * h * 0.1;
-                const g = ctx.createLinearGradient(0, top, 0, bottom);
-                g.addColorStop(0, 'rgba(80,255,170,0)');
-                g.addColorStop(1, 'rgba(80,255,170,0.55)');
-                ctx.fillStyle = g;
-                ctx.fillRect(x + i, top, 3, bottom - top);
-            }
-            ctx.fillStyle = '#e8f2ff';
-            ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
-            ctx.fillStyle = '#5a6470';
-            ctx.fillRect(x + w * 0.2, y + h * 0.62, 3, h * 0.2);
-            ctx.fillRect(x + w * 0.2 - 8, y + h * 0.62, 19, 2);
-        },
-        fridge(x, y, w, h) {
-            ctx.fillStyle = '#dfe8ee';
-            ctx.fillRect(x, y, w, h);
-            ctx.fillStyle = '#b9c6cf';
-            for (let i = 1; i < 4; i++) ctx.fillRect(x, y + h * i / 4, w, 3);
-            ctx.fillStyle = '#334';
-            ctx.font = "10px 'IBM Plex Mono', monospace";
-            ctx.textBaseline = 'bottom';
-            ['milk (expired)', '3 eggs \u00b7 natto', 'leftover ramen', 'one lonely grape'].forEach((t, i) => ctx.fillText(t, x + 8, y + h * (i + 1) / 4 - 2));
-            ctx.globalAlpha = 0.15 + 0.05 * Math.sin(clock * 30);
-            ctx.fillStyle = '#fffbe0';
-            ctx.fillRect(x, y, w, h);
-            ctx.globalAlpha = 1;
-        },
-        satellite(x, y, w, h) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(x, y, w, h);
-            ctx.fillStyle = '#ffffff';
-            for (let i = 0; i < 40; i++) ctx.fillRect(x + (i * 53) % w, y + (i * 29) % h, 1, 1);
-            const g = ctx.createRadialGradient(x + w / 2, y + h * 2.2, h * 1.4, x + w / 2, y + h * 2.2, h * 1.6);
-            g.addColorStop(0, '#1d4f9c');
-            g.addColorStop(0.9, '#3a8fd8');
-            g.addColorStop(1, 'rgba(120,190,255,0)');
-            ctx.fillStyle = g;
+    // Over everything: the cable from the cam to its window, and how to start
+    function drawFeed() {
+        if (scene !== 'net' || !net) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        if (stream && stream.rect && net.sel) {
+            placeStream(false);
+            const s = etherScreen(net.sel.x, net.sel.y), r = stream.rect;
+            const tx = clamp(s.x, r.x + 8, r.x + r.w - 8), ty = s.y < r.y ? r.y : r.y + r.h;
+            ctx.strokeStyle = '#f6ffb0';
+            ctx.globalAlpha = 0.7;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 4]);
+            ctx.lineDashOffset = -clock * 40;
             ctx.beginPath();
-            ctx.arc(x + w / 2, y + h * 2.2, h * 1.6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.save();
-            ctx.translate(x + w / 2, y + h * 0.35);
-            ctx.rotate(Math.sin(clock * 0.5) * 0.15);
-            ctx.fillStyle = '#c9a227';
-            ctx.fillRect(-6, -5, 12, 10);
-            ctx.fillStyle = '#2d4f8a';
-            ctx.fillRect(-34, -4, 26, 8);
-            ctx.fillRect(8, -4, 26, 8);
-            ctx.restore();
-        },
-        lighthouse(x, y, w, h) {
-            ctx.fillStyle = '#060a18';
-            ctx.fillRect(x, y, w, h);
-            ctx.fillStyle = '#0e2a40';
-            ctx.fillRect(x, y + h * 0.75, w, h * 0.25);
-            const lx = x + w * 0.3, ly = y + h * 0.3, a = clock * 0.6;
-            ctx.globalAlpha = 0.25 + 0.2 * Math.max(0, Math.cos(a));
-            ctx.fillStyle = '#fff3b0';
-            ctx.beginPath();
-            ctx.moveTo(lx, ly);
-            ctx.lineTo(lx + Math.cos(a) * w, ly + Math.sin(a) * h * 0.3 - 20);
-            ctx.lineTo(lx + Math.cos(a) * w, ly + Math.sin(a) * h * 0.3 + 20);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-            for (let i = 0; i < 5; i++) {
-                ctx.fillStyle = i % 2 ? '#c0392b' : '#f2f2f2';
-                ctx.fillRect(lx - 6, ly + 6 + i * h * 0.09, 12, h * 0.09);
-            }
-            ctx.fillStyle = '#fff3b0';
-            ctx.fillRect(lx - 4, ly - 2, 8, 8);
-        },
-        radio(x, y, w, h, hour) {
-            skyBox(x, y, w / 2, h, hour);
-            ctx.fillStyle = '#e8f2ff';
-            ctx.fillRect(x, y + h * 0.8, w / 2, h * 0.2);
-            ctx.strokeStyle = '#9aa3ad';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(x + w * 0.25, y + h * 0.8);
-            ctx.lineTo(x + w * 0.25, y + h * 0.35);
-            ctx.moveTo(x + w * 0.1, y + h * 0.35);
-            ctx.lineTo(x + w * 0.4, y + h * 0.35);
-            ctx.moveTo(x + w * 0.13, y + h * 0.5);
-            ctx.lineTo(x + w * 0.37, y + h * 0.5);
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(tx, ty);
             ctx.stroke();
-            // a waterfall of what it hears, scrolling, with something faint in it
-            const cols = 24, rows = 14, cw = (w / 2) / cols, rh = h / rows;
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const n = ((r - Math.floor(clock * 6)) * 131 + c * 71) % 97 / 97, sig = c === 15 ? 0.5 : 0;
-                    ctx.fillStyle = `hsl(${240 - (n * 0.5 + sig) * 200}, 80%, ${20 + (n * 0.5 + sig) * 45}%)`;
-                    ctx.fillRect(x + w / 2 + c * cw, y + r * rh, cw + 0.5, rh + 0.5);
-                }
-            }
-        },
-        toaster(x, y, w, h) {
-            ctx.fillStyle = '#e9e0d0';
-            ctx.fillRect(x, y, w, h);
-            ctx.fillStyle = '#b7a990';
-            ctx.fillRect(x, y + h * 0.75, w, h * 0.25);
-            const pop = Math.max(0, Math.sin(clock * 1.2)) ** 6 * h * 0.25;
-            ctx.fillStyle = '#c98b4a';
-            ctx.fillRect(x + w * 0.38, y + h * 0.42 - pop, w * 0.1, h * 0.2);
-            ctx.fillRect(x + w * 0.52, y + h * 0.42 - pop, w * 0.1, h * 0.2);
-            ctx.fillStyle = '#c0c6cc';
-            ctx.fillRect(x + w * 0.32, y + h * 0.5, w * 0.36, h * 0.27);
-            ctx.fillStyle = '#7d858e';
-            ctx.fillRect(x + w * 0.62, y + h * 0.56, w * 0.04, h * 0.06);
-        },
-        vacuum(x, y, w, h) {
-            ctx.fillStyle = '#c8b28a';
-            ctx.fillRect(x, y, w, h);
-            ctx.fillStyle = '#6b4f3a';
-            ctx.fillRect(x + w * 0.6, y + h * 0.08, w * 0.34, h * 0.28);
-            ctx.fillStyle = '#8a6a50';
-            ctx.fillRect(x + w * 0.08, y + h * 0.62, w * 0.22, h * 0.26);
-            const vx = x + w * 0.45 + Math.sin(clock * 0.7) * w * 0.3, vy = y + h * 0.5 + Math.sin(clock * 1.1) * h * 0.25;
-            ctx.fillStyle = '#2b2f33';
-            ctx.beginPath();
-            ctx.arc(vx, vy, 9, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = Math.floor(clock * 2) % 2 ? '#3ad16b' : '#1d6b36';
-            ctx.fillRect(vx - 1, vy - 6, 2, 2);
-        },
-    };
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+        }
+        if (net.tree && !net.picked) {
+            ctx.font = "11px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(216,255,248,${0.55 + Math.sin(clock * 3) * 0.2})`;
+            ctx.fillText(coarsePointer ? 'pinch (or IN) to zoom in, tap a cam' : 'scroll to zoom in, click a cam', vw / 2, vh - (coarsePointer ? 200 : 30));
+            ctx.textAlign = 'left';
+        }
+    }
 
     // ------------------------------------------------------------------- sound
 
@@ -5064,6 +6079,7 @@
         cloak: t => { tone(t, 0.4, 'sine', 1100, 180, 0.07); noise(t, 0.35, 'highpass', 6000, 2000, 0.05); },
         decloak: t => { tone(t, 0.25, 'sine', 180, 900, 0.05); noise(t, 0.15, 'highpass', 3000, 6000, 0.04); },
         bubble: t => tone(t, 0.06, 'sine', 500, 1400, 0.04),
+        zap: t => { noise(t, 0.5, 'bandpass', 1500, 5000, 0.14, 4); tone(t, 0.45, 'sawtooth', 110, 1800, 0.035); },
         weld2: t => { noise(t, 0.09, 'highpass', 4500, 3000, 0.07); tone(t, 0.05, 'square', 2400, 1800, 0.015); },
     };
     const SOUND_GAP = { weld: 0.08, weld2: 0.07, bubble: 0.09, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2, jet: 0.09 };
@@ -5109,7 +6125,7 @@
         if (scene === 'net') drawTunnel();
         const x0 = clamp(Math.floor(scrollX), 0, W), y0 = clamp(Math.floor(scrollY), 0, H);
         const w = Math.min(W - x0, Math.ceil(vw) + 1), h = Math.min(H - y0, Math.ceil(vh) + 1);
-        if (w > 0 && h > 0) ctx.drawImage(worldCanvas, x0, y0, w, h, x0 - scrollX + ox, y0 - scrollY + oy, w, h);
+        if (scene !== 'net' && w > 0 && h > 0) ctx.drawImage(worldCanvas, x0, y0, w, h, x0 - scrollX + ox, y0 - scrollY + oy, w, h);
 
         ctx.setTransform(dpr, 0, 0, dpr, (ox - scrollX) * dpr, (oy - scrollY) * dpr);
         if (scene === 'site') {
@@ -5137,9 +6153,13 @@
         }
         if (scene === 'shell') {
             drawCells();
+            drawShellFight();
             drawBeing();
         }
-        if (scene === 'net') drawNodes();
+        if (scene === 'net' && net) {
+            drawEther();
+            ctx.setTransform(dpr, 0, 0, dpr, (ox - scrollX) * dpr, (oy - scrollY) * dpr);
+        }
         drawParticles();
         drawNades();
         drawRockets();
@@ -5164,9 +6184,11 @@
             drawBossBar();
             if (portal) drawPortalArrow();
         }
+        if (scene === 'shell') drawTankBar();
         drawClouds();
         drawFlash();
         drawGlitch();
+        drawHack();
         drawFeed();
         drawBanner();
         drawFade();
@@ -5450,8 +6472,8 @@
         acc += dt;
         bannerT -= dt;
         const inSky = scene !== 'site';
-        scrollX = inSky ? 0 : window.scrollX;
-        scrollY = inSky ? 0 : window.scrollY;
+        scrollX = scene === 'net' && net ? net.sx : inSky ? 0 : window.scrollX;
+        scrollY = scene === 'net' && net ? net.sy : inSky ? 0 : window.scrollY;
         flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
         toggleRect = !inSky && toggle ? toggle.getBoundingClientRect() : null;
         toggleCd -= dt;
@@ -5477,8 +6499,9 @@
             acc -= STEP;
         }
         if (scene === 'site') followCamera(dt);
-        scrollX = scene !== 'site' ? 0 : window.scrollX;
-        scrollY = scene !== 'site' ? 0 : window.scrollY;
+        if (scene === 'net' && net && !birth) updateEtherView(dt);
+        scrollX = scene === 'net' && net ? net.sx : scene !== 'site' ? 0 : window.scrollX;
+        scrollY = scene === 'net' && net ? net.sy : scene !== 'site' ? 0 : window.scrollY;
         flushWorld();
         render();
         updatePct();
@@ -5534,10 +6557,17 @@
             ? `stick: move<br>JUMP: jump, again to flip, hold to glide<br>FIRE: shoot (it aims itself)<br>tap: shoot right there<br>${merged ? 'CAMO: go invisible (shooting shows you)' : 'BOMB: grenade'} &middot; SWAP: next gun<br>push into the screen edge: climb<br>kill the fly: something opens`
             : `wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: ${merged ? 'thermoptic camo, on and off (shooting shows you)' : 'grenade'}<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page`;
         const jetHelp = hasJetpack ? `<br>${coarsePointer ? 'JET' : 'space'}: jetpack` : '';
+        const netHelp = coarsePointer
+            ? 'stick: fly<br>pinch, or IN and OUT: zoom<br>tap a cam, or PLUG on one: plug in<br>tap empty space: unplug<br>yellow hexes: home, and back to the shell'
+            : 'wasd: fly<br>scroll, or z and x: zoom<br>click a cam: plug in<br>e: plug into the one you\'re on<br>click empty space: unplug<br>yellow hexes: home, and back to the shell';
+        const helpText = scene === 'net' ? netHelp : help + jetHelp;
         const key = k => coarsePointer ? '' : `[${k}] `;
         if (pad) {
-            pad.querySelector('[data-pad="jump"]').textContent = hasJetpack ? 'JET' : 'JUMP';
-            pad.querySelector('[data-pad="nade"]').textContent = merged ? 'CAMO' : 'BOMB';
+            const inNet = scene === 'net';
+            pad.querySelector('[data-pad="jump"]').textContent = inNet ? 'UP' : hasJetpack ? 'JET' : 'JUMP';
+            pad.querySelector('[data-pad="nade"]').textContent = inNet ? 'IN' : merged ? 'CAMO' : 'BOMB';
+            pad.querySelector('[data-pad="swap"]').textContent = inNet ? 'OUT' : 'SWAP';
+            pad.querySelector('[data-pad="fire"]').textContent = inNet ? 'PLUG' : 'FIRE';
         }
         const camoBar = merged ? `<div class="dh-hp">camo <span class="dh-bar"><span class="dh-cfill"></span></span> <span class="dh-cst"></span></div>` : '';
         if (coarsePointer) hud.innerHTML =
@@ -5547,7 +6577,7 @@
             (menuOpen
                 ? `<div>${weapons}</div>` + (botsOn ? `<div class="dh-kills"></div>` : '') +
                   `<div><button data-act="mute"></button> &middot; <button data-act="bots">robots ${botsOn ? 'on' : 'off'}</button> &middot; <button data-act="taunt">taunt</button></div>` +
-                  `<div class="dh-help">${help}${jetHelp}</div>` +
+                  `<div class="dh-help">${helpText}</div>` +
                   `<div><button data-act="fix">fix website</button></div>`
                 : '');
         else hud.innerHTML =
@@ -5556,7 +6586,7 @@
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
             camoBar +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
-            (helpOn && scene !== 'net' ? `<div class="dh-help">${help}${jetHelp}</div>` : '') +
+            (helpOn ? `<div class="dh-help">${helpText}</div>` : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button>${coarsePointer ? ' <button data-act="taunt">taunt</button>' : ''} <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
@@ -5608,12 +6638,15 @@
         if (scene === 'site' && shown === shownPct) return;
         shownPct = shown;
         if (scene === 'net') {
-            const text = net && net.plugged ? `plugged into: ${net.plugged.name}, ${net.plugged.place}` : 'the ether: plug into something';
+            const text = !net || !net.tree ? 'the ether: connecting\u2026' : net.sel ? `plugged into: ${net.sel.cam.t}` : `the ether: ${net.tree.leaves.length} live cams on real places`;
             if (pctEl.textContent !== text) pctEl.textContent = text;
             return;
         }
         if (scene === 'shell') {
-            const text = `the shell: ${shell.cells.length} cells, ${shell.residues} amino acids folded`;
+            const sh = shell, alive = sh.foes.reduce((n, f) => n + !f.dead, 0);
+            const text = sh.phase === 'waves' ? `the shell: ghost-hacked puppets, wave ${Math.max(1, sh.wave)} of ${FOE_WAVES.length}${alive ? `, ${alive} left` : ''}`
+                : sh.phase === 'boss' ? `the shell: the spider tank${sh.tank ? `, ${Math.ceil(Math.max(0, sh.tank.hp) / sh.tank.max * 100)}%` : ''}`
+                    : merged ? `the shell: ${sh.freed} ghosts freed \u00b7 2501's socket is open` : 'the shell: project 2501 is waiting for you';
             if (pctEl.textContent !== text) pctEl.textContent = text;
             return;
         }
@@ -5796,11 +6829,27 @@
     function rebuild() {
         if (!active) return;
         if (scene === 'net') {
-            enterNetAgain();
+            if (net && net.tree && net.tree.portrait !== (window.innerHeight > window.innerWidth)) {
+                const me = net;
+                closeStream();
+                me.sel = me.zap = me.near = null;
+                me.tree = null;
+                loadEther().then(tree => {
+                    if (net === me) etherReady(me, tree);
+                });
+            } else if (net && net.tree) etherFit();
+            if (stream) {
+                stream.rect = null;
+                placeStream(false);
+            }
             return;
         }
         if (scene === 'shell') {
+            const was = shell && { phase: shell.phase, wave: shell.wave, freed: shell.freed };
             buildShell();
+            if (was && was.phase === 'free') revealBeing();
+            else if (was && was.phase !== 'merged') shell.wave = was.phase === 'boss' ? FOE_WAVES.length : Math.max(0, was.wave - 1);
+            if (was) shell.freed = was.freed;
             guy.x = clamp(guy.x, EDGE, W - EDGE);
             guy.y = shell.floorY - 60;
             guy.grounded = false;
@@ -5837,7 +6886,7 @@
 
     // ------------------------------------------------------------------- input
 
-    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #destroy-pad, #destroy-dialog, #virtual-joystick, #action-buttons, #lightbox-modal');
+    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #destroy-pad, #destroy-dialog, .ds-x, #virtual-joystick, #action-buttons, #lightbox-modal');
 
     document.addEventListener('keydown', e => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -5868,6 +6917,19 @@
             e.preventDefault();
             if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
             return;
+        }
+        if (scene === 'net' && net) {
+            const zoom = { KeyZ: 1.6, Equal: 1.6, NumpadAdd: 1.6, KeyX: 1 / 1.6, Minus: 1 / 1.6, NumpadSubtract: 1 / 1.6 }[e.code];
+            if (zoom) {
+                zoomEther(zoom, pointer.has && !coarsePointer ? pointer.x : undefined, pointer.has && !coarsePointer ? pointer.y : undefined);
+                e.preventDefault();
+                return;
+            }
+            if (e.code === 'KeyE' || e.code === 'Enter') {
+                plugHere();
+                e.preventDefault();
+                return;
+            }
         }
         if (/^Digit[1-9]$/.test(e.code)) selectWeapon(+e.code.slice(5) - 1);
         else if (e.code === 'KeyQ') cycleWeapon();
@@ -5921,12 +6983,23 @@
             e.preventDefault();
             return;
         }
+        if (scene === 'net' && net && e.button === 0) {
+            etherClick(e.clientX, e.clientY);
+            e.preventDefault();
+            return;
+        }
         if (e.button === 0) {
             firing = true;
             shotQueued = cooldown < 0.25;   // a quick click just before the gun is ready still counts
         } else if (e.button === 2) altFire();
         e.preventDefault();
     });
+
+    window.addEventListener('wheel', e => {
+        if (!active || scene !== 'net' || !net || birth || dialog) return;
+        e.preventDefault();
+        zoomEther(Math.exp(-e.deltaY * (e.deltaMode ? 0.06 : 0.0022)), e.clientX, e.clientY);
+    }, { passive: false });
 
     window.addEventListener('mouseup', e => {
         if (e.button === 0) firing = false;
@@ -5946,6 +7019,11 @@
                 skipBirth();
                 return;
             }
+            if (scene === 'net' && net) {
+                netTouches.set(t.identifier, { x: t.clientX, y: t.clientY, x0: t.clientX, y0: t.clientY, t0: performance.now() });
+                if (netTouches.size > 1) netPinched = true;
+                continue;
+            }
             if (pointer.touchId !== null) continue;
             pointer.touchId = t.identifier;
             pointer.x = t.clientX;
@@ -5957,7 +7035,28 @@
         }
     }, { passive: false });
 
+    // In the ether: a tap picks (or zooms in, from far out), two fingers pinch to zoom
+    const netTouches = new Map();
+    let netPinched = false;
+
     document.addEventListener('touchmove', e => {
+        if (active && scene === 'net' && net && netTouches.size) {
+            const before = [...netTouches.values()].slice(0, 2).map(p => ({ x: p.x, y: p.y }));
+            for (const t of e.changedTouches) {
+                const p = netTouches.get(t.identifier);
+                if (p) {
+                    p.x = t.clientX;
+                    p.y = t.clientY;
+                }
+            }
+            const now = [...netTouches.values()].slice(0, 2);
+            if (now.length === 2) {
+                const d0 = Math.hypot(before[0].x - before[1].x, before[0].y - before[1].y), d1 = Math.hypot(now[0].x - now[1].x, now[0].y - now[1].y);
+                if (d0 > 10) zoomEther(d1 / d0, (now[0].x + now[1].x) / 2, (now[0].y + now[1].y) / 2);
+            }
+            e.preventDefault();
+            return;
+        }
         if (!active || pointer.touchId === null) return;
         for (const t of e.changedTouches) {
             if (t.identifier !== pointer.touchId) continue;
@@ -5969,6 +7068,13 @@
 
     function endTouch(e) {
         for (const t of e.changedTouches) {
+            const p = netTouches.get(t.identifier);
+            if (p) {
+                netTouches.delete(t.identifier);
+                if (!netPinched && e.type === 'touchend' && active && scene === 'net' && net && performance.now() - p.t0 < 400 && Math.hypot(p.x - p.x0, p.y - p.y0) < 14) etherClick(p.x, p.y);
+                if (!netTouches.size) netPinched = false;
+                continue;
+            }
             if (t.identifier !== pointer.touchId) continue;
             pointer.touchId = null;
             pointer.has = false;

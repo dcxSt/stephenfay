@@ -1105,6 +1105,20 @@ html.destroying #pixelated-person {
     animation: ds-blink 1s steps(2) infinite;
 }
 
+#destroy-stream .ds-x {
+    padding: 0 2px;
+    border: none;
+    background: none;
+    color: #9ad7ff;
+    font: bold 15px/1 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+#destroy-stream .ds-x:hover {
+    color: #ffffff;
+}
+
 #destroy-stream .ds-live {
     color: #ff2b4a;
     font-weight: bold;
