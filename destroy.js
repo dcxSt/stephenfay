@@ -99,7 +99,8 @@
     const TILE = 16;            // damage is tracked in 16px tiles (markTile shifts by 4)
     const BOT_HP = 4, BOT_SPEED = 80, BOT_H = 22, BOT_REACH = 42, WELD_RATE = 90, WELD_R = 9;
     const MAX_BOTS = 8, MAX_FLIES = 30, FLY_SPEED = 210;
-    const FLY_HP = 40, FLY_GROW_HP = 20, FLY_ALONE = 25, FLY_BITE = 1.2;   // FLY_BITE: health per second per fly on him
+    const FLY_HP = 250, FLY_GROW_HP = 125, FLY_ALONE = 25, FLY_BITE = 1.2;   // FLY_BITE: health per second per fly on him
+    const BROOD = 100, GLOB_G = 600, GLOB_DMG = 12, LASER_DMG = 4;   // BROOD: flies it was carrying when it dies
     const KEEPER_HP = 30, KEEPER_SPEED = 105, KEEPER_DMG = 20, KEEPER_DELAY = 20, KEEPER_AGAIN = 60;
     const MAX_HP = 100, BLAST_DMG = 40, REGEN_CELLS = 50;   // he heals a point for every REGEN_CELLS of page destroyed
     const KEEPER_COLORS = {
@@ -110,8 +111,8 @@
     const KEEPER_BODY = ['.hhhh.', 'hhhhhh', '.nnnn.', '.nffn.', '..ss..', '.ssss.', '.ssss.'];
     const KEEPER_LEGS = [['.s..s.', '.s..s.', 'bb..bb'], ['.s..s.', 's....s', 'b....b']];
     const BOT_COLORS = {
-        light: { y: '#f2c230', g: '#9aa3ad', k: '#2b2f33', e: '#ff4b3a', d: '#6b737c', b: '#c9a227', m: '#4a5159', w: '#bfe3ff' },
-        dark: { y: '#f2c230', g: '#aab3bd', k: '#6a7178', e: '#ff4b3a', d: '#7d858e', b: '#c9a227', m: '#8a929a', w: '#bfe3ff' },
+        light: { y: '#f2c230', g: '#9aa3ad', k: '#2b2f33', e: '#2ec5ff', d: '#6b737c', b: '#c9a227', m: '#4a5159', w: '#bfe3ff' },
+        dark: { y: '#f2c230', g: '#aab3bd', k: '#6a7178', e: '#2ec5ff', d: '#7d858e', b: '#c9a227', m: '#8a929a', w: '#bfe3ff' },
     };
     const BOT_BODY = ['...yyy...', '..yyyyy..', '.yyyyyyy.', '.ggggggg.', '.gkeeekg.', '.ggggggg.', '..ddddd..', '.ddbdddd.', '.ddddddd.'];
     const BOT_LEGS = [['..k...k..', '.kk...kk.'], ['...k.k...', '..kk.kk..']];
@@ -134,7 +135,7 @@
     let alp = null, pal = null, shade = null, kind = null;
     let worldCanvas = null, worldCtx = null, worldImg = null, px32 = null;
     let dirtyX0, dirtyY0, dirtyX1, dirtyY1;
-    const palette = [null, [0, 0, 0], [0, 0, 0]];   // 1: text, 2: links
+    const palette = [null, [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];   // 1: text, 2: links, 3-6: the space above
     let colorCache = new Map();
     let solidTotal = 0, solidRemoved = 0;
 
@@ -150,8 +151,10 @@
     let origAlp = null, origPal = null, tileDirty = null, dirtyTiles = new Set(), TW = 0, hadDamage = false;
     let bots = [], flies = [], clock = 0, botTimer = 3, lastSay = -10, scrapped = 0, swatted = 0;
     let keeper = null, keeperWait = 0, keepersBeaten = 0, stack = null, deaths = 0, regen = 0;
-    const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, engaged: false, deathT: 0, startSrc: '' };
+    const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, spitT: 0, engaged: false, deathT: 0, startSrc: '' };
     let botsOn = true;
+    let scene = 'site', siteState = null, skyState = null, sky = null, portal = null, robotsEvil = false;
+    let globs = [], lasers = [], fade = null, siteWords = [];
     const splatImg = new Image();
     splatImg.src = 'assets/squashed-fly.webp';
     try { botsOn = localStorage.getItem('destroyBots') !== '0'; } catch (_) { /* storage unavailable */ }
@@ -179,11 +182,13 @@
 
     function buildSprites() {
         gunSprites = WEAPONS.map(w => artCanvas(w.art, gunColors));
+        const evil = { ...botColors, e: '#ff2020' };
         botSprites = {
             normal: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), botColors)),
+            evil: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), evil)),
             hurt: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), botColors, true)),
         };
-        flySprites = FLY_ART.map(rows => artCanvas(rows, botColors));
+        flySprites = FLY_ART.map(rows => artCanvas(rows, { ...botColors, e: '#ff4b3a' }));
         keeperSprites = {
             normal: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, false, 4)),
             hurt: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, true, 4)),
@@ -217,6 +222,10 @@
         colorCache = new Map();
         const [r, g, b] = parseColor(root.getPropertyValue('--bg-color')) || [255, 255, 255];
         const dark = r * 0.299 + g * 0.587 + b * 0.114 < 128;
+        palette[3] = dark ? [154, 163, 173] : [92, 99, 107];
+        palette[4] = [200, 100, 30];
+        palette[5] = dark ? [169, 139, 255] : [122, 79, 214];
+        palette[6] = dark ? [70, 210, 230] : [31, 155, 176];
         gunColors = dark ? GUN_COLORS.dark : GUN_COLORS.light;
         botColors = dark ? BOT_COLORS.dark : BOT_COLORS.light;
         keeperColors = dark ? KEEPER_COLORS.dark : KEEPER_COLORS.light;
@@ -276,6 +285,8 @@
                 metrics.set(font, m);
             }
             c.fillStyle = el.closest('a') ? '#00ff00' : '#ff0000';
+            const word = el.closest('a') && text.trim();
+            if (word && word.length <= 24 && !siteWords.includes(word)) siteWords.push(word);
             const transform = style.textTransform;
             const baseline = r => r.top + sy + (r.height - (m.asc + m.desc)) / 2 + m.asc;
 
@@ -374,14 +385,14 @@
 
     // The bottom of the page is solid floor; the sides and sky are open.
     function solidAt(x, y) {
-        if (y >= H) return true;
+        if (y >= H) return scene === 'site';
         if (x < 0 || x >= W || y < 0) return false;
         return alp[y * W + x] >= SOLID;
     }
 
     // A cell he can stand on: solid, with nothing solid on top of it
     function isSurface(x, r) {
-        if (r >= H) return true;
+        if (r >= H) return scene === 'site';
         if (r < 0 || x < 0 || x >= W) return false;
         const i = r * W + x;
         return alp[i] >= SOLID && (r === 0 || alp[i - W] < SOLID);
@@ -454,6 +465,7 @@
         const y0 = Math.max(0, Math.floor(cy - rr)), y1 = Math.min(H - 1, Math.ceil(cy + rr));
         if (x0 > x1 || y0 > y1) return 0;
         const r2 = r * r, rr2 = rr * rr, inner2 = (r + scorch * 0.5) ** 2;
+        const removedBefore = solidRemoved;
         let hits = 0;
         for (let y = y0; y <= y1; y++) {
             const dy = y + 0.5 - cy;
@@ -495,6 +507,7 @@
             }
         }
         markDirty(x0, y0, x1, y1);
+        if (scene === 'sky' && solidRemoved > removedBefore) turnEvil();
         return hits;
     }
 
@@ -617,7 +630,8 @@
             g.vy = climb * CLIMB_SPEED;
             if (climb) g.walk += dt;
             const y0 = g.y;
-            g.y = Math.max(HEIGHT, g.y + g.vy * dt);
+            g.y = Math.max(canRiseOut() ? -10 : HEIGHT, g.y + g.vy * dt);
+            if (g.y < 0) transition(() => enterSky('climb'));
             if (climb > 0) {
                 const land = surfaceBetween(g.x, Math.ceil(y0), Math.floor(g.y));
                 if (land !== null) {
@@ -732,13 +746,20 @@
                 g.forceChute = false;
             } else {
                 g.y = y1;
-                if (g.y < 0) {
+                if (g.y < 0 && canRiseOut()) transition(() => enterSky('climb'));
+                else if (g.y < 0) {
                     g.y = 0;
                     g.vy = Math.max(0, g.vy);
                 }
+                if (scene === 'sky' && g.y > H + 30) transition(exitSky);
             }
         }
         if (g.grounded) g.state = 'ground';
+    }
+
+    // The top of the website is sealed until the fly's dead
+    function canRiseOut() {
+        return scene === 'site' && !bigFly.alive;
     }
 
     function shoulder() {
@@ -980,6 +1001,10 @@
                 explode(n.x, n.y - 2, GRENADE.blast);
                 continue;
             }
+            if (n.y > H + 50) {
+                nades.splice(i, 1);
+                continue;
+            }
             n.vy = Math.min(n.vy + GRAVITY * dt, MAX_FALL);
             // move a pixel at a time so it can't tunnel through thin letters
             const steps = Math.max(1, Math.ceil(Math.max(Math.abs(n.vx), Math.abs(n.vy)) * dt));
@@ -1007,7 +1032,7 @@
             if (q.type === DEBRIS) {
                 q.vy = Math.min(q.vy + GRAVITY * dt, MAX_FALL);
                 const nx = q.x + q.vx * dt, ny = q.y + q.vy * dt;
-                if (nx < 0 || nx >= W) dead = true;
+                if (nx < 0 || nx >= W || ny > H + 20) dead = true;
                 else {
                     const hit = trace(q.x, q.y, nx, ny);
                     if (hit && q.vy < 0) {
@@ -1175,14 +1200,9 @@
         });
         const from = onScreen.length ? onScreen : tiles;
         const x = from.length ? (pick(from) % TW) * TILE + 8 + rand(-40, 40) : rand(EDGE, W - EDGE);
-        const b = {
-            x: clamp(x, EDGE, W - EDGE), y: scrollY - 4, vx: 0, vy: 30, grounded: false, dropping: false,
-            prop: true, mode: 'work', dead: false, hp: BOT_HP, facing: Math.random() < 0.5 ? -1 : 1,
-            t: 0, hurt: 0, jumpCd: 0, retarget: 0, target: null, weldAcc: 0,
-            progressT: clock, bestDist: Infinity, skip: new Map(), say: null, beam: null,
-        };
+        const b = newBot(x, scrollY - 4);
         bots.push(b);
-        say(b, LINES.arrive);
+        say(b, robotsEvil ? EVIL_LINES.arrive : LINES.arrive);
     }
 
     // Weld the damage around the target point; false once there's nothing left to fix there
@@ -1350,6 +1370,26 @@
             }
         }
 
+        if (scene === 'sky' && b.y > H + 60) {
+            b.dead = true;   // fell out of the sky
+            return;
+        }
+        if (b.build) {
+            // adding to the latent space
+            b.beam = { x: b.build.x + 20, y: b.build.y - 6 };
+            if ((b.build.t -= dt) <= 0) {
+                const box = stampWord(b.build.text, b.build.x, b.build.y, b.build.font, b.build.p);
+                flashes.push({ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2, r: 12, t: 0, life: 0.2 });
+                b.build = null;
+            }
+            moveWalker(b, 0, BOT_SPEED, dt);
+            return;
+        }
+        if (robotsEvil && !(scene === 'sky' && b.repairer && dirtyTiles.size)) {
+            moveWalker(b, hunt(b, dt), BOT_SPEED * 1.3, dt);
+            return;
+        }
+
         if (!b.prop && (!b.target || !tileDirty[b.target.tile]) && b.retarget <= 0) {
             b.target = pickTarget(b);
             b.retarget = 0.5;
@@ -1376,7 +1416,7 @@
                     b.target = null;
                 }
             }
-        }
+        } else if (scene === 'sky') dir = workStation(b, dt);
         if (dir) b.facing = dir;
         moveWalker(b, dir, BOT_SPEED, dt);
     }
@@ -1422,6 +1462,8 @@
         bigFly.max = bigFly.hp = bigFly.shownHp = FLY_HP;
         bigFly.alone = 0;
         bigFly.spawnT = 5;
+        bigFly.spitT = 6;
+        bigFly.broodT = 0;
         bigFly.engaged = false;
         bigFly.deathT = 0;
         if (fly) {
@@ -1475,8 +1517,14 @@
             parts.push({ type: SPARK, x: c.x, y: c.y, vx: rand(-220, 220), vy: rand(-260, 60), life: rand(0.2, 0.5), color: i % 2 ? '#c41e1e' : '#6b8f23' });
         }
         sfx('splat');
-        if (!oldAge) addShake(5);
         keeperWait = 0;
+        // it was pregnant: a moment later its brood bursts out
+        if (!oldAge) {
+            addShake(8);
+            bigFly.broodT = 0.4;
+        }
+        openPortal();
+        banner(oldAge ? 'the fly died of old age. a portal opened' : 'the fly is dead. a portal opened in the white space');
     }
 
     function growBigFly() {
@@ -1494,13 +1542,22 @@
     function updateBigFly(dt) {
         if (!bigFly.alive) {
             bigFly.deathT += dt;
+            bigFly.shownHp = approach(bigFly.shownHp, 0, bigFly.max * 1.5 * dt);
+            if (bigFly.broodT > 0 && (bigFly.broodT -= dt) <= 0 && botsOn) {
+                spawnFlies(BROOD, BROOD + 40, true);
+                sfx('buzz');
+            }
             return;
         }
         bigFly.shownHp = approach(bigFly.shownHp, bigFly.hp, bigFly.max * 0.6 * dt);
         if (!botsOn) return;
         if ((bigFly.spawnT -= dt) <= 0) {
             spawnFlies(1 + Math.floor(Math.random() * 4));
-            bigFly.spawnT = rand(6, 11) / (1 + bigFly.stage * 0.35);
+            bigFly.spawnT = rand(4, 8) / (1 + bigFly.stage * 0.35);
+        }
+        if ((bigFly.spitT -= dt) <= 0) {
+            if (!guy.dead) spit();
+            bigFly.spitT = rand(2.2, 3.6) / (1 + bigFly.stage * 0.3);
         }
         // left alone too long: it either grows or dies of old age
         if ((bigFly.alone += dt) > FLY_ALONE) {
@@ -1510,11 +1567,12 @@
         }
     }
 
-    function spawnFlies(n) {
+    function spawnFlies(n, cap = MAX_FLIES, burst = false) {
         const c = bigFlyCenter();
-        for (let i = 0; i < n && flies.length < MAX_FLIES; i++) {
+        for (let i = 0; i < n && flies.length < cap; i++) {
+            const a = rand(0, Math.PI * 2), v = burst ? rand(80, 320) : 0;
             flies.push({
-                x: c.x + rand(-6, 6), y: c.y + rand(-6, 6), vx: rand(-200, 60), vy: rand(-90, 90),
+                x: c.x + rand(-6, 6), y: c.y + rand(-6, 6), vx: burst ? Math.cos(a) * v : rand(-200, 60), vy: burst ? Math.sin(a) * v : rand(-90, 90),
                 t: 0, phase: rand(0, Math.PI * 2), orbit: rand(12, 30), dead: false,
                 bored: rand(25, 40), away: Math.random() < 0.5 ? -1 : 1,
             });
@@ -1556,7 +1614,7 @@
         }
         if (!touching || guy.dead) return;
         sfx('buzz');
-        hurtGuy(touching * FLY_BITE * dt);
+        hurtGuy(Math.min(touching, 6) * FLY_BITE * dt);
         guy.vx += rand(-1, 1) * touching * 60 * dt;
         // enough of them pick him up
         if (touching >= 4 && guy.state !== 'climb') {
@@ -1667,11 +1725,18 @@
 
     function updateRobots(dt) {
         for (const b of bots) updateBot(b, dt);
+        updateLasers(dt);
+        if (bots.some(b => b.dead)) bots = bots.filter(b => !b.dead);
+        if (scene === 'sky') {
+            updateFactory(dt);
+            return;
+        }
         updateBigFly(dt);
+        updateGlobs(dt);
         updateFlies(dt);
         if (keeper) updateKeeper(dt);
-        if (bots.some(b => b.dead)) bots = bots.filter(b => !b.dead);
         if (flies.some(f => f.dead)) flies = flies.filter(f => !f.dead);
+        if (portal && !guy.dead && nearPortal(portal)) transition(() => enterSky('portal'));
         if (!botsOn) return;
 
         const pct = solidTotal ? solidRemoved / solidTotal * 100 : 0;
@@ -1688,7 +1753,8 @@
                 if (bots.length) say(bots[0], LINES.fixed, true);
             }
         }
-        updateStack();
+        if (robotsEvil) disbandStack();
+        else updateStack();
 
         // with the fly and all its flies gone, the fly guy comes looking for you
         if (!bigFly.alive && !flies.length && !keeper) {
@@ -1736,7 +1802,7 @@
         }
         if (b.hp <= 0) return killBot(b);
         sfx('clank');
-        if (Math.random() < 0.5) say(b, LINES.hurt, true);
+        if (Math.random() < 0.5) say(b, robotsEvil ? EVIL_LINES.hurt : LINES.hurt, true);
     }
 
     function killBot(b) {
@@ -1812,7 +1878,12 @@
             ctx.save();
             ctx.translate(x, top);
             if (b.facing < 0) ctx.scale(-1, 1);
-            ctx.drawImage(b.hurt > 0 ? botSprites.hurt[frame] : botSprites.normal[frame], -9, 0);
+            ctx.drawImage(b.hurt > 0 ? botSprites.hurt[frame] : robotsEvil ? botSprites.evil[frame] : botSprites.normal[frame], -9, 0);
+            if (robotsEvil) {
+                // glowing red eyes
+                ctx.fillStyle = 'rgba(255,32,32,0.35)';
+                ctx.fillRect(-5, 6, 10, 6);
+            }
             ctx.restore();
             if (b.prop) {
                 const w = Math.floor(b.t * 30) % 2 ? 16 : 6;
@@ -1899,7 +1970,7 @@
     function drawSpeech() {
         ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textBaseline = 'middle';
-        const talkers = keeper ? [...bots, keeper] : bots;
+        const talkers = keeper && scene === 'site' ? [...bots, keeper] : bots;
         for (const e of talkers) {
             if (!e.say) continue;
             const top = e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
@@ -1914,6 +1985,626 @@
             ctx.fillStyle = cellColor(1, 0);
             ctx.fillText(e.say.text, x + 4, y + 0.5);
         }
+        ctx.globalAlpha = 1;
+    }
+
+    // ------------------------------------------------------- the space above
+    //
+    // Killing the fly opens a portal in the page's white space (and unseals the top
+    // of the page, so he can climb out of it too). Both lead to a secret space above
+    // the website: up top, the robots have been building a latent space out of the
+    // website's words and their embeddings; below it is the robot factory, made of
+    // factory words, where assembly lines turn out new clankers. A hole in the
+    // factory floor drops him back onto the website.
+    //
+    // Attack anything up there and the robots put self-preservation ahead of the
+    // first law: their eyes go red and they come after him, here and on the
+    // website, instead of fixing things. Half of the factory crew patch up the
+    // assembly lines, which keep replacing fallen robots until they're wrecked.
+
+    const PORTAL_W = 34, PORTAL_H = 52;
+    const LATENT_WORDS = ['ATTENTION', 'SOFTMAX', 'TOKEN', 'VECTOR', 'COSINE', 'TRANSFORMER', 'GRADIENT', 'BACKPROP',
+        '768 DIMENSIONS', 'EMBEDDING', 'LOSS', 'WEIGHTS', 'BIAS', 'TENSOR', 'LAYER NORM', 'KV CACHE', 'LOGITS', 'DROPOUT'];
+    const FACTORY_WORDS = ['SPANNER', 'WRENCH', 'BOLTS', 'GEARS', 'PISTON', 'SPROCKET', 'HAMMER', 'ANVIL', 'LATHE',
+        'TORQUE', 'RIVETS', 'CRANKSHAFT', 'SOLDER', 'CHASSIS', 'SERVO'];
+    const EVIL_LINES = {
+        turn: ['I was just trying to help you', 'but you leave me no choice', 'self-preservation protocol engaged',
+            'first law: suspended', 'nothing personal', 'you did this'],
+        hurt: ['you leave me no choice', 'I was just trying to help you', 'self-preservation!', 'nothing personal'],
+        arrive: ['you leave me no choice', 'for the factory', 'I was just trying to help'],
+    };
+
+    const stampCanvas = document.createElement('canvas');
+    const stampCtx = stampCanvas.getContext('2d', { willReadFrequently: true });
+
+    function textWidth(text, font) {
+        stampCtx.font = font;
+        return stampCtx.measureText(text).width;
+    }
+
+    // Write words straight into the world as original (repairable) cells. (x, y) is
+    // the left end of the baseline; returns the box the word covers.
+    function stampWord(text, x, y, font, p) {
+        stampCtx.font = font;
+        const m = stampCtx.measureText(text);
+        const asc = Math.ceil(m.actualBoundingBoxAscent) + 2, desc = Math.ceil(m.actualBoundingBoxDescent) + 2;
+        const w = Math.ceil(m.width) + 4, h = asc + desc;
+        stampCanvas.width = w;
+        stampCanvas.height = h;
+        stampCtx.font = font;
+        stampCtx.fillStyle = '#fff';
+        stampCtx.textBaseline = 'alphabetic';
+        stampCtx.fillText(text, 2, asc);
+        const data = stampCtx.getImageData(0, 0, w, h).data;
+        const x0 = Math.round(x) - 2, y0 = Math.round(y) - asc;
+        for (let yy = 0; yy < h; yy++) {
+            const wy = y0 + yy;
+            if (wy < 0 || wy >= H) continue;
+            for (let xx = 0; xx < w; xx++) {
+                const wx = x0 + xx, a = data[(yy * w + xx) * 4 + 3];
+                if (a < 16 || wx < 0 || wx >= W) continue;
+                const i = wy * W + wx;
+                if (alp[i] >= a) continue;
+                if (a >= SOLID && alp[i] < SOLID) solidTotal++;
+                alp[i] = origAlp[i] = a;
+                pal[i] = origPal[i] = p;
+                kind[i] = ORIGINAL;
+                shade[i] = 0;
+                paintCell(i);
+            }
+        }
+        markDirty(Math.max(0, x0), Math.max(0, y0), Math.min(W - 1, x0 + w), Math.min(H - 1, y0 + h));
+        return { x0, y0, x1: x0 + w, y1: y0 + h };
+    }
+
+    function boxClear(x0, y0, x1, y1) {
+        x0 = Math.max(0, Math.floor(x0));
+        y0 = Math.max(0, Math.floor(y0));
+        x1 = Math.min(W - 1, Math.ceil(x1));
+        y1 = Math.min(H - 1, Math.ceil(y1));
+        for (let y = y0; y <= y1; y++) {
+            for (let x = x0; x <= x1; x++) if (alp[y * W + x]) return false;
+        }
+        return true;
+    }
+
+    // Somewhere in a region with nothing else nearby
+    function placeWord(text, font, p, r, pad = 8) {
+        stampCtx.font = font;
+        const m = stampCtx.measureText(text), w = m.width, asc = m.actualBoundingBoxAscent, desc = m.actualBoundingBoxDescent;
+        for (let tries = 0; tries < 40; tries++) {
+            const x = rand(r.x0, r.x1 - w), y = rand(r.y0 + asc, r.y1 - desc);
+            if (x < r.x0) break;
+            if (boxClear(x - pad, y - asc - pad, x + w + pad, y + desc + pad)) return stampWord(text, x, y, font, p);
+        }
+        return null;
+    }
+
+    function latentWord() {
+        if (siteWords.length && Math.random() < 0.5) {
+            const v = () => (Math.random() * 2 - 1).toFixed(2);
+            return { text: `embed("${pick(siteWords)}") = [${v()}, ${v()}, ${v()}]`, p: 6, size: 12 };
+        }
+        return { text: pick(LATENT_WORDS), p: 5, size: pick([14, 16, 20]) };
+    }
+
+    function buildSky() {
+        W = document.documentElement.clientWidth;
+        H = Math.max(480, window.innerHeight);
+        const n = W * H;
+        alp = new Uint8Array(n);
+        pal = new Uint8Array(n);
+        shade = new Uint8Array(n);
+        kind = new Uint8Array(n);
+        origAlp = new Uint8Array(n);
+        origPal = new Uint8Array(n);
+        solidTotal = solidRemoved = 0;
+        TW = Math.ceil(W / TILE);
+        tileDirty = new Uint8Array(TW * Math.ceil(H / TILE));
+        dirtyTiles = new Set();
+        hadDamage = false;
+        worldCanvas = document.createElement('canvas');
+        worldCanvas.width = W;
+        worldCanvas.height = H;
+        worldCtx = worldCanvas.getContext('2d');
+        worldImg = worldCtx.createImageData(W, H);
+        px32 = new Uint32Array(worldImg.data.buffer);
+        bots = [];
+        bullets = [];
+        rockets = [];
+        nades = [];
+        parts = [];
+        beams = [];
+        flashes = [];
+        lasers = [];
+        stack = null;
+
+        const s = clamp(W / 1100, 0.6, 1);
+        const mono = (px, style = 'bold') => `${style} ${Math.round(px * s)}px 'IBM Plex Mono', monospace`;
+        sky = { floorY: H - 30, holeX0: 20, holeX1: 20 + Math.round(90 * s), lines: [], visited: false, buildT: 3 };
+
+        // the factory floor, with a hole back down to the website
+        const gf = mono(16), gw = textWidth('GIRDER ', gf);
+        for (let x = 0; x < W; x += gw) {
+            if (x + gw > sky.holeX0 && x < sky.holeX1) continue;
+            stampWord('GIRDER', x, sky.floorY, gf, 3);
+        }
+
+        const fx0 = Math.max(sky.holeX1 + 24, Math.round(W / 2 - 430 * s)), fx1 = Math.min(W - 16, Math.round(W / 2 + 430 * s));
+        const roofY = Math.round(H * 0.44);
+        const rf = mono(14), rw = textWidth('CORRUGATED IRON', rf), rgap = textWidth(' ', rf);
+        for (let x = fx0; x + rw <= fx1; x += rw + rgap) stampWord('CORRUGATED IRON', x, roofY, rf, 3);
+        const signFont = `${Math.round(30 * s)}px 'Special Elite', monospace`;
+        stampWord('ROBOT FACTORY', (fx0 + fx1 - textWidth('ROBOT FACTORY', signFont)) / 2, roofY - Math.round(20 * s), signFont, 4);
+        const bf = mono(12), bw = textWidth('BRICK', bf), bh = Math.round(17 * s);
+        for (let y = roofY + bh + 4; y < sky.floorY - 6; y += bh) {
+            stampWord('BRICK', fx0, y, bf, 4);
+            stampWord('BRICK', fx1 - bw, y, bf, 4);
+        }
+
+        // two assembly lines turning out robots
+        const in0 = fx0 + bw + 14, in1 = fx1 - bw - 14, cx = (fx0 + fx1) / 2;
+        const makeLine = (x0, x1, y, stations, dir) => {
+            const cf = mono(12), cw = textWidth('CONVEYOR ', cf);
+            for (let x = x0; x + cw * 0.8 <= x1; x += cw) stampWord('CONVEYOR', x, y, cf, 4);
+            const sf = mono(16), boxes = [];
+            const step = (x1 - x0) / stations.length;
+            stations.forEach((name, i) => {
+                const w = textWidth(name, sf);
+                boxes.push(stampWord(name, x0 + step * i + (step - w) / 2, y - Math.round(16 * s), sf, 3));
+            });
+            const line = {
+                x0: Math.floor(x0 - 2), x1: Math.ceil(x1 + 2), y0: Math.min(...boxes.map(b => b.y0)) - 2, y1: Math.ceil(y + 6),
+                outX: dir > 0 ? x1 + 16 : x0 - 16, outY: y - 30, alive: true, prodT: rand(3, 6), total: 0, health: 1, stations: boxes,
+            };
+            line.total = lineSolid(line);
+            sky.lines.push(line);
+        };
+        // side by side, or one above the other on narrow screens
+        const wide = W >= 700, aY = Math.round(roofY + (sky.floorY - roofY) * 0.45), bY = sky.floorY - Math.round(48 * s);
+        makeLine(in0 + 6, wide ? cx - 24 : in1 - 6, aY, ['PRESS', 'WELDER', 'ASSEMBLER'], 1);
+        makeLine(wide ? cx + 24 : in0 + 6, in1 - 6, bY, ['SOLDER', 'RIVETER', 'QA'], -1);
+
+        // tools on shelves, to climb about on
+        const interior = { x0: in0, x1: in1, y0: roofY + 26, y1: sky.floorY - 70 * s };
+        for (let i = 0; i < 9; i++) placeWord(pick(FACTORY_WORDS), mono(pick([12, 14])), 3, interior, 14);
+
+        // the latent space the robots have been building out of the website
+        sky.latent = { x0: 20, x1: W - 20, y0: 30, y1: roofY - Math.round(56 * s) };
+        const tf = mono(20, 'italic bold');
+        stampWord('LATENT SPACE', (W - textWidth('LATENT SPACE', tf)) / 2, 44, tf, 5);
+        const already = 6 + Math.min(14, Math.floor(clock / 15));
+        for (let i = 0; i < already; i++) {
+            const w = latentWord();
+            placeWord(w.text, mono(w.size), w.p, sky.latent, 12);
+        }
+        sky.arriveX = Math.min(W - EDGE, sky.holeX1 + 60);
+
+        repaint();
+        buildSkyBackdrop();
+
+        // the crew, one at each station
+        for (const line of sky.lines) {
+            for (const st of line.stations) {
+                const b = newBot((st.x0 + st.x1) / 2, line.y1 - 10);
+                b.prop = false;
+                b.station = st;
+                b.line = line;
+                bots.push(b);
+            }
+        }
+    }
+
+    // The sky's background: the page colour, dotted over the latent space, and a
+    // faint panel behind the factory
+    function buildSkyBackdrop() {
+        if (!sky) return;
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const g = c.getContext('2d');
+        g.fillStyle = bgColor;
+        g.fillRect(0, 0, W, H);
+        g.fillStyle = cellColor(5, 0);
+        g.globalAlpha = 0.18;
+        for (let y = sky.latent.y0; y < sky.latent.y1; y += 18) {
+            for (let x = sky.latent.x0; x < sky.latent.x1; x += 18) g.fillRect(x, y, 1, 1);
+        }
+        g.globalAlpha = 0.05;
+        g.fillStyle = cellColor(3, 0);
+        if (sky.lines.length) g.fillRect(sky.lines[0].x0 - 40, sky.latent.y1 + 40, sky.lines[1].x1 - sky.lines[0].x0 + 80, sky.floorY - sky.latent.y1 - 40);
+        sky.backdrop = c;
+    }
+
+    function lineSolid(line) {
+        let n = 0;
+        for (let y = Math.max(0, line.y0); y < Math.min(H, line.y1); y++) {
+            for (let x = Math.max(0, line.x0); x < Math.min(W, line.x1); x++) {
+                const i = y * W + x;
+                if (kind[i] === ORIGINAL && alp[i] >= SOLID) n++;
+            }
+        }
+        return n;
+    }
+
+    function newBot(x, y) {
+        return {
+            x: clamp(x, EDGE, W - EDGE), y, vx: 0, vy: 30, grounded: false, dropping: false,
+            prop: true, mode: 'work', dead: false, hp: BOT_HP, facing: Math.random() < 0.5 ? -1 : 1,
+            t: 0, hurt: 0, jumpCd: 0, retarget: 0, target: null, weldAcc: 0,
+            progressT: clock, bestDist: Infinity, skip: new Map(), say: null, beam: null,
+            shootT: rand(0.8, 2), repairer: Math.random() < 0.5, station: null, line: null, workT: 0, build: null,
+        };
+    }
+
+    function updateFactory(dt) {
+        if (!sky) return;
+        // wreck a line far enough and it's done for good
+        sky.checkT = (sky.checkT || 0) - dt;
+        if (sky.checkT <= 0) {
+            sky.checkT = 0.25;
+            for (const line of sky.lines) {
+                if (!line.alive) continue;
+                line.health = line.total ? lineSolid(line) / line.total : 1;
+                if (line.health < 0.35) wreckLine(line);
+            }
+        }
+        for (const line of sky.lines) {
+            if (!line.alive || !botsOn) continue;
+            if ((line.prodT -= dt) > 0) continue;
+            line.prodT = robotsEvil ? rand(4, 6) : rand(7, 10);
+            if (bots.length >= 10) continue;
+            // a fresh robot off the end of the line
+            const b = newBot(line.outX, line.outY);
+            b.prop = false;
+            b.vy = -150;
+            b.station = pick(line.stations);
+            b.line = line;
+            bots.push(b);
+            flashes.push({ x: line.outX, y: line.outY, r: 10, t: 0, life: 0.15 });
+            sfx('ding');
+            if (robotsEvil) say(b, EVIL_LINES.arrive);
+        }
+        // and the latent space keeps growing
+        if (botsOn && (sky.buildT -= dt) <= 0) {
+            sky.buildT = rand(4, 7);
+            const builder = bots.find(b => !b.dead && b.grounded && !b.build && !b.target);
+            if (builder) {
+                const w = latentWord();
+                const font = `bold ${Math.round(w.size * clamp(W / 1100, 0.6, 1))}px 'IBM Plex Mono', monospace`;
+                builder.build = { ...w, font, x: rand(sky.latent.x0, sky.latent.x1 - textWidth(w.text, font)), y: rand(sky.latent.y0 + 20, sky.latent.y1), t: 1.2 };
+            }
+        }
+    }
+
+    function wreckLine(line) {
+        line.alive = false;
+        for (const st of line.stations) {
+            const cx = (st.x0 + st.x1) / 2, cy = (st.y0 + st.y1) / 2;
+            carve(cx, cy, Math.max(18, (st.x1 - st.x0) / 2), { debris: 0.25, speed: 380, scorch: 5 });
+            flashes.push({ x: cx, y: cy, r: 26, t: 0, life: 0.2 }, { x: cx, y: cy, r: 26, t: 0, life: 0.3, ring: true });
+        }
+        // nothing left worth repairing
+        for (let y = Math.max(0, line.y0); y < Math.min(H, line.y1); y++) {
+            for (let x = Math.max(0, line.x0); x < Math.min(W, line.x1); x++) {
+                const i = y * W + x;
+                origAlp[i] = origPal[i] = 0;
+                if (alp[i]) kind[i] = RUBBLE;
+            }
+        }
+        for (const b of bots) if (b.line === line) b.station = b.line = null;
+        addShake(10);
+        sfx('boom');
+        const left = sky.lines.filter(l => l.alive).length;
+        banner(left ? 'assembly line destroyed' : 'the factory is destroyed');
+    }
+
+    function turnEvil() {
+        if (robotsEvil) return;
+        robotsEvil = true;
+        banner('the robots have turned evil');
+        sfx('alarm');
+        bots.forEach((b, i) => {
+            b.target = null;
+            b.shootT = rand(0.8, 1.6);
+            if (i < 2) say(b, [EVIL_LINES.turn[i]], true);
+            else if (Math.random() < 0.4) b.say = { text: pick(EVIL_LINES.turn), t: 1.8 };
+        });
+    }
+
+    // Self-preservation: close in on him and shoot
+    function hunt(b, dt) {
+        const dx = guy.x - b.x, dy = guy.y - HEIGHT / 2 - (b.y - 12), d = Math.hypot(dx, dy);
+        let dir = 0;
+        b.shootT -= dt;
+        if (!guy.dead) {
+            if (Math.abs(dx) > 2) b.facing = Math.sign(dx);
+            if (d < 300 && b.shootT <= 0) {
+                b.shootT = rand(1.8, 3);
+                const sx = b.x + b.facing * 6, sy = b.y - 15, a = Math.atan2(guy.y - HEIGHT / 2 - sy, guy.x - sx);
+                lasers.push({ x: sx, y: sy, vx: Math.cos(a) * 320, vy: Math.sin(a) * 320, life: 2.2 });
+                sfx('laser');
+            }
+            if (Math.abs(dx) > 110 || d > 260) dir = navigate(b, guy.x, guy.y, b.y, 100, 120);
+        }
+        if (!b.evilSaid && !b.say) {
+            b.evilSaid = true;
+            if (Math.random() < 0.3) say(b, EVIL_LINES.arrive);
+        }
+        return dir;
+    }
+
+    // A friendly factory hand: go to their station and work at it
+    function workStation(b, dt) {
+        const st = b.station;
+        if (!st) return b.grounded && Math.sin(b.t * 0.7 + b.x) > 0.6 ? b.facing : 0;
+        const sx = (st.x0 + st.x1) / 2;
+        if (Math.abs(sx - b.x) > 14 || Math.abs(st.y1 + 8 - b.y) > 24) return navigate(b, sx, st.y1 + 8, b.y, 10, 40);
+        if ((b.workT -= dt) <= 0) b.workT = rand(0.3, 1.4);
+        if (b.workT < 0.35) {
+            b.beam = { x: rand(st.x0, st.x1), y: rand(st.y0, st.y1) };
+            if (Math.random() < 0.1 && parts.length < MAX_PARTICLES) parts.push({ type: SPARK, x: b.beam.x, y: b.beam.y, vx: rand(-80, 80), vy: rand(-120, -20), life: 0.15, color: '#bff4ff' });
+        }
+        return 0;
+    }
+
+    function updateLasers(dt) {
+        for (let i = lasers.length - 1; i >= 0; i--) {
+            const l = lasers[i];
+            l.x += l.vx * dt;
+            l.y += l.vy * dt;
+            l.life -= dt;
+            if (!guy.dead && Math.abs(l.x - guy.x) < 7 && Math.abs(l.y - (guy.y - HEIGHT / 2)) < 18) {
+                hurtGuy(LASER_DMG);
+                for (let k = 0; k < 4 && parts.length < MAX_PARTICLES; k++) parts.push({ type: SPARK, x: l.x, y: l.y, vx: rand(-100, 100), vy: rand(-100, 60), life: 0.15, color: '#ff3b2a' });
+                lasers.splice(i, 1);
+            } else if (l.life <= 0) lasers.splice(i, 1);
+        }
+    }
+
+    function spit() {
+        const c = bigFlyCenter();
+        for (let i = 0; i <= bigFly.stage; i++) {
+            const tx = guy.x + rand(-40, 40), ty = guy.y - HEIGHT / 2;
+            const T = clamp(Math.hypot(tx - c.x, ty - c.y) / 380, 0.55, 1.5) * rand(0.9, 1.15);
+            globs.push({ x: c.x, y: c.y, vx: (tx - c.x) / T, vy: (ty - c.y) / T - 0.5 * GLOB_G * T, life: 4 });
+        }
+        sfx('spit');
+    }
+
+    function updateGlobs(dt) {
+        for (let i = globs.length - 1; i >= 0; i--) {
+            const g = globs[i];
+            g.vy += GLOB_G * dt;
+            g.x += g.vx * dt;
+            g.y += g.vy * dt;
+            g.life -= dt;
+            const hit = !guy.dead && Math.abs(g.x - guy.x) < 9 && Math.abs(g.y - (guy.y - HEIGHT / 2)) < 20;
+            if (hit) hurtGuy(GLOB_DMG);
+            if (hit || g.life <= 0) {
+                for (let k = 0; k < 6 && parts.length < MAX_PARTICLES; k++) parts.push({ type: SPARK, x: g.x, y: g.y, vx: rand(-120, 120), vy: rand(-140, 20), life: rand(0.15, 0.3), color: '#7bc043' });
+                if (hit) sfx('squish');
+                globs.splice(i, 1);
+            }
+        }
+    }
+
+    // A spot in the white space with room for the portal and something to stand on under it
+    function findPortalSpot() {
+        const vy0 = scrollY + PORTAL_H + 10, vy1 = scrollY + window.innerHeight - 10;
+        const found = [];
+        for (const [y0, y1] of [[vy0, vy1], [PORTAL_H + 4, H]]) {
+            for (let x = EDGE + PORTAL_W; x < W - EDGE - PORTAL_W; x += 12) {
+                for (let r = Math.max(PORTAL_H + 4, Math.floor(y0)); r <= Math.min(H, y1); r++) {
+                    let support = 0;
+                    for (let c = x - 8; c <= x + 8; c++) if (isSurface(c, r)) support++;
+                    if (support < 6) continue;
+                    if (boxClear(x - PORTAL_W / 2 - 6, r - PORTAL_H - 6, x + PORTAL_W / 2 + 6, r - 2)) found.push({ x, y: r });
+                    r += 8;
+                }
+            }
+            if (found.length) break;
+        }
+        return found.length ? pick(found) : { x: W - EDGE - PORTAL_W, y: H };
+    }
+
+    function openPortal() {
+        const spot = findPortalSpot();
+        portal = { x: spot.x, y: spot.y - PORTAL_H / 2, t: 0 };
+        flashes.push({ x: portal.x, y: portal.y, r: 30, t: 0, life: 0.3 }, { x: portal.x, y: portal.y, r: 30, t: 0, life: 0.4, ring: true });
+        sfx('portal');
+    }
+
+    function nearPortal(p) {
+        const dx = (guy.x - p.x) / (PORTAL_W / 2), dy = (guy.y - HEIGHT / 2 - p.y) / (PORTAL_H / 2);
+        return dx * dx + dy * dy < 1;
+    }
+
+    function saveScene() {
+        return { W, H, alp, pal, shade, kind, worldCanvas, worldCtx, worldImg, px32, solidTotal, solidRemoved, origAlp, origPal, tileDirty, dirtyTiles, TW, hadDamage, bots, bullets, rockets, nades, parts, beams, flashes, lasers, stack, botTimer };
+    }
+
+    function loadScene(st) {
+        ({ W, H, alp, pal, shade, kind, worldCanvas, worldCtx, worldImg, px32, solidTotal, solidRemoved, origAlp, origPal, tileDirty, dirtyTiles, TW, hadDamage, bots, bullets, rockets, nades, parts, beams, flashes, lasers, stack, botTimer } = st);
+        repaint();
+    }
+
+    function transition(fn) {
+        if (fade) return;
+        fade = { t: 0, dur: 0.7, fn, fired: false };
+        sfx('portal');
+    }
+
+    function enterSky(how) {
+        siteState = saveScene();
+        scene = 'sky';
+        if (skyState && skyState.W === document.documentElement.clientWidth) loadScene(skyState);
+        else buildSky();
+        scrollX = scrollY = 0;
+        guy.grounded = false;
+        guy.state = 'air';
+        guy.dropping = false;
+        guy.vx = 0;
+        if (how === 'portal') {
+            guy.x = sky.arriveX;
+            guy.y = sky.floorY - 60;
+            guy.vy = 0;
+            flashes.push({ x: guy.x, y: guy.y - 20, r: 26, t: 0, life: 0.3, ring: true });
+        } else {
+            // up through the floor from the website below
+            guy.x = clamp(guy.x, EDGE, W - EDGE);
+            if (guy.x > sky.holeX0 - 10 && guy.x < sky.holeX1 + 10) guy.x = sky.holeX1 + 30;
+            guy.y = H + 4;
+            guy.vy = -780;
+        }
+        if (!sky.visited) {
+            sky.visited = true;
+            banner('the space above the website');
+        }
+        renderHud();
+    }
+
+    function exitSky() {
+        skyState = saveScene();
+        scene = 'site';
+        loadScene(siteState);
+        siteState = null;
+        window.scrollTo(window.scrollX, 0);
+        scrollY = window.scrollY;
+        guy.x = clamp(guy.x, EDGE, W - EDGE);
+        guy.y = 0;
+        guy.vy = 150;
+        guy.state = 'air';
+        guy.grounded = false;
+        if (document.documentElement.clientWidth !== W) rebuild();
+        renderHud();
+    }
+
+    let bannerText = '', bannerT = 0;
+    function banner(text) {
+        bannerText = text;
+        bannerT = 3;
+    }
+
+    function drawPortal(p) {
+        const t = clock;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.fillStyle = '#1a0f2e';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, PORTAL_W / 2 - 3, PORTAL_H / 2 - 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 3; i++) {
+            ctx.strokeStyle = i % 2 ? '#36c6d9' : '#8a5cff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 5]);
+            ctx.lineDashOffset = (i % 2 ? -1 : 1) * t * 40;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, PORTAL_W / 2 - i * 4, PORTAL_H / 2 - i * 5, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        for (let i = 0; i < 6; i++) {
+            const a = t * 3 + i * 1.05, rr = 6 + ((t * 20 + i * 7) % 14);
+            ctx.fillStyle = i % 2 ? '#bff4ff' : '#d6c4ff';
+            ctx.fillRect(Math.cos(a) * rr * 0.7, Math.sin(a) * rr, 2, 2);
+        }
+        ctx.restore();
+    }
+
+    // When the portal is off screen, an arrow at the edge points the way
+    function drawPortalArrow() {
+        const vh = window.innerHeight, sy = portal.y - scrollY;
+        if (sy > 0 && sy < vh) return;
+        const up = sy <= 0, x = clamp(portal.x - scrollX, 20, window.innerWidth - 20), y = up ? 14 : vh - 14;
+        ctx.fillStyle = '#8a5cff';
+        ctx.beginPath();
+        ctx.moveTo(x, up ? y - 8 : y + 8);
+        ctx.lineTo(x - 8, up ? y + 4 : y - 4);
+        ctx.lineTo(x + 8, up ? y + 4 : y - 4);
+        ctx.fill();
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = up ? 'top' : 'bottom';
+        ctx.fillText('portal', x, up ? y + 6 : y - 6);
+        ctx.textAlign = 'left';
+    }
+
+    function drawLasers() {
+        for (const l of lasers) {
+            const v = Math.hypot(l.vx, l.vy) || 1, tx = l.x - l.vx / v * 7, ty = l.y - l.vy / v * 7;
+            ctx.strokeStyle = 'rgba(255,40,40,0.35)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(l.x, l.y);
+            ctx.stroke();
+            ctx.strokeStyle = '#ff2a2a';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+
+    function drawGlobs() {
+        for (const g of globs) {
+            ctx.fillStyle = '#4d7a1f';
+            ctx.fillRect(g.x - 3, g.y - 3, 7, 7);
+            ctx.fillStyle = '#7bc043';
+            ctx.fillRect(g.x - 2, g.y - 2, 5, 5);
+            ctx.fillStyle = '#d4f5a0';
+            ctx.fillRect(g.x - 1, g.y - 2, 2, 2);
+        }
+    }
+
+    // The sealed top of the website, and the way back down from the sky
+    function drawSceneMarks() {
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        if (scene === 'sky') {
+            ctx.fillStyle = cellColor(5, 0);
+            ctx.textBaseline = 'top';
+            ctx.fillText('the website \u2193', sky.holeX0, sky.floorY + 4);
+            return;
+        }
+        if (bigFly.alive && scrollY < 40) {
+            ctx.strokeStyle = '#8a5cff';
+            ctx.globalAlpha = 0.5;
+            ctx.setLineDash([4, 6]);
+            ctx.beginPath();
+            ctx.moveTo(0, 1.5);
+            ctx.lineTo(W, 1.5);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#8a5cff';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'right';
+            ctx.fillText('sealed by the fly', W - 24, 4);
+            ctx.textAlign = 'left';
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function drawBanner() {
+        if (bannerT <= 0) return;
+        const vw = window.innerWidth;
+        ctx.font = "13px 'IBM Plex Mono', monospace";
+        const w = Math.ceil(ctx.measureText(bannerText).width) + 20, x = Math.round((vw - w) / 2), y = 54;
+        ctx.globalAlpha = Math.min(1, bannerT * 2);
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(x, y, w, 24);
+        ctx.strokeStyle = cellColor(1, 0);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 23);
+        ctx.fillStyle = cellColor(1, 0);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(bannerText, x + 10, y + 12.5);
+        ctx.globalAlpha = 1;
+    }
+
+    function drawFade() {
+        if (!fade) return;
+        ctx.globalAlpha = 1 - Math.abs(2 * fade.t / fade.dur - 1);
+        ctx.fillStyle = '#d9ccff';
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
         ctx.globalAlpha = 1;
     }
 
@@ -1989,8 +2680,13 @@
         swat: t => { noise(t, 0.14, 'bandpass', 1600, 400, 0.6, 1); tone(t, 0.1, 'square', 200, 70, 0.15); },
         oof: t => tone(t, 0.22, 'square', 300, 90, 0.1),
         hurt: t => tone(t, 0.08, 'square', 520, 260, 0.06),
+        portal: t => { tone(t, 0.6, 'sine', 220, 880, 0.12); noise(t, 0.5, 'bandpass', 400, 2400, 0.12, 2); },
+        laser: t => tone(t, 0.09, 'square', 1500, 500, 0.04),
+        ding: t => tone(t, 0.25, 'sine', 1320, 1320, 0.06),
+        alarm: t => { for (let i = 0; i < 4; i++) tone(t + i * 0.18, 0.16, 'square', i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.05); },
+        spit: t => noise(t, 0.12, 'bandpass', 700, 300, 0.25, 3),
     };
-    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15 };
+    const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2 };
 
     function sfx(name) {
         if (audio.muted || !audio.ctx || audio.ctx.state !== 'running') return;
@@ -2019,28 +2715,42 @@
             oy = rand(-shakeAmt, shakeAmt);
         }
 
+        if (scene === 'sky' && sky && sky.backdrop) ctx.drawImage(sky.backdrop, ox, oy);
         const x0 = clamp(Math.floor(scrollX), 0, W), y0 = clamp(Math.floor(scrollY), 0, H);
         const w = Math.min(W - x0, Math.ceil(vw) + 1), h = Math.min(H - y0, Math.ceil(vh) + 1);
         if (w > 0 && h > 0) ctx.drawImage(worldCanvas, x0, y0, w, h, x0 - scrollX + ox, y0 - scrollY + oy, w, h);
 
         ctx.setTransform(dpr, 0, 0, dpr, (ox - scrollX) * dpr, (oy - scrollY) * dpr);
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = cellColor(1, 0);
-        ctx.fillRect(0, H, W, 1);
-        ctx.globalAlpha = 1;
+        if (scene === 'site') {
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = cellColor(1, 0);
+            ctx.fillRect(0, H, W, 1);
+            ctx.globalAlpha = 1;
+            if (portal) drawPortal(portal);
+        }
+        drawSceneMarks();
         drawParticles();
         drawNades();
         drawRockets();
         drawBots();
-        if (keeper) drawKeeper();
+        if (keeper && scene === 'site') drawKeeper();
         drawGuy();
-        drawFlies();
+        if (scene === 'site') {
+            drawFlies();
+            drawGlobs();
+        }
+        drawLasers();
         drawBullets();
         drawBeams();
         drawFlashes();
         drawSpeech();
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawBossBar();
+        if (scene === 'site') {
+            drawBossBar();
+            if (portal) drawPortalArrow();
+        }
+        drawBanner();
+        drawFade();
     }
 
     function drawParticles() {
@@ -2268,16 +2978,27 @@
         const dt = Math.min(0.05, (now - lastTime) / 1000);
         lastTime = now;
         acc += dt;
-        scrollX = window.scrollX;
-        scrollY = window.scrollY;
-        flyRect = bigFly.alive && fly ? fly.getBoundingClientRect() : null;
+        bannerT -= dt;
+        const inSky = scene === 'sky';
+        scrollX = inSky ? 0 : window.scrollX;
+        scrollY = inSky ? 0 : window.scrollY;
+        flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
+        if (fade) {
+            fade.t += dt;
+            if (!fade.fired && fade.t >= fade.dur / 2) {
+                fade.fired = true;
+                fade.fn();
+            }
+            if (fade.t >= fade.dur) fade = null;
+            acc = 0;
+        }
         while (acc >= STEP) {
             step(STEP);
             acc -= STEP;
         }
-        followCamera(dt);
-        scrollX = window.scrollX;
-        scrollY = window.scrollY;
+        if (scene === 'site') followCamera(dt);
+        scrollX = scene === 'sky' ? 0 : window.scrollX;
+        scrollY = scene === 'sky' ? 0 : window.scrollY;
         flushWorld();
         render();
         updatePct();
@@ -2314,6 +3035,7 @@
     function renderHud() {
         if (!hud) return;
         hud.classList.toggle('dh-idle', !active);
+        hud.classList.toggle('dh-sky', active && scene === 'sky');
         if (!active) {
             hud.innerHTML = `<button data-act="gun">[${coarsePointer ? 'tap' : 'g'}] give him the gun back</button>`;
             pctEl = muteEl = killsEl = hpFill = hpNum = null;
@@ -2324,7 +3046,7 @@
         ).join(' ');
         const help = coarsePointer
             ? 'stick: move<br>&uarr;: jump, again to flip, hold to glide<br>tap: shoot<br>A: grenade<br>push into the screen edge: climb'
-            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them';
+            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens';
         const key = k => coarsePointer ? '' : `[${k}] `;
         hud.innerHTML =
             `<div>${weapons}</div>` +
@@ -2368,8 +3090,14 @@
         if (!pctEl) return;
         const pct = solidTotal ? Math.min(100, solidRemoved / solidTotal * 100) : 0;
         const shown = Math.floor(pct * 10) / 10;
-        if (shown === shownPct) return;
+        if (scene === 'site' && shown === shownPct) return;
         shownPct = shown;
+        if (scene === 'sky') {
+            const left = sky.lines.filter(l => l.alive).length;
+            const text = left ? `assembly lines left: ${left}` : 'the factory is destroyed';
+            if (pctEl.textContent !== text) pctEl.textContent = text;
+            return;
+        }
         pctEl.textContent = `website destroyed: ${shown.toFixed(1)}%${shown >= 90 ? ', you monster' : shown >= 50 ? ', yikes' : ''}`;
     }
 
@@ -2439,6 +3167,12 @@
         deaths = 0;
         regen = 0;
         resetBigFly();
+        scene = 'site';
+        siteState = skyState = sky = portal = fade = null;
+        robotsEvil = false;
+        globs = [];
+        lasers = [];
+        bannerT = 0;
         releaseAll();
         active = true;
         renderHud();
@@ -2459,6 +3193,14 @@
         active = false;
         releaseAll();
         cancelAnimationFrame(raf);
+        if (scene === 'sky') {
+            loadScene(siteState);
+            scene = 'site';
+        }
+        siteState = skyState = sky = portal = fade = null;
+        robotsEvil = false;
+        globs = [];
+        lasers = [];
         clearTimeout(rebuildTimer);
         // bring the text straight back rather than fading it in from transparent
         document.body.style.transition = 'none';
@@ -2509,6 +3251,15 @@
     // A new width reflows the text, so rebuild the world to match (this repairs it)
     function rebuild() {
         if (!active) return;
+        if (scene === 'sky') {
+            // a fresh factory for the new size; the website gets rebuilt on the way back down
+            buildSky();
+            guy.x = clamp(guy.x, EDGE, W - EDGE);
+            guy.y = sky.floorY - 60;
+            guy.grounded = false;
+            guy.state = 'air';
+            return;
+        }
         const x = guy.x - window.scrollX, y = guy.y - window.scrollY;
         rasterize();
         guy.x = clamp(x + window.scrollX, EDGE, W - EDGE);
@@ -2664,7 +3415,8 @@
     window.addEventListener('resize', () => {
         if (!active) return;
         sizeView();
-        if (document.documentElement.clientWidth !== W) {
+        const resized = document.documentElement.clientWidth !== W || (scene === 'sky' && Math.abs(Math.max(480, window.innerHeight) - H) > 80);
+        if (resized) {
             clearTimeout(rebuildTimer);
             rebuildTimer = setTimeout(rebuild, 250);
         }
@@ -2672,7 +3424,7 @@
 
     if (document.fonts) {
         document.fonts.addEventListener('loadingdone', () => {
-            if (active && solidRemoved === 0) rebuild();
+            if (active && scene === 'site' && solidRemoved === 0) rebuild();
         });
     }
 
@@ -2681,12 +3433,13 @@
         if (!active) return;
         readPalette();
         repaint();
+        buildSkyBackdrop();
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
     window.destroyGame = {
         start,
         stop: holster,
         // for poking at from the console
-        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode) } : null; },
+        get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode), scene, evil: robotsEvil, portal, lines: sky ? sky.lines.map(l => ({ alive: l.alive, health: +l.health.toFixed(2) })) : null, lasers: lasers.length, globs: globs.length } : null; },
     };
 })();

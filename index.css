@@ -880,6 +880,14 @@ html.destroying #pixelated-person {
     }
 }
 
+/* up in the space above, the factory floor is at the bottom, so get out of its way */
+@media (max-width: 1271px), (pointer: coarse) {
+    #destroy-hud.dh-sky {
+        top: 8px;
+        bottom: auto;
+    }
+}
+
 @media (pointer: coarse) {
     #destroy-hud {
         top: auto;
