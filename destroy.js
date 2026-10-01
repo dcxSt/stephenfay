@@ -169,6 +169,7 @@
     const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, spitT: 0, engaged: false, deathT: 0, startSrc: '' };
     let botsOn = true;
     let scene = 'site', siteState = null, skyState = null, sky = null, portal = null, robotsEvil = false;
+    let owned = new Set([0]), pickups = [];
     let globs = [], lasers = [], fade = null, siteWords = [], factoryDown = false, portalArmed = true, tauntN = 0, tauntT = 0, retortT = 0;
     const splatImg = new Image();
     splatImg.src = 'assets/squashed-fly.webp';
@@ -1108,10 +1109,103 @@
     }
 
     function selectWeapon(i) {
-        if (i === weapon || i < 0 || i >= WEAPONS.length) return;
+        if (i === weapon || i < 0 || i >= WEAPONS.length || !owned.has(i)) return;
         weapon = i;
         cooldown = Math.max(cooldown, 0.12);
         renderHud();
+    }
+
+    // ----- guns to find
+    //
+    // He starts with just the pistol. The other guns sit about the page (one per
+    // band of it, so the railgun's furthest down), and the fly guy drops more as
+    // he takes damage; walk into one to pick it up.
+
+    // A spot on the text, between rows y0 and y1, with room above it
+    function findSpot(y0, y1, bw, bh) {
+        const found = [];
+        for (let x = EDGE + 20; x < W - EDGE - 20; x += 10) {
+            for (let r = Math.max(bh + 2, Math.floor(y0)); r <= Math.min(H, Math.ceil(y1)); r++) {
+                let support = 0;
+                for (let c = x - 4; c <= x + 4; c++) if (isSurface(c, r)) support++;
+                if (support < 5) continue;
+                if (boxClear(x - bw / 2, r - bh, x + bw / 2, r - 2)) found.push({ x, y: r });
+                r += 6;
+            }
+        }
+        return found.length ? pick(found) : null;
+    }
+
+    function placeGuns() {
+        pickups = [];
+        const locked = [1, 2, 3, 4].filter(w => !owned.has(w)), top = 70, span = H - 10 - top;
+        locked.forEach((w, k) => {
+            const spot = findSpot(top + span * k / locked.length, top + span * (k + 1) / locked.length, 26, 18);
+            if (spot) pickups.push({ x: spot.x, y: spot.y, w, vx: 0, vy: 0, grounded: true, t: rand(0, 6) });
+        });
+    }
+
+    // The fly guy coughs up a gun you haven't got (or some health, once you've got them all)
+    function dropPickup(x, y) {
+        const missing = [1, 2, 3, 4].filter(w => !owned.has(w));
+        pickups.push({ x, y: y - 20, w: missing.length ? pick(missing) : 'health', vx: rand(-70, 70), vy: -260, grounded: false, t: 0 });
+        sfx('ding');
+    }
+
+    function updatePickups(dt) {
+        for (let i = pickups.length - 1; i >= 0; i--) {
+            const p = pickups[i];
+            p.t += dt;
+            // fall if there's nothing under it
+            if (p.grounded && surfaceBetween(p.x, Math.round(p.y) - 1, Math.round(p.y) + 2) === null) p.grounded = false;
+            if (!p.grounded) {
+                p.vy = Math.min(p.vy + GRAVITY * dt, MAX_FALL);
+                p.x = clamp(p.x + p.vx * dt, EDGE, W - EDGE);
+                const y1 = p.y + p.vy * dt;
+                const land = p.vy > 0 ? surfaceBetween(p.x, Math.ceil(p.y), Math.floor(y1)) : null;
+                if (land !== null) {
+                    p.y = land;
+                    p.vy = p.vx = 0;
+                    p.grounded = true;
+                } else p.y = y1;
+            }
+            if (guy.dead || Math.abs(guy.x - p.x) > 14 || Math.abs(guy.y - HEIGHT / 2 - (p.y - 8)) > 26) continue;
+            pickups.splice(i, 1);
+            if (p.w === 'health') {
+                guy.hp = Math.min(MAX_HP, guy.hp + 35);
+                banner('+35 health');
+            } else {
+                owned.add(p.w);
+                weapon = p.w;
+                cooldown = Math.max(cooldown, 0.12);
+                banner(`you found the ${WEAPONS[p.w].name}`);
+                renderHud();
+            }
+            flashes.push({ x: p.x, y: p.y - 8, r: 14, t: 0, life: 0.2, ring: true });
+            sfx('ding');
+        }
+    }
+
+    function drawPickups() {
+        for (const p of pickups) {
+            const bob = Math.sin(p.t * 3) * 2, x = Math.round(p.x), y = Math.round(p.y - 10 + bob);
+            ctx.globalAlpha = 0.25 + 0.15 * Math.sin(p.t * 5);
+            ctx.fillStyle = p.w === 'health' ? '#ff4b3a' : '#ffd24a';
+            ctx.beginPath();
+            ctx.arc(x, y, 11, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            if (p.w === 'health') {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x - 5, y - 5, 10, 10);
+                ctx.fillStyle = '#e02020';
+                ctx.fillRect(x - 1.5, y - 4, 3, 8);
+                ctx.fillRect(x - 4, y - 1.5, 8, 3);
+                continue;
+            }
+            const spr = gunSprites[p.w];
+            ctx.drawImage(spr, x - spr.width / 2, y - spr.height / 2);
+        }
     }
 
     function addShake(s) {
@@ -1749,9 +1843,12 @@
     function hurtKeeper(dmg, kx) {
         const k = keeper;
         if (!k || k.dying) return;
+        const before = k.hp / k.max;
         k.hp -= dmg;
         k.hurt = 0.1;
         k.vx += kx || 0;
+        const now = Math.max(0, k.hp) / k.max;
+        for (const mark of [2 / 3, 1 / 3, 0]) if (before > mark && now <= mark) dropPickup(k.x, k.y - 10);
         if (k.hp > 0) {
             if (Math.random() < 0.25) say(k, KEEPER_LINES.hurt, true);
             sfx('oof');
@@ -1781,6 +1878,7 @@
         if (keeper) updateKeeper(dt);
         if (flies.some(f => f.dead)) flies = flies.filter(f => !f.dead);
         // a portal works once you've stepped out of it (you come out of one inside it)
+        updatePickups(dt);
         if (portal && !nearPortal(portal)) portalArmed = true;
         else if (portal && portalArmed && !guy.dead) transition(() => enterSky('portal'));
         if (!botsOn) return;
@@ -3030,6 +3128,7 @@
             ctx.fillRect(0, H, W, 1);
             ctx.globalAlpha = 1;
             if (portal) drawPortal(portal);
+            drawPickups();
         }
         drawSceneMarks();
         if (scene === 'sky') {
@@ -3352,12 +3451,13 @@
             pctEl = muteEl = killsEl = hpFill = hpNum = null;
             return;
         }
-        const weapons = WEAPONS.map((w, i) =>
-            `<button data-act="weapon" data-w="${i}"${i === weapon ? ' class="dh-on"' : ''}>${coarsePointer ? '' : i + 1 + ' '}${w.name}</button>`
+        const weapons = WEAPONS.map((w, i) => owned.has(i)
+            ? `<button data-act="weapon" data-w="${i}"${i === weapon ? ' class="dh-on"' : ''}>${coarsePointer ? '' : i + 1 + ' '}${w.name}</button>`
+            : `<span class="dh-locked">${coarsePointer ? '' : i + 1 + ' '}?</span>`
         ).join(' ');
         const help = coarsePointer
             ? 'stick: move<br>&uarr;: jump, again to flip, hold to glide<br>tap: shoot<br>A: grenade<br>push into the screen edge: climb'
-            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers';
+            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers<br>the other guns are somewhere on the page';
         const key = k => coarsePointer ? '' : `[${k}] `;
         hud.innerHTML =
             `<div>${weapons}</div>` +
@@ -3479,6 +3579,9 @@
         regen = 0;
         resetBigFly();
         toggle = document.getElementById('theme-toggle');
+        owned = new Set([0]);
+        weapon = 0;
+        placeGuns();
         scene = 'site';
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
@@ -3575,6 +3678,7 @@
         }
         const x = guy.x - window.scrollX, y = guy.y - window.scrollY;
         rasterize();
+        placeGuns();
         guy.x = clamp(x + window.scrollX, EDGE, W - EDGE);
         guy.y = clamp(y + window.scrollY, HEIGHT, H);
         guy.grounded = false;
@@ -3612,7 +3716,10 @@
             return;
         }
         if (/^Digit[1-9]$/.test(e.code)) selectWeapon(+e.code.slice(5) - 1);
-        else if (e.code === 'KeyQ') selectWeapon((weapon + 1) % WEAPONS.length);
+        else if (e.code === 'KeyQ') {
+            const have = [...owned].sort((a, b) => a - b);
+            selectWeapon(have[(have.indexOf(weapon) + 1) % have.length]);
+        }
         else if (e.code === 'KeyG') throwGrenade();
         else if (e.code === 'KeyM') toggleMute();
         else if (e.code === 'KeyH') toggleHelp();
@@ -3754,6 +3861,7 @@
         start,
         stop: holster,
         // for poking at from the console
+        get pickups() { return pickups.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), w: p.w })); },
         get state() { return active ? { guy: { ...guy }, weapon: WEAPONS[weapon].name, W, H, solidTotal, solidRemoved, particles: parts.length, bots: bots.map(o => ({ x: o.x, y: o.y, hp: o.hp })), flies: flies.map(f => ({ x: f.x, y: f.y })), dirtyTiles: dirtyTiles.size, scrapped, swatted, deaths, fly: { alive: bigFly.alive, hp: bigFly.hp, max: bigFly.max, stage: bigFly.stage }, keeper: keeper && { x: keeper.x, y: keeper.y, hp: keeper.hp, dying: keeper.dying }, stack: stack ? stack.members.length : 0, modes: bots.map(o => o.mode), scene, evil: robotsEvil, portal, lines: sky ? sky.lines.map(l => ({ alive: l.alive, health: +l.health.toFixed(2) })) : null, lasers: lasers.length, globs: globs.length } : null; },
     };
 })();

@@ -847,6 +847,10 @@ html.destroying #pixelated-person {
     opacity: 0.6;
 }
 
+#destroy-hud .dh-locked {
+    opacity: 0.35;
+}
+
 #destroy-hud .dh-bar {
     display: inline-block;
     width: 100px;
