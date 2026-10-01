@@ -984,3 +984,69 @@ html.destroying #pixelated-person {
     height: 48px;
     font-size: 10px;
 }
+
+/* Project 2501 talking to you (destroy.js), always in the shell's dark neon */
+#destroy-dialog {
+    display: none;
+    position: fixed;
+    left: 50%;
+    bottom: 16%;
+    transform: translateX(-50%);
+    width: min(520px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 12px 14px;
+    z-index: 1002;
+    background: rgba(3, 4, 11, 0.92);
+    border: 1px solid #2de2e6;
+    box-shadow: 0 0 18px rgba(45, 226, 230, 0.35);
+    color: #d8fff8;
+    font: 13px/1.5 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#destroy-dialog.open {
+    display: block;
+}
+
+#destroy-dialog .dd-who {
+    margin-bottom: 4px;
+    color: #ff3fa4;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+#destroy-dialog .dd-text {
+    min-height: 3em;
+}
+
+#destroy-dialog .dd-answers {
+    display: none;
+    margin-top: 8px;
+}
+
+#destroy-dialog.asking .dd-answers {
+    display: block;
+}
+
+#destroy-dialog button {
+    margin-right: 8px;
+    padding: 4px 10px;
+    border: 1px solid #2de2e6;
+    background: none;
+    color: #2de2e6;
+    font: inherit;
+    cursor: pointer;
+}
+
+#destroy-dialog button:hover {
+    background: rgba(45, 226, 230, 0.15);
+}
+
+@media (pointer: coarse) {
+    #destroy-dialog {
+        bottom: 210px;
+    }
+}

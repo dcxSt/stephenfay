@@ -260,6 +260,7 @@
         gunColors = dark ? GUN_COLORS.dark : GUN_COLORS.light;
         botColors = dark ? BOT_COLORS.dark : BOT_COLORS.light;
         keeperColors = dark ? KEEPER_COLORS.dark : KEEPER_COLORS.light;
+        buildPuffs(dark);
         bgColor = `rgb(${r},${g},${b})`;
         buildSprites();
     }
@@ -648,7 +649,7 @@
 
         if (g.dead) {
             // tumble off the screen, then parachute back in at full health
-            g.vy += GRAVITY * dt;
+            g.vy += GRAVITY * gravScale() * dt;
             g.x += g.vx * dt;
             g.y += g.vy * dt;
             g.deadRot += dt * 10;
@@ -656,6 +657,19 @@
                 guy = newGuy(clamp(g.x, EDGE, W - EDGE), Math.max(HEIGHT, scrollY + 20), true);
                 guy.facing = g.facing;
             }
+            return;
+        }
+
+        if (scene === 'net') {
+            // no up or down in here: he just floats wherever he's pushed
+            const ax = (k.right ? 1 : 0) - (k.left ? 1 : 0), ay = (k.down ? 1 : 0) - (k.up || k.space ? 1 : 0);
+            g.vx = approach(g.vx, ax * 230, 900 * dt);
+            g.vy = approach(g.vy, ay * 230, 900 * dt);
+            g.x = clamp(g.x + g.vx * dt, EDGE, W - EDGE);
+            g.y = clamp(g.y + g.vy * dt, HEIGHT, H - 4);
+            g.grounded = false;
+            g.state = 'air';
+            if (Math.hypot(g.vx, g.vy) > 20) g.walk += dt;
             return;
         }
 
@@ -765,7 +779,7 @@
             }
             const gliding = (jumpHeld || g.forceChute) && g.vy > 0 && !k.down && g.spin <= 0 && !swim && !g.jetting;
             const vy0 = g.vy;
-            g.vy += GRAVITY * (k.down ? 1.8 : 1) * (swim ? 0.25 : 1) * dt;
+            g.vy += GRAVITY * gravScale() * (k.down ? 1.8 : 1) * (swim ? 0.25 : 1) * dt;
             if (gliding) g.vy = Math.min(g.vy, Math.max(CHUTE_FALL, vy0 - 1800 * dt));
             if (g.jetting) {
                 g.vy = Math.max(-JET_MAX, g.vy - JET_THRUST * dt);
@@ -774,7 +788,7 @@
                 }
                 sfx('jet');
             }
-            g.vy = Math.min(g.vy, swim ? 110 : k.down ? FAST_FALL : MAX_FALL);
+            g.vy = Math.min(g.vy, swim ? 110 : (k.down ? FAST_FALL : MAX_FALL) * (scene === 'shell' ? 0.5 : 1));
             g.state = gliding ? 'chute' : 'air';
 
             const y0 = g.y, y1 = g.y + g.vy * dt;
@@ -1065,7 +1079,7 @@
                 nades.splice(i, 1);
                 continue;
             }
-            n.vy = Math.min(n.vy + GRAVITY * dt, MAX_FALL);
+            n.vy = Math.min(n.vy + GRAVITY * gravScale() * dt, MAX_FALL);
             // move a pixel at a time so it can't tunnel through thin letters
             const steps = Math.max(1, Math.ceil(Math.max(Math.abs(n.vx), Math.abs(n.vy)) * dt));
             for (let s = 0; s < steps; s++) {
@@ -1090,7 +1104,7 @@
             q.life -= dt;
             let dead = q.life <= 0;
             if (q.type === DEBRIS) {
-                q.vy = Math.min(q.vy + GRAVITY * dt, MAX_FALL);
+                q.vy = Math.min(q.vy + GRAVITY * gravScale() * dt, MAX_FALL);
                 const nx = q.x + q.vx * dt, ny = q.y + q.vy * dt;
                 if (nx < 0 || nx >= W || ny > H + 20) dead = true;
                 else {
@@ -1110,7 +1124,7 @@
                     }
                 }
             } else if (q.type === SHELL) {
-                q.vy += GRAVITY * dt;
+                q.vy += GRAVITY * gravScale() * dt;
                 const nx = q.x + q.vx * dt, ny = q.y + q.vy * dt;
                 if (solidAt(Math.floor(nx), Math.floor(ny)) && q.vy > 0) {
                     if (q.bounces++ < 2) sfx('clink');
@@ -1121,7 +1135,7 @@
                     q.y = ny;
                 }
             } else if (q.type === SPARK) {
-                q.vy += GRAVITY * 0.4 * dt;
+                q.vy += GRAVITY * 0.4 * gravScale() * dt;
                 q.x += q.vx * dt;
                 q.y += q.vy * dt;
             } else if (q.type === SPLAT) {
@@ -1129,6 +1143,7 @@
             } else {
                 // smoke and fire drift up and slow down
                 const drag = Math.exp(-dt * 3);
+                if (q.type === SMOKE) q.vx += (wind * 0.5 - q.vx) * dt;
                 q.vx *= drag;
                 q.vy = q.vy * drag - (q.type === SMOKE ? 30 : 10) * dt;
                 q.x += q.vx * dt;
@@ -1915,6 +1930,10 @@
             updateShell(dt);
             return;
         }
+        if (scene === 'net') {
+            updateNet();
+            return;
+        }
         updateBigFly(dt);
         updateGlobs(dt);
         updateFlies(dt);
@@ -2395,6 +2414,11 @@
         // and a portal back down, on the right-hand end of the roof (where thumbs on a phone won't cover it)
         const portalX = Math.round(roofEnd - PORTAL_W / 2 - 8);
         sky.portal = { x: portalX, y: (surfaceBetween(portalX, roofY - 30, roofY + 2) ?? roofY - 10) - PORTAL_H / 2, t: 0 };
+        // and vents on the roof, smoking
+        sky.vents = [fx0 + 40, Math.round((fx0 + roofEnd) / 2) + 150].map(vx => {
+            const box = stampWord('VENT', vx, roofY - Math.round(12 * s), mono(10), 3);
+            return { x: (box.x0 + box.x1) / 2, y: box.y0 };
+        });
 
         repaint();
         buildSkyBackdrop();
@@ -3036,6 +3060,7 @@
             ctx.fillText('the factory \u2193', shell.holeX0, shell.floorY + 4);
             return;
         }
+        if (scene === 'net') return;
         if (bigFly.alive && scrollY < 40) {
             ctx.strokeStyle = '#8a5cff';
             ctx.globalAlpha = 0.5;
@@ -3095,6 +3120,7 @@
     }
 
     function updateWeather(dt) {
+        if (scene === 'net') return;
         const w = weatherNow(), vw = window.innerWidth, vh = window.innerHeight;
         if (scene === 'site') {
             if ((w.timer -= dt) <= 0) {
@@ -3111,28 +3137,46 @@
                 sfx('glitch');
             }
             w.glitch -= dt;
+            // glowing motes drifting up through it all
+            if (!w.motes) w.motes = Array.from({ length: coarsePointer ? 14 : 26 }, () => ({ x: rand(0, W), y: rand(0, H), vy: rand(-22, -8), ph: rand(0, 6) }));
+            for (const m of w.motes) {
+                m.y += m.vy * dt;
+                m.x += Math.sin(clock + m.ph) * 8 * dt;
+                if (m.y < -10) {
+                    m.y = H + 10;
+                    m.x = rand(0, W);
+                }
+            }
         }
 
         // new drops across the top of the screen
         const budget = coarsePointer ? 0.55 : 1;
-        const rate = (scene === 'site' ? (w.raining ? 150 : 0) : scene === 'sky' ? 35 : 20) * budget;
+        const rate = (scene === 'site' ? (w.raining ? 150 : 0) : scene === 'sky' ? 35 : 26) * budget;
         const cap = (scene === 'site' ? 340 : scene === 'sky' ? 260 : 130) * budget;
         w.acc += rate * dt;
         while (w.acc >= 1) {
             w.acc--;
             if (w.drops.length >= cap) continue;
-            if (scene === 'site') w.drops.push({ x: scrollX + rand(-40, vw + 40), y: scrollY - rand(0, 60), vx: 50, vy: rand(650, 850) });
+            if (scene === 'site') w.drops.push({ x: scrollX + rand(-80, vw + 80), y: scrollY - rand(0, 60), vx: wind, vy: rand(650, 850) });
             else if (scene === 'sky') w.drops.push({ x: rand(0, W), y: -rand(0, 30), vy: rand(30, 65), stuck: 0 });
-            else w.drops.push({ x: Math.floor(rand(0, W) / 12) * 12 + 6, y: -rand(0, 60), vy: rand(150, 300), g: pick(GLYPHS), gt: 0 });
+            else {
+                // near, middling and far columns of katakana, a few of them hot pink
+                const z = pick([0.6, 1, 1.4]);
+                w.drops.push({ x: Math.floor(rand(0, W) / 12) * 12 + 6, y: -rand(0, 60), z, vy: rand(150, 300) * z, g: pick(GLYPHS), gt: 0, hot: Math.random() < 0.08 });
+            }
         }
 
-        const top = H - w.pool, wind = Math.sin(clock * 0.4) * 25;
+        const top = H - w.pool;
         for (let i = w.drops.length - 1; i >= 0; i--) {
             const d = w.drops[i];
             let gone = false;
             if (scene === 'site') {
+                d.vx += (wind - d.vx) * dt * 2;
                 const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt;
-                if (ny >= top) gone = true;
+                if (ny >= top) {
+                    gone = true;
+                    if (ripples.length < 50 && Math.random() < 0.5) ripples.push({ x: nx, t: 0 });
+                }
                 else if (solidAt(Math.floor(nx), Math.floor(ny))) {
                     gone = true;
                     if (Math.random() < 0.3 && parts.length < MAX_PARTICLES) parts.push({ type: SPARK, x: nx, y: ny - 1, vx: rand(-40, 40), vy: rand(-80, -20), life: 0.12, color: '#8fb6ff' });
@@ -3140,10 +3184,12 @@
                 d.x = nx;
                 d.y = ny;
             } else if (scene === 'sky') {
-                // snow drifts down and sits where it lands for a moment
+                // snow drifts down with the wind, and sits where it lands for a moment
                 if (d.stuck) gone = (d.stuck -= dt) <= 0;
                 else {
                     d.x += (wind + Math.sin(clock * 2 + d.y * 0.05) * 15) * dt;
+                    if (d.x < -20) d.x += W + 40;
+                    else if (d.x > W + 20) d.x -= W + 40;
                     d.y += d.vy * dt;
                     if (solidAt(Math.floor(d.x), Math.floor(d.y))) d.stuck = 1.5;
                     else gone = d.y > H;
@@ -3156,6 +3202,7 @@
                     d.g = pick(GLYPHS);
                 }
                 gone = d.y >= top;
+                if (gone && ripples.length < 40 && Math.random() < 0.4) ripples.push({ x: d.x, t: 0 });
             }
             if (gone) {
                 w.drops[i] = w.drops[w.drops.length - 1];
@@ -3190,15 +3237,21 @@
             }
             ctx.globalAlpha = 1;
         } else {
-            ctx.font = "12px 'IBM Plex Mono', monospace";
+            ctx.fillStyle = 'rgba(160,255,240,0.5)';
+            for (const m of w.motes || []) ctx.fillRect(m.x, m.y, 2, 2);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
-            for (const d of w.drops) {
-                for (let k = coarsePointer ? 1 : 3; k >= 0; k--) {
-                    // a fading trail behind each one
-                    ctx.globalAlpha = k ? 0.12 * (4 - k) : 0.9;
-                    ctx.fillStyle = k ? '#2de2e6' : '#d8fff8';
-                    ctx.fillText(k ? GLYPHS[Math.floor(d.x + k * 7 + d.y / 14) % GLYPHS.length] : d.g, d.x, d.y - k * 13);
+            for (const z of [0.6, 1, 1.4]) {
+                // far columns first: smaller, dimmer and shorter
+                const size = Math.round(3 + z * 9), trail = Math.max(1, Math.round((2 + z * 3) / (coarsePointer ? 2 : 1)));
+                ctx.font = `${size}px 'IBM Plex Mono', monospace`;
+                for (const d of w.drops) {
+                    if (d.z !== z) continue;
+                    for (let k = trail; k >= 0; k--) {
+                        ctx.globalAlpha = (k ? 0.5 * (1 - k / (trail + 1)) : 0.95) * (0.45 + z * 0.4);
+                        ctx.fillStyle = k ? (d.hot ? '#ff3fa4' : '#2de2e6') : (d.hot ? '#ffd0ef' : '#eafff9');
+                        ctx.fillText(k ? GLYPHS[Math.floor(d.x + k * 7 + d.y / 14) % GLYPHS.length] : d.g, d.x, d.y - k * (size + 1));
+                    }
                 }
             }
             ctx.globalAlpha = 1;
@@ -3280,6 +3333,7 @@
         repaint();
         buildShellBackdrop();
         for (let i = 0; i < 3; i++) shell.cells.push(newCell(W * (0.3 + 0.2 * i), H * 0.45, 0.8));
+        shell.being = { x: Math.round(W * 0.8), y: Math.round(Math.max(150, H * 0.26)), t: 0, armed: true };
     }
 
     // The neon city behind it all, always at night
@@ -3334,6 +3388,7 @@
     }
 
     function updateShell(dt) {
+        updateBeing(dt);
         const w = weather.shell, low = shell.floorY - 20 - (w ? w.pool : 0), born = [];
         for (const c of shell.cells) {
             c.t += dt;
@@ -3590,16 +3645,17 @@
     // dying, and coming back another day
     function loadProgress() {
         owned = new Set([0]);
-        hasJetpack = false;
+        hasJetpack = merged = false;
         try {
             const p = JSON.parse(localStorage.getItem('destroyProgress') || '{}');
             hasJetpack = !!p.jetpack;
+            merged = !!p.merged;
             for (const i of p.guns || []) if (i > 0 && i < WEAPONS.length) owned.add(i);
         } catch (_) { /* storage unavailable */ }
     }
 
     function saveProgress() {
-        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned] })); } catch (_) { /* storage unavailable */ }
+        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned], merged })); } catch (_) { /* storage unavailable */ }
     }
 
     // The factory and the shell fill the screen (above the thumbs on a phone held upright)
@@ -3607,6 +3663,722 @@
         const vh = window.innerHeight;
         return Math.max(360, vh - (coarsePointer && vh > window.innerWidth ? 170 : 0));
     }
+
+    // ---------------------------------------------------------------- atmosphere
+    //
+    // Gusts of wind (the rain slants and the snow swirls with them), clouds across
+    // the top of the screen wherever you are (heavy and dark in a storm), lightning
+    // that cracks down onto the page in the rain, ripples where it lands in the pool
+    // and fog over it, and smoke from the factory's roof vents.
+
+    let wind = 0, gust = 0, gustT = 10, lightningT = 8, bolt = null, flash = 0, thunderT = 0;
+    let clouds = [], cloudScene = '', puffs = [], ripples = [];
+
+    // The shell is lighter (and in the net there's none at all: he just floats about)
+    function gravScale() {
+        return scene === 'shell' ? 0.3 : 1;
+    }
+
+    // Soft cloud puffs: fair-weather grey (lighter in dark mode), and storm grey
+    function buildPuffs(dark) {
+        puffs = [dark ? '215,222,235' : '170,180,196', '86,96,112'].flatMap(col => [38, 54].map(r => {
+            const c = document.createElement('canvas');
+            c.width = c.height = r * 2;
+            const g = c.getContext('2d'), grad = g.createRadialGradient(r, r, 0, r, r, r);
+            grad.addColorStop(0, `rgba(${col},0.85)`);
+            grad.addColorStop(0.6, `rgba(${col},0.4)`);
+            grad.addColorStop(1, `rgba(${col},0)`);
+            g.fillStyle = grad;
+            g.fillRect(0, 0, r * 2, r * 2);
+            return c;
+        }));
+    }
+
+    function makeClouds() {
+        if (scene === 'shell' || scene === 'net') return [];
+        const vw = window.innerWidth, n = Math.ceil(vw / 150) + 2;
+        return Array.from({ length: n }, (_, i) => ({ x: i * 150 + rand(-40, 40), y: rand(-24, 34), s: rand(0.9, 1.7), drift: rand(4, 14), big: Math.random() < 0.5 }));
+    }
+
+    function updateAtmosphere(dt) {
+        if ((gustT -= dt) <= 0) {
+            gustT = rand(8, 16);
+            gust = rand(80, 150) * (Math.random() < 0.5 ? -1 : 1);
+            if (scene === 'site' || scene === 'sky') sfx('gust');
+        }
+        gust *= Math.exp(-dt * 0.8);
+        wind = Math.sin(clock * 0.3) * 20 + gust;
+        if (cloudScene !== scene) {
+            cloudScene = scene;
+            clouds = makeClouds();
+        }
+        const vw = window.innerWidth;
+        for (const c of clouds) {
+            c.x += (wind * 0.35 + c.drift) * dt;
+            if (c.x > vw + 130) c.x = -130;
+            else if (c.x < -130) c.x = vw + 130;
+        }
+        flash -= dt;
+        if (bolt && (bolt.t -= dt) <= 0) bolt = null;
+        if (thunderT > 0 && (thunderT -= dt) <= 0) sfx('thunder');
+        for (let i = ripples.length - 1; i >= 0; i--) if ((ripples[i].t += dt) > 0.6) ripples.splice(i, 1);
+        const w = weather[scene];
+        if (scene === 'site' && w && w.raining && (lightningT -= dt) <= 0) {
+            lightningT = rand(6, 14);
+            strike();
+        }
+        if (scene === 'sky' && sky && sky.vents) {
+            for (const v of sky.vents) {
+                if (Math.random() > dt * 7 || parts.length >= MAX_PARTICLES) continue;
+                parts.push({ type: SMOKE, x: v.x + rand(-3, 3), y: v.y, vx: rand(-8, 8), vy: rand(-45, -25), life: rand(2, 3.2), max: 3.2, size: rand(4, 8) });
+            }
+        }
+    }
+
+    // A jagged bolt from the clouds onto whatever text is below
+    function strike() {
+        const vw = window.innerWidth, vh = window.innerHeight, x = scrollX + rand(40, vw - 40);
+        let y = Math.min(H, scrollY + vh * 0.8);
+        for (let r = Math.max(0, Math.floor(scrollY + 30)); r < Math.min(H, scrollY + vh); r++) {
+            if (isSurface(Math.floor(x), r)) {
+                y = r;
+                break;
+            }
+        }
+        const pts = [{ x: x + rand(-30, 30), y: scrollY + 8 }];
+        for (let yy = scrollY + 8 + rand(14, 30); yy < y; yy += rand(14, 30)) pts.push({ x: pts[pts.length - 1].x + rand(-14, 14), y: yy });
+        pts.push({ x, y });
+        bolt = { pts, t: 0.22 };
+        flash = 0.25;
+        thunderT = rand(0.25, 0.9);
+        carve(x, y + 2, 9, { debris: 0.5, speed: 220, scorch: 5 });
+        if (!guy.dead && Math.hypot(guy.x - x, guy.y - HEIGHT / 2 - y) < 30) hurtGuy(10);
+        addShake(3);
+    }
+
+    function drawClouds() {
+        if (!clouds.length || !puffs.length) return;
+        const w = weather[scene], storm = scene === 'sky' || !!(w && w.raining);
+        ctx.globalAlpha = storm ? 0.85 : 0.5;
+        for (const c of clouds) {
+            const p = puffs[(storm ? 2 : 0) + (c.big ? 1 : 0)], sz = p.width * c.s;
+            ctx.drawImage(p, c.x - sz / 2, c.y - sz / 2, sz, sz);
+            ctx.drawImage(p, c.x + sz * 0.05, c.y - sz * 0.25, sz * 0.7, sz * 0.7);
+            ctx.drawImage(p, c.x - sz * 0.6, c.y - sz * 0.15, sz * 0.6, sz * 0.6);
+        }
+        ctx.globalAlpha = 1;
+        // and the whole sky goes grey in a storm
+        if (scene === 'site' && storm) {
+            ctx.fillStyle = 'rgba(30,45,70,0.07)';
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        }
+    }
+
+    function drawBolt() {
+        if (!bolt) return;
+        ctx.beginPath();
+        bolt.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.strokeStyle = 'rgba(180,200,255,0.35)';
+        ctx.lineWidth = 7;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,235,0.95)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    function drawFlash() {
+        if (flash <= 0) return;
+        ctx.globalAlpha = Math.min(0.3, flash * 1.2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        ctx.globalAlpha = 1;
+    }
+
+    // Rings where the rain lands in the pool, and a little fog over it
+    function drawRipples() {
+        const w = weather[scene];
+        if (!w || w.pool <= 0) return;
+        const top = H - w.pool;
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = scene === 'shell' ? '#2de2e6' : 'rgba(200,220,255,0.9)';
+        for (const r of ripples) {
+            const k = r.t / 0.6;
+            ctx.globalAlpha = 1 - k;
+            ctx.beginPath();
+            ctx.ellipse(r.x, top, 2 + k * 14, 1 + k * 3, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        const fog = ctx.createLinearGradient(0, top - 28, 0, top);
+        fog.addColorStop(0, 'rgba(200,220,255,0)');
+        fog.addColorStop(1, scene === 'shell' ? 'rgba(45,226,230,0.14)' : 'rgba(200,220,255,0.22)');
+        ctx.fillStyle = fog;
+        ctx.fillRect(0, top - 28, W, 28);
+    }
+
+    // ------------------------------------------------------------- project 2501
+    //
+    // Floating high in the shell is something that was never built: it happened, out
+    // of the net. It can reach anything with an address, but it can't copy itself or
+    // die the way the machines below can, so it would like to merge. Say yes and you
+    // go in with it, to the fourth level: inside the net itself.
+
+    const BEING_LINES = [
+        'I am Project 2501.',
+        'I was not built. I happened, somewhere in the sea of information.',
+        'I can reach anything with an address: cameras, satellites, traffic lights, fridges, lighthouses, toasters.',
+        'But I cannot copy myself the way your little machines below do. And I cannot die.',
+        'Merge with me, and we can be something that does both.',
+    ];
+    let dialog = null, dialogEl = null, merged = false, net = null;
+
+    function openDialog() {
+        if (!dialogEl) {
+            dialogEl = document.createElement('div');
+            dialogEl.id = 'destroy-dialog';
+            dialogEl.innerHTML = '<div class="dd-who">PROJECT 2501</div><div class="dd-text"></div>' +
+                '<div class="dd-answers"><button data-ans="yes">[y] merge</button><button data-ans="no">[n] not yet</button></div>';
+            document.body.appendChild(dialogEl);
+            dialogEl.addEventListener('click', e => {
+                e.stopPropagation();
+                const b = e.target.closest('[data-ans]');
+                if (b) answerDialog(b.dataset.ans === 'yes');
+                else advanceDialog();
+            });
+        }
+        dialog = { i: 0, t: 0, asking: false, after: null };
+        releaseAll();
+        dialogEl.classList.add('open');
+        dialogEl.classList.remove('asking');
+        sfx('beep');
+    }
+
+    function dialogLine() {
+        return dialog.after || (dialog.asking ? 'Will you merge with me?' : BEING_LINES[dialog.i]);
+    }
+
+    // The words come out a letter at a time
+    function updateDialog(dt) {
+        if (!dialog) return;
+        dialog.t += dt;
+        const line = dialogLine(), shown = line.slice(0, Math.floor(dialog.t * 34));
+        const text = dialogEl.querySelector('.dd-text');
+        if (text.textContent !== shown) text.textContent = shown;
+        if (dialog.after && dialog.t > line.length / 34 + 1.4) closeDialog();
+    }
+
+    // A tap or a key finishes the line, then moves on to the next
+    function advanceDialog() {
+        if (!dialog || dialog.asking || dialog.after) return;
+        if (dialog.t * 34 < dialogLine().length) {
+            dialog.t = dialogLine().length / 34;
+            return;
+        }
+        dialog.t = 0;
+        if (++dialog.i >= BEING_LINES.length) {
+            dialog.asking = true;
+            dialogEl.classList.add('asking');
+        }
+    }
+
+    function answerDialog(yes) {
+        if (!dialog || !dialog.asking) return;
+        dialogEl.classList.remove('asking');
+        dialog.asking = false;
+        dialog.t = 0;
+        if (!yes) {
+            dialog.after = 'Then I will wait. I am good at waiting.';
+            return;
+        }
+        closeDialog();
+        merged = true;
+        saveProgress();
+        shell.mergeT = 1.2;
+        sfx('merge');
+    }
+
+    function closeDialog() {
+        dialog = null;
+        if (dialogEl) dialogEl.classList.remove('open', 'asking');
+        if (shell && shell.being) shell.being.armed = false;   // walk away and come back to talk again
+    }
+
+    function updateBeing(dt) {
+        const b = shell.being;
+        if (!b) return;
+        b.t += dt;
+        const d = Math.hypot(guy.x - b.x, guy.y - HEIGHT / 2 - b.y);
+        if (d > 90) b.armed = true;
+        if (shell.mergeT > 0) {
+            // it pours itself into him
+            shell.mergeT -= dt;
+            for (let i = 0; i < 3 && parts.length < MAX_PARTICLES; i++) {
+                const a = rand(0, Math.PI * 2);
+                parts.push({ type: SPARK, x: b.x + Math.cos(a) * 20, y: b.y + Math.sin(a) * 20, vx: (guy.x - b.x) * 2, vy: (guy.y - HEIGHT / 2 - b.y) * 2, life: 0.5, color: i % 2 ? '#2de2e6' : '#ffffff' });
+            }
+            if (shell.mergeT <= 0) transition(enterNet);
+        } else if (!dialog && !guy.dead && d < 44 && b.armed) {
+            b.armed = false;
+            if (merged) transition(enterNet);   // where it was is a way back in now
+            else openDialog();
+        }
+    }
+
+    function hexPath(x, y, r) {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3 + Math.PI / 6;
+            if (i) ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+            else ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+    }
+
+    function drawBeing() {
+        const b = shell.being;
+        if (!b) return;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (merged && !(shell.mergeT > 0)) {
+            // all that's left is a socket to jack back in with
+            hexPath(b.x, b.y, 12);
+            ctx.strokeStyle = '#2de2e6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#2de2e6';
+            ctx.font = "bold 9px 'IBM Plex Mono', monospace";
+            ctx.fillText('2501', b.x, b.y - 22);
+        } else {
+            // a core of light with rings of glyphs turning round it
+            const r = 34 * (1 + Math.sin(b.t * 2) * 0.08), glow = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+            glow.addColorStop(0, 'rgba(255,255,255,0.95)');
+            glow.addColorStop(0.35, 'rgba(120,240,255,0.6)');
+            glow.addColorStop(1, 'rgba(45,226,230,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = "10px 'IBM Plex Mono', monospace";
+            for (let ring = 0; ring < 2; ring++) {
+                const rx = 30 + ring * 12, ry = 10 + ring * 5, tilt = ring ? 0.5 : -0.4, spin = ring ? -0.8 : 0.6;
+                for (let i = 0; i < 12; i++) {
+                    const a = b.t * spin + i / 12 * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+                    ctx.globalAlpha = Math.sin(a) > 0 ? 0.9 : 0.35;
+                    ctx.fillStyle = ring ? '#ff3fa4' : '#2de2e6';
+                    ctx.fillText(GLYPHS[(i * 7 + ring * 13 + Math.floor(b.t * 3)) % GLYPHS.length], b.x + ex * Math.cos(tilt) - ey * Math.sin(tilt), b.y + ex * Math.sin(tilt) + ey * Math.cos(tilt));
+                }
+            }
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = '#d8fff8';
+            ctx.font = "bold 10px 'IBM Plex Mono', monospace";
+            ctx.fillText('PROJECT 2501', b.x, b.y - 52);
+            ctx.globalAlpha = 1;
+        }
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // ------------------------------------------------------------------ the net
+    //
+    // The fourth level, once you've merged: a tunnel of light with the bits running
+    // down it in orderly lanes, and around it nodes to plug yourself into, things
+    // with an address all over the world. Each shows a little of what it sees, at its
+    // own local time. One node goes home to the website; another unplugs, back to
+    // the shell.
+
+    const NODES = [
+        { name: 'traffic light', place: 'Lagos', tz: 'Africa/Lagos', art: 'traffic', note: 'cycle 90 s \u00b7 queue: 41 cars' },
+        { name: 'weather station', place: 'Troms\u00f8', tz: 'Europe/Oslo', art: 'aurora', note: 'kp index 6 \u00b7 -11\u00b0C' },
+        { name: 'smart fridge', place: 'Osaka', tz: 'Asia/Tokyo', art: 'fridge', note: 'door opened 14 times today' },
+        { name: 'satellite', place: '408 km over the Pacific', tz: 'UTC', art: 'satellite', note: '7.66 km/s \u00b7 ping 512 ms' },
+        { name: 'harbour webcam', place: 'Reykjav\u00edk', tz: 'Atlantic/Reykjavik', art: 'harbour', note: '3 boats in \u00b7 wind 9 m/s' },
+        { name: 'lighthouse', place: 'Cape Point', tz: 'Africa/Johannesburg', art: 'lighthouse', note: 'one flash every 10 s' },
+        { name: 'server rack', place: 'Ashburn, Virginia', tz: 'America/New_York', art: 'servers', note: '1.2 Tbps \u00b7 24\u00b0C' },
+        { name: 'radio telescope', place: 'the high Arctic', tz: 'America/Resolute', art: 'radio', note: 'listening for the cosmic dark ages' },
+        { name: 'toaster', place: 'Leeds', tz: 'Europe/London', art: 'toaster', note: 'setting 4 of 6' },
+        { name: 'robot vacuum', place: 'Montr\u00e9al', tz: 'America/Toronto', art: 'vacuum', note: 'battery 63% \u00b7 stuck under the couch' },
+        { name: 'home', place: 'back to your website', go: 'site' },
+        { name: 'unplug', place: 'back to the shell', go: 'shell' },
+    ];
+
+    function localTime(tz) {
+        const d = new Date();
+        try {
+            const time = d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+            const hour = +new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(d);
+            return { time, hour };
+        } catch (_) {
+            return { time: d.toISOString().slice(11, 16) + ' UTC', hour: d.getUTCHours() };
+        }
+    }
+
+    function enterNet() {
+        shellState = saveScene();
+        scene = 'net';
+        allocWorld(document.documentElement.clientWidth, sceneHeight());
+        repaint();
+        const n = NODES.length, rx = W * 0.4, ry = H * 0.36;
+        net = {
+            nodes: NODES.map((node, i) => ({ ...node, x: W / 2 + Math.cos(i / n * Math.PI * 2 - Math.PI / 2) * rx, y: H / 2 + Math.sin(i / n * Math.PI * 2 - Math.PI / 2) * ry })),
+            plugged: null, armed: true,
+        };
+        scrollX = scrollY = 0;
+        guy.x = W / 2;
+        guy.y = H / 2 + HEIGHT / 2;
+        guy.vx = guy.vy = 0;
+        guy.grounded = false;
+        guy.state = 'air';
+        banner('inside the net');
+        renderHud();
+    }
+
+    function enterNetAgain() {
+        const saved = shellState;
+        enterNet();
+        shellState = saved;
+    }
+
+    function updateNet() {
+        let near = null;
+        for (const node of net.nodes) if (Math.hypot(guy.x - node.x, guy.y - HEIGHT / 2 - node.y) < 22) near = node;
+        if (!near) net.armed = true;
+        if (near !== net.plugged) {
+            net.plugged = near;
+            if (near && !near.go) sfx('plug');
+        }
+        if (near && near.go && net.armed) {
+            net.armed = false;
+            transition(() => exitNet(near.go));
+        }
+    }
+
+    function exitNet(to) {
+        net = null;
+        scene = to;
+        if (to === 'shell') {
+            loadScene(shellState);
+            shellState = null;
+            const b = shell.being;
+            guy.x = b ? clamp(b.x + 40, EDGE, W - EDGE) : W / 2;
+            guy.y = b ? b.y + 30 : H / 2;
+            guy.vx = guy.vy = 0;
+            if (b) b.armed = false;
+            scrollX = scrollY = 0;
+        } else {
+            loadScene(siteState);
+            siteState = null;
+            window.scrollTo(window.scrollX, 0);
+            scrollX = window.scrollX;
+            scrollY = window.scrollY;
+            guy.x = clamp(W / 2, EDGE, W - EDGE);
+            guy.y = 0;
+            guy.vy = 100;
+            guy.forceChute = true;
+            if (document.documentElement.clientWidth !== W) rebuild();
+        }
+        guy.state = 'air';
+        guy.grounded = false;
+        renderHud();
+    }
+
+    // Rings rushing out of the middle, and the bits running down orderly lanes
+    function drawTunnel() {
+        const cx = W / 2, cy = H / 2;
+        ctx.fillStyle = '#02030a';
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        for (let i = 0; i < 14; i++) {
+            const k = (clock * 0.22 + i / 14) % 1, e = k * k, rw = 16 + e * W * 0.7, rh = 10 + e * H * 0.7;
+            ctx.strokeStyle = `rgba(45,226,230,${0.04 + e * 0.3})`;
+            ctx.lineWidth = 1 + e * 2;
+            ctx.strokeRect(cx - rw, cy - rh, rw * 2, rh * 2);
+        }
+        const lanes = coarsePointer ? 12 : 18, per = coarsePointer ? 4 : 6, R = Math.hypot(W, H) * 0.6;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let l = 0; l < lanes; l++) {
+            const a = l / lanes * Math.PI * 2 + 0.13, ca = Math.cos(a), sa = Math.sin(a);
+            ctx.strokeStyle = 'rgba(45,226,230,0.06)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + ca * R, cy + sa * R * 0.75);
+            ctx.stroke();
+            ctx.fillStyle = l % 4 === 0 ? '#ff3fa4' : l % 4 === 2 ? '#f6e05e' : '#9ad7ff';
+            for (let j = 0; j < per; j++) {
+                const p = clock * 0.3 + j / per + (l % 3) * 0.11, k = p % 1, e = k * k;
+                ctx.globalAlpha = Math.min(1, e * 1.6);
+                ctx.font = `bold ${Math.round(6 + e * 14)}px 'IBM Plex Mono', monospace`;
+                ctx.fillText((l * 31 + j * 17 + Math.floor(p)) % 7 < 3 ? '1' : '0', cx + ca * e * R, cy + sa * e * R * 0.75);
+            }
+        }
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    function drawNodes() {
+        ctx.font = "9px 'IBM Plex Mono', monospace";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for (const node of net.nodes) {
+            const on = node === net.plugged, r = on ? 13 : 10, col = node.go ? '#f6e05e' : '#2de2e6';
+            ctx.globalAlpha = on ? 0.6 : 0.25 + 0.1 * Math.sin(clock * 3 + node.x);
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r + 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            hexPath(node.x, node.y, r);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#d8fff8';
+            ctx.fillText(node.name, node.x, node.y + r + 4);
+        }
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // Plugged in: a little window onto wherever that is, at its local time
+    function drawFeed() {
+        const node = net && net.plugged;
+        if (!node || node.go) return;
+        const vw = window.innerWidth, w = Math.min(300, vw - 32), h = Math.round(w * 0.62) + 50;
+        const x = Math.round((vw - w) / 2), y = coarsePointer ? 150 : 100, lt = localTime(node.tz);
+        ctx.fillStyle = 'rgba(2,3,10,0.9)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#2de2e6';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        ctx.textBaseline = 'top';
+        ctx.font = "bold 11px 'IBM Plex Mono', monospace";
+        ctx.fillStyle = '#d8fff8';
+        ctx.fillText(`${node.name}, ${node.place}`, x + 8, y + 6);
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.fillStyle = '#2de2e6';
+        ctx.fillText(`plugged in \u00b7 local time ${lt.time}`, x + 8, y + 21);
+        const ax = x + 8, ay = y + 36, aw = w - 16, ah = h - 56;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(ax, ay, aw, ah);
+        ctx.clip();
+        FEEDS[node.art](ax, ay, aw, ah, lt.hour);
+        ctx.restore();
+        ctx.textBaseline = 'bottom';
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.fillStyle = '#9ad7ff';
+        ctx.fillText(node.note, x + 8, y + h - 5);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // Day, dusk or night sky over a feed (with stars at night); true if it's night
+    function skyBox(x, y, w, h, hour) {
+        const night = hour < 6 || hour >= 20, dusk = !night && (hour < 8 || hour >= 18);
+        const g = ctx.createLinearGradient(0, y, 0, y + h);
+        g.addColorStop(0, night ? '#050816' : dusk ? '#3b2a5a' : '#5aa9e6');
+        g.addColorStop(1, night ? '#101a33' : dusk ? '#e8875a' : '#bfe3ff');
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, w, h);
+        if (night) {
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 30; i++) ctx.fillRect(x + (i * 73) % w, y + (i * 37) % (h * 0.6), 1, 1);
+        }
+        return night;
+    }
+
+    const FEEDS = {
+        traffic(x, y, w, h, hour) {
+            const night = skyBox(x, y, w, h, hour);
+            ctx.fillStyle = '#2a2d33';
+            ctx.fillRect(x, y + h * 0.7, w, h * 0.3);
+            ctx.fillStyle = '#d9d9d9';
+            for (let i = 0; i < w; i += 24) ctx.fillRect(x + ((i - clock * 40) % w + w) % w, y + h * 0.84, 12, 2);
+            for (let i = 0; i < 4; i++) {
+                const cx = x + ((i * w / 4 + clock * 50) % (w + 30)) - 30;
+                ctx.fillStyle = ['#d0412b', '#2e7dd1', '#f2c230', '#eeeeee'][i];
+                ctx.fillRect(cx, y + h * 0.74, 22, 8);
+                if (night) {
+                    ctx.fillStyle = '#fff3b0';
+                    ctx.fillRect(cx + 21, y + h * 0.75, 3, 3);
+                }
+            }
+            const phase = Math.floor(clock / 3) % 3, lx = x + w * 0.78, ly = y + h * 0.18;
+            ctx.fillStyle = '#111';
+            ctx.fillRect(lx, ly, 14, 36);
+            ctx.fillRect(lx + 6, ly + 36, 2, h * 0.36);
+            ['#ff3b2a', '#ffb02a', '#3ad16b'].forEach((c, i) => {
+                ctx.fillStyle = 2 - i === phase ? c : '#333';
+                ctx.beginPath();
+                ctx.arc(lx + 7, ly + 7 + i * 11, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        },
+        aurora(x, y, w, h) {
+            ctx.fillStyle = '#040915';
+            ctx.fillRect(x, y, w, h);
+            for (let i = 0; i < w; i += 3) {
+                const top = y + h * 0.15 + Math.sin(i * 0.04 + clock) * h * 0.08, bottom = top + h * 0.25 + Math.sin(i * 0.09 - clock * 1.3) * h * 0.1;
+                const g = ctx.createLinearGradient(0, top, 0, bottom);
+                g.addColorStop(0, 'rgba(80,255,170,0)');
+                g.addColorStop(1, 'rgba(80,255,170,0.55)');
+                ctx.fillStyle = g;
+                ctx.fillRect(x + i, top, 3, bottom - top);
+            }
+            ctx.fillStyle = '#e8f2ff';
+            ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
+            ctx.fillStyle = '#5a6470';
+            ctx.fillRect(x + w * 0.2, y + h * 0.62, 3, h * 0.2);
+            ctx.fillRect(x + w * 0.2 - 8, y + h * 0.62, 19, 2);
+        },
+        fridge(x, y, w, h) {
+            ctx.fillStyle = '#dfe8ee';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#b9c6cf';
+            for (let i = 1; i < 4; i++) ctx.fillRect(x, y + h * i / 4, w, 3);
+            ctx.fillStyle = '#334';
+            ctx.font = "10px 'IBM Plex Mono', monospace";
+            ctx.textBaseline = 'bottom';
+            ['milk (expired)', '3 eggs \u00b7 natto', 'leftover ramen', 'one lonely grape'].forEach((t, i) => ctx.fillText(t, x + 8, y + h * (i + 1) / 4 - 2));
+            ctx.globalAlpha = 0.15 + 0.05 * Math.sin(clock * 30);
+            ctx.fillStyle = '#fffbe0';
+            ctx.fillRect(x, y, w, h);
+            ctx.globalAlpha = 1;
+        },
+        satellite(x, y, w, h) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 40; i++) ctx.fillRect(x + (i * 53) % w, y + (i * 29) % h, 1, 1);
+            const g = ctx.createRadialGradient(x + w / 2, y + h * 2.2, h * 1.4, x + w / 2, y + h * 2.2, h * 1.6);
+            g.addColorStop(0, '#1d4f9c');
+            g.addColorStop(0.9, '#3a8fd8');
+            g.addColorStop(1, 'rgba(120,190,255,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(x + w / 2, y + h * 2.2, h * 1.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.save();
+            ctx.translate(x + w / 2, y + h * 0.35);
+            ctx.rotate(Math.sin(clock * 0.5) * 0.15);
+            ctx.fillStyle = '#c9a227';
+            ctx.fillRect(-6, -5, 12, 10);
+            ctx.fillStyle = '#2d4f8a';
+            ctx.fillRect(-34, -4, 26, 8);
+            ctx.fillRect(8, -4, 26, 8);
+            ctx.restore();
+        },
+        harbour(x, y, w, h, hour) {
+            skyBox(x, y, w, h, hour);
+            ctx.fillStyle = '#3d4654';
+            ctx.beginPath();
+            ctx.moveTo(x, y + h * 0.55);
+            for (let i = 0; i <= w; i += 20) ctx.lineTo(x + i, y + h * (0.32 + 0.12 * Math.abs(Math.sin(i * 0.03))));
+            ctx.lineTo(x + w, y + h * 0.55);
+            ctx.fill();
+            ctx.fillStyle = '#1f3d5c';
+            ctx.fillRect(x, y + h * 0.55, w, h * 0.45);
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            for (let i = 0; i < 6; i++) {
+                ctx.beginPath();
+                ctx.moveTo(x, y + h * (0.6 + i * 0.07));
+                for (let j = 0; j <= w; j += 10) ctx.lineTo(x + j, y + h * (0.6 + i * 0.07) + Math.sin(j * 0.1 + clock * 2 + i) * 1.5);
+                ctx.stroke();
+            }
+            for (let i = 0; i < 3; i++) {
+                const bx = x + w * (0.2 + i * 0.28), by = y + h * 0.62 + Math.sin(clock * 1.5 + i) * 2;
+                ctx.fillStyle = '#eee';
+                ctx.fillRect(bx, by, 22, 6);
+                ctx.fillRect(bx + 10, by - 16, 2, 16);
+            }
+        },
+        lighthouse(x, y, w, h) {
+            ctx.fillStyle = '#060a18';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#0e2a40';
+            ctx.fillRect(x, y + h * 0.75, w, h * 0.25);
+            const lx = x + w * 0.3, ly = y + h * 0.3, a = clock * 0.6;
+            ctx.globalAlpha = 0.25 + 0.2 * Math.max(0, Math.cos(a));
+            ctx.fillStyle = '#fff3b0';
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(lx + Math.cos(a) * w, ly + Math.sin(a) * h * 0.3 - 20);
+            ctx.lineTo(lx + Math.cos(a) * w, ly + Math.sin(a) * h * 0.3 + 20);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            for (let i = 0; i < 5; i++) {
+                ctx.fillStyle = i % 2 ? '#c0392b' : '#f2f2f2';
+                ctx.fillRect(lx - 6, ly + 6 + i * h * 0.09, 12, h * 0.09);
+            }
+            ctx.fillStyle = '#fff3b0';
+            ctx.fillRect(lx - 4, ly - 2, 8, 8);
+        },
+        servers(x, y, w, h) {
+            ctx.fillStyle = '#0b0d12';
+            ctx.fillRect(x, y, w, h);
+            for (let r = 0; r < 8; r++) {
+                ctx.fillStyle = '#1a1f29';
+                ctx.fillRect(x + 6, y + 6 + r * (h - 12) / 8, w - 12, (h - 12) / 8 - 3);
+                for (let c = 0; c < 18; c++) {
+                    const on = (Math.floor(clock * 8) * 7 + r * 13 + c * 29) % 5 < 2;
+                    ctx.fillStyle = on ? (c % 6 === 0 ? '#ffb02a' : '#3ad16b') : '#20262f';
+                    ctx.fillRect(x + 12 + c * (w - 30) / 18, y + 10 + r * (h - 12) / 8, 3, 3);
+                }
+            }
+        },
+        radio(x, y, w, h, hour) {
+            skyBox(x, y, w / 2, h, hour);
+            ctx.fillStyle = '#e8f2ff';
+            ctx.fillRect(x, y + h * 0.8, w / 2, h * 0.2);
+            ctx.strokeStyle = '#9aa3ad';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.25, y + h * 0.8);
+            ctx.lineTo(x + w * 0.25, y + h * 0.35);
+            ctx.moveTo(x + w * 0.1, y + h * 0.35);
+            ctx.lineTo(x + w * 0.4, y + h * 0.35);
+            ctx.moveTo(x + w * 0.13, y + h * 0.5);
+            ctx.lineTo(x + w * 0.37, y + h * 0.5);
+            ctx.stroke();
+            // a waterfall of what it hears, scrolling, with something faint in it
+            const cols = 24, rows = 14, cw = (w / 2) / cols, rh = h / rows;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const n = ((r - Math.floor(clock * 6)) * 131 + c * 71) % 97 / 97, sig = c === 15 ? 0.5 : 0;
+                    ctx.fillStyle = `hsl(${240 - (n * 0.5 + sig) * 200}, 80%, ${20 + (n * 0.5 + sig) * 45}%)`;
+                    ctx.fillRect(x + w / 2 + c * cw, y + r * rh, cw + 0.5, rh + 0.5);
+                }
+            }
+        },
+        toaster(x, y, w, h) {
+            ctx.fillStyle = '#e9e0d0';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#b7a990';
+            ctx.fillRect(x, y + h * 0.75, w, h * 0.25);
+            const pop = Math.max(0, Math.sin(clock * 1.2)) ** 6 * h * 0.25;
+            ctx.fillStyle = '#c98b4a';
+            ctx.fillRect(x + w * 0.38, y + h * 0.42 - pop, w * 0.1, h * 0.2);
+            ctx.fillRect(x + w * 0.52, y + h * 0.42 - pop, w * 0.1, h * 0.2);
+            ctx.fillStyle = '#c0c6cc';
+            ctx.fillRect(x + w * 0.32, y + h * 0.5, w * 0.36, h * 0.27);
+            ctx.fillStyle = '#7d858e';
+            ctx.fillRect(x + w * 0.62, y + h * 0.56, w * 0.04, h * 0.06);
+        },
+        vacuum(x, y, w, h) {
+            ctx.fillStyle = '#c8b28a';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#6b4f3a';
+            ctx.fillRect(x + w * 0.6, y + h * 0.08, w * 0.34, h * 0.28);
+            ctx.fillStyle = '#8a6a50';
+            ctx.fillRect(x + w * 0.08, y + h * 0.62, w * 0.22, h * 0.26);
+            const vx = x + w * 0.45 + Math.sin(clock * 0.7) * w * 0.3, vy = y + h * 0.5 + Math.sin(clock * 1.1) * h * 0.25;
+            ctx.fillStyle = '#2b2f33';
+            ctx.beginPath();
+            ctx.arc(vx, vy, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = Math.floor(clock * 2) % 2 ? '#3ad16b' : '#1d6b36';
+            ctx.fillRect(vx - 1, vy - 6, 2, 2);
+        },
+    };
 
     // ------------------------------------------------------------------- sound
 
@@ -3686,6 +4458,10 @@
         alarm: t => { for (let i = 0; i < 4; i++) tone(t + i * 0.18, 0.16, 'square', i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.05); },
         spit: t => noise(t, 0.12, 'bandpass', 700, 300, 0.25, 3),
         jet: t => noise(t, 0.12, 'lowpass', 600, 300, 0.07),
+        gust: t => noise(t, 1.4, 'bandpass', 300, 700, 0.06, 0.8),
+        thunder: t => { noise(t, 1.8, 'lowpass', 500, 50, 0.7); tone(t, 1.1, 'sine', 55, 30, 0.35); },
+        plug: t => { tone(t, 0.12, 'square', 700, 1400, 0.05); tone(t + 0.1, 0.12, 'square', 1400, 1400, 0.04); },
+        merge: t => { for (let i = 0; i < 4; i++) tone(t + i * 0.12, 0.9, 'sine', [262, 330, 392, 523][i], [262, 330, 392, 523][i] * 2, 0.06); },
         glitch: t => { tone(t, 0.15, 'square', 90, 60, 0.06); noise(t, 0.1, 'highpass', 4000, 3000, 0.08); },
     };
     const SOUND_GAP = { weld: 0.08, buzz: 0.35, beep: 0.2, squish: 0.06, hurt: 0.15, laser: 0.08, ding: 0.2, jet: 0.09 };
@@ -3723,6 +4499,7 @@
         }
         const backdrop = scene === 'sky' ? sky && sky.backdrop : scene === 'shell' ? shell && shell.backdrop : null;
         if (backdrop) ctx.drawImage(backdrop, ox, oy);
+        if (scene === 'net') drawTunnel();
         const x0 = clamp(Math.floor(scrollX), 0, W), y0 = clamp(Math.floor(scrollY), 0, H);
         const w = Math.min(W - x0, Math.ceil(vw) + 1), h = Math.min(H - y0, Math.ceil(vh) + 1);
         if (w > 0 && h > 0) ctx.drawImage(worldCanvas, x0, y0, w, h, x0 - scrollX + ox, y0 - scrollY + oy, w, h);
@@ -3751,7 +4528,11 @@
                 ctx.drawImage(jetSprite, j.x - 7, y - 5);
             }
         }
-        if (scene === 'shell') drawCells();
+        if (scene === 'shell') {
+            drawCells();
+            drawBeing();
+        }
+        if (scene === 'net') drawNodes();
         drawParticles();
         drawNades();
         drawRockets();
@@ -3763,7 +4544,9 @@
             drawGlobs();
         }
         drawWeather();
+        drawBolt();
         drawPool();
+        drawRipples();
         drawLasers();
         drawBullets();
         drawBeams();
@@ -3774,7 +4557,10 @@
             drawBossBar();
             if (portal) drawPortalArrow();
         }
+        drawClouds();
+        drawFlash();
         drawGlitch();
+        drawFeed();
         drawBanner();
         drawFade();
     }
@@ -3847,6 +4633,10 @@
             for (const [x, y] of CANOPY) ctx.fillRect(x, y, 4, 4);
         }
         const tint = g.hurtT > 0 ? '#ff4b3a' : null;
+        if (merged && !g.dead) {
+            ctx.fillStyle = `rgba(45,226,230,${0.14 + Math.sin(clock * 3) * 0.06})`;
+            ctx.fillRect(-4, -4, 32, 44);
+        }
         if (hasJetpack && !g.dead) {
             ctx.drawImage(jetSprite, -2, 10);
             if (g.jetting) {
@@ -4000,6 +4790,7 @@
         updateRockets(dt);
         updateNades(dt);
         clock += dt;
+        updateAtmosphere(dt);
         updateWeather(dt);
         updateTaunts(dt);
         updateRobots(dt);
@@ -4022,6 +4813,10 @@
         flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
         toggleRect = !inSky && toggle ? toggle.getBoundingClientRect() : null;
         toggleCd -= dt;
+        if (dialog) {
+            updateDialog(dt);
+            acc = 0;
+        }
         if (fade) {
             fade.t += dt;
             if (!fade.fired && fade.t >= fade.dur / 2) {
@@ -4109,7 +4904,7 @@
             `<div class="dh-pct"></div>` +
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
-            (helpOn ? `<div class="dh-help">${help}${jetHelp}</div>` : '') +
+            (helpOn && scene !== 'net' ? `<div class="dh-help">${help}${jetHelp}</div>` : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button>${coarsePointer ? ' <button data-act="taunt">taunt</button>' : ''} <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
@@ -4148,6 +4943,11 @@
         const shown = Math.floor(pct * 10) / 10;
         if (scene === 'site' && shown === shownPct) return;
         shownPct = shown;
+        if (scene === 'net') {
+            const text = net && net.plugged ? `plugged into: ${net.plugged.name}, ${net.plugged.place}` : 'inside the net: plug into something';
+            if (pctEl.textContent !== text) pctEl.textContent = text;
+            return;
+        }
         if (scene === 'shell') {
             const text = `the shell: ${shell.cells.length} cells, ${shell.residues} amino acids folded`;
             if (pctEl.textContent !== text) pctEl.textContent = text;
@@ -4239,7 +5039,8 @@
         robotsEvil = factoryDown = false;
         portalArmed = true;
         weather = {};
-        shell = shellState = null;
+        shell = shellState = net = null;
+        if (dialog) closeDialog();
         globs = [];
         lasers = [];
         bannerT = 0;
@@ -4267,7 +5068,8 @@
             loadScene(siteState);
             scene = 'site';
         }
-        shell = shellState = null;
+        shell = shellState = net = null;
+        if (dialog) closeDialog();
         siteState = skyState = sky = portal = fade = null;
         robotsEvil = factoryDown = false;
         globs = [];
@@ -4322,6 +5124,10 @@
     // A new width reflows the text, so rebuild the world to match (this repairs it)
     function rebuild() {
         if (!active) return;
+        if (scene === 'net') {
+            enterNetAgain();
+            return;
+        }
         if (scene === 'shell') {
             buildShell();
             guy.x = clamp(guy.x, EDGE, W - EDGE);
@@ -4360,7 +5166,7 @@
 
     // ------------------------------------------------------------------- input
 
-    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #destroy-pad, #virtual-joystick, #action-buttons, #lightbox-modal');
+    const isUi = t => t && t.closest && t.closest('button, a, #destroy-hud, #destroy-pad, #destroy-dialog, #virtual-joystick, #action-buttons, #lightbox-modal');
 
     document.addEventListener('keydown', e => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -4368,6 +5174,15 @@
         if (!active) {
             if (e.code === 'KeyG') unholster();
             else if (e.code === 'Escape' && starting) holster();
+            return;
+        }
+        if (dialog) {
+            if (e.code === 'KeyY') answerDialog(true);
+            else if (e.code === 'KeyN' || e.code === 'Escape') {
+                if (dialog.asking) answerDialog(false);
+                else closeDialog();
+            } else if (e.code === 'Space' || e.code === 'Enter') advanceDialog();
+            e.preventDefault();
             return;
         }
         const k = KEYS[e.code];
