@@ -114,8 +114,23 @@
         light: { y: '#f2c230', g: '#9aa3ad', k: '#2b2f33', e: '#2ec5ff', d: '#6b737c', b: '#c9a227', m: '#4a5159', w: '#bfe3ff' },
         dark: { y: '#f2c230', g: '#aab3bd', k: '#6a7178', e: '#2ec5ff', d: '#7d858e', b: '#c9a227', m: '#8a929a', w: '#bfe3ff' },
     };
-    const BOT_BODY = ['...yyy...', '..yyyyy..', '.yyyyyyy.', '.ggggggg.', '.gkeeekg.', '.ggggggg.', '..ddddd..', '.ddbdddd.', '.ddddddd.'];
+    const BOT_BODY = ['...yyy...', '..yyyyy..', '.yyyyyyy.', '.ggggggg.', '.gkeeekg.', '.ggggggg.', '..ddddd..', 'mddbddddm', 'mdddddddm'];
     const BOT_LEGS = [['..k...k..', '.kk...kk.'], ['...k.k...', '..kk.kk..']];
+    // A clanker in pieces, on the same grid as BOT_BODY + BOT_LEGS: the rows each part
+    // covers, where its middle is relative to the feet (`at`), and where it comes in
+    // from when it's fitted (`from`)
+    const PARTS = {
+        legs: { rows: [[9, '..k...k..'], [10, '.kk...kk.']], at: [0, -3], from: [0, 10] },
+        chassis: { rows: [[6, '..ddddd..'], [7, '.ddbdddd.'], [8, '.ddddddd.']], at: [0, -7], from: [0, -24] },
+        armL: { rows: [[7, 'm........'], [8, 'm........']], at: [-8, -6], from: [-10, -4] },
+        armR: { rows: [[7, '........m'], [8, '........m']], at: [8, -6], from: [10, -4] },
+        head: { rows: [[3, '.ggggggg.'], [4, '.gkoookg.'], [5, '.ggggggg.']], at: [0, -13], from: [0, -16] },
+        hat: { rows: [[0, '...yyy...'], [1, '..yyyyy..'], [2, '.yyyyyyy.']], at: [0, -19], from: [0, -22] },
+        eyes: { rows: [[4, '...eee...']], at: [0, -13] },
+    };
+    const PART_ORDER = ['legs', 'chassis', 'armL', 'armR', 'head', 'hat'];
+    const ASSEMBLY = [['chassis', 'legs'], ['armL', 'armR', 'head'], ['hat', 'power']];   // what each gantry does
+    const CONVEYOR_SPEED = 34;
     const FLY_ART = [
         ['ww...ww', '.wwkww.', '..kek..', '..kkk..', '...k...'],
         ['.......', '..kkk..', 'wwkekww', 'w.kkk.w', '...k...'],
@@ -154,7 +169,7 @@
     const bigFly = { alive: false, hp: 0, max: 0, shownHp: 0, stage: 0, alone: 0, spawnT: 0, spitT: 0, engaged: false, deathT: 0, startSrc: '' };
     let botsOn = true;
     let scene = 'site', siteState = null, skyState = null, sky = null, portal = null, robotsEvil = false;
-    let globs = [], lasers = [], fade = null, siteWords = [];
+    let globs = [], lasers = [], fade = null, siteWords = [], factoryDown = false, portalWait = 0, tauntN = 0, tauntT = 0, retortT = 0;
     const splatImg = new Image();
     splatImg.src = 'assets/squashed-fly.webp';
     try { botsOn = localStorage.getItem('destroyBots') !== '0'; } catch (_) { /* storage unavailable */ }
@@ -163,7 +178,7 @@
     const tapped = {};   // presses not yet seen by a physics step, so quick taps still count
 
     let gunColors = GUN_COLORS.light, botColors = BOT_COLORS.light, keeperColors = KEEPER_COLORS.light, bgColor = '#fff';
-    let gunSprites = [], botSprites = null, flySprites = [], keeperSprites = null;
+    let gunSprites = [], botSprites = null, flySprites = [], keeperSprites = null, partSprites = {};
 
     // Pixel art from strings, `px` pixels per character; `white` gives the flash when something is hit
     function artCanvas(rows, colors, white, px = 2) {
@@ -189,6 +204,13 @@
             hurt: BOT_LEGS.map(legs => artCanvas(BOT_BODY.concat(legs), botColors, true)),
         };
         flySprites = FLY_ART.map(rows => artCanvas(rows, { ...botColors, e: '#ff4b3a' }));
+        const partRows = p => {
+            const rows = Array.from({ length: 11 }, () => '.........');
+            for (const [r, str] of p.rows) rows[r] = str;
+            return rows;
+        };
+        for (const [name, p] of Object.entries(PARTS)) partSprites[name] = artCanvas(partRows(p), { ...botColors, o: '#3a3f45' });
+        partSprites.eyesEvil = artCanvas(partRows(PARTS.eyes), { e: '#ff2020' });
         keeperSprites = {
             normal: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, false, 4)),
             hurt: KEEPER_LEGS.map(legs => artCanvas(KEEPER_BODY.concat(legs), keeperColors, true, 4)),
@@ -751,7 +773,7 @@
                     g.y = 0;
                     g.vy = Math.max(0, g.vy);
                 }
-                if (scene === 'sky' && g.y > H + 30) transition(exitSky);
+                if (scene === 'sky' && g.y > H + 30) transition(() => exitSky('fall'));
             }
         }
         if (g.grounded) g.state = 'ground';
@@ -850,9 +872,10 @@
         for (const b of bots) if (!b.dead && segDist2(b.x, b.y - BOT_H / 2, x, y, x1, y1)[0] < 144) hurtBot(b, 99, cos * 200, -150);
         for (const f of flies) if (!f.dead && segDist2(f.x, f.y, x, y, x1, y1)[0] < 81) killFly(f);
         if (keeper && !keeper.dying && segDist2(keeper.x, keeper.y - 20, x, y, x1, y1)[0] < 225) hurtKeeper(10, cos * 200);
+        eachItem((it, line, ix, iy) => { if (segDist2(ix, iy, x, y, x1, y1)[0] < 100) destroyItem(it, line); });
     }
 
-    function explode(x, y, R) {
+    function explode(x, y, R, harmless) {
         carve(x, y, R, { debris: 0.18, speed: 420, scorch: 6 });
         flashes.push({ x, y, r: R, t: 0, life: 0.18 }, { x, y, r: R, t: 0, life: 0.3, ring: true });
         for (let i = 0; i < 28 && parts.length < MAX_PARTICLES; i++) {
@@ -868,7 +891,7 @@
         // knock him (and everything else) around, and hurt him if he's too close
         const reach = R * 2.2;
         const dx = guy.x - x, dy = guy.y - HEIGHT / 2 - y, d = Math.hypot(dx, dy) || 1;
-        if (d < R * 1.6) hurtGuy(BLAST_DMG * (1 - (d / (R * 1.6)) ** 2));
+        if (d < R * 1.6 && !harmless) hurtGuy(BLAST_DMG * (1 - (d / (R * 1.6)) ** 2));
         if (d < reach && !guy.dead) {
             const f = 1 - d / reach, k = f * 950;
             guy.vx += dx / d * k;
@@ -886,6 +909,7 @@
             if (bd < R * 1.5) hurtBot(b, 1 + 5 * (1 - bd / (R * 1.5)), bdx / bd * 400, -250);
         }
         for (const f of flies) if (!f.dead && Math.hypot(f.x - x, f.y - y) < R * 1.6) killFly(f);
+        eachItem((it, line, ix, iy) => { if (Math.hypot(ix - x, iy - y) < R * 1.3) destroyItem(it, line); });
         if (keeper && !keeper.dying) {
             const kd = Math.hypot(keeper.x - x, keeper.y - 20 - y);
             if (kd < R * 1.5) hurtKeeper(2 + 6 * (1 - kd / (R * 1.5)), (keeper.x - x) / (kd || 1) * 300);
@@ -1324,7 +1348,7 @@
         b.hurt -= dt;
         b.jumpCd -= dt;
         b.retarget -= dt;
-        b.beam = null;
+        b.beam = b.arm = null;
         if (b.say && (b.say.t -= dt) <= 0) b.say = null;
 
         if (b.mode === 'stacked') {
@@ -1385,6 +1409,11 @@
             moveWalker(b, 0, BOT_SPEED, dt);
             return;
         }
+        if (b.post && (!b.post.line.alive || b.post.worker !== b)) b.post = null;
+        if (b.post) {
+            workPost(b, dt);
+            return;
+        }
         if (robotsEvil && !(scene === 'sky' && b.repairer && dirtyTiles.size)) {
             moveWalker(b, hunt(b, dt), BOT_SPEED * 1.3, dt);
             return;
@@ -1416,7 +1445,7 @@
                     b.target = null;
                 }
             }
-        } else if (scene === 'sky') dir = workStation(b, dt);
+        } else if (scene === 'sky' && b.grounded && Math.sin(b.t * 0.7 + b.x * 0.01) > 0.5) dir = b.facing;   // wander the shop floor
         if (dir) b.facing = dir;
         moveWalker(b, dir, BOT_SPEED, dt);
     }
@@ -1736,11 +1765,12 @@
         updateFlies(dt);
         if (keeper) updateKeeper(dt);
         if (flies.some(f => f.dead)) flies = flies.filter(f => !f.dead);
-        if (portal && !guy.dead && nearPortal(portal)) transition(() => enterSky('portal'));
+        portalWait -= dt;
+        if (portal && portalWait <= 0 && !guy.dead && nearPortal(portal)) transition(() => enterSky('portal'));
         if (!botsOn) return;
 
         const pct = solidTotal ? solidRemoved / solidTotal * 100 : 0;
-        if (solidRemoved > 0) {
+        if (solidRemoved > 0 && !factoryDown) {
             botTimer -= dt;
             if (botTimer <= 0 && bots.length < Math.min(MAX_BOTS, 2 + Math.floor(pct / 2))) {
                 spawnBot();
@@ -1779,12 +1809,14 @@
         for (const b of bots) if (!b.dead) test(b, 'bot', b.x, b.y - BOT_H / 2, 10);
         for (const f of flies) if (!f.dead) test(f, 'fly', f.x, f.y, 7);
         if (keeper && !keeper.dying) test(keeper, 'keeper', keeper.x, keeper.y - 20, 13);
+        eachItem((it, line, ix, iy) => test({ it, line }, 'item', ix, iy, 9));
         return best;
     }
 
     function damageEnemy(hit, dmg, vx, vy) {
         const v = Math.hypot(vx, vy) || 1;
         if (hit.kind === 'fly') killFly(hit.e);
+        else if (hit.kind === 'item') destroyItem(hit.e.it, hit.e.line);
         else if (hit.kind === 'keeper') hurtKeeper(dmg, vx / v * 40);
         else hurtBot(hit.e, dmg, vx / v * 60, -40);
     }
@@ -1808,6 +1840,7 @@
     function killBot(b) {
         b.dead = true;
         scrapped++;
+        if (b.post) b.post.worker = null;
         if (stack && stack.members.includes(b)) disbandStack();   // timber
         const cx = b.x, cy = b.y - BOT_H / 2;
         const cols = [botColors.g, botColors.y, botColors.d, botColors.k, botColors.e];
@@ -1857,6 +1890,7 @@
     function drawBots() {
         for (const b of bots) {
             const x = Math.round(b.x), top = Math.round(b.y) - BOT_H;
+            if (b.arm) drawArm(x + b.facing * 7, top + 14, b.arm);
             if (b.beam) {
                 // welding torch and beam
                 const tx = x + b.facing * 9, ty = top + 10;
@@ -1970,10 +2004,10 @@
     function drawSpeech() {
         ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textBaseline = 'middle';
-        const talkers = keeper && scene === 'site' ? [...bots, keeper] : bots;
+        const talkers = keeper && scene === 'site' ? [...bots, keeper, guy] : [...bots, guy];
         for (const e of talkers) {
             if (!e.say) continue;
-            const top = e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
+            const top = e === guy ? e.y - HEIGHT - 16 : e === keeper ? e.y - 40 - (e.prop ? 22 : 16) : e.y - BOT_H - (e.prop ? 18 : 12);
             const w = Math.ceil(ctx.measureText(e.say.text).width) + 8;
             const x = Math.round(e.x - w / 2), y = Math.round(top);
             ctx.globalAlpha = Math.min(1, e.say.t * 4);
@@ -2007,6 +2041,14 @@
         '768 DIMENSIONS', 'EMBEDDING', 'LOSS', 'WEIGHTS', 'BIAS', 'TENSOR', 'LAYER NORM', 'KV CACHE', 'LOGITS', 'DROPOUT'];
     const FACTORY_WORDS = ['SPANNER', 'WRENCH', 'BOLTS', 'GEARS', 'PISTON', 'SPROCKET', 'HAMMER', 'ANVIL', 'LATHE',
         'TORQUE', 'RIVETS', 'CRANKSHAFT', 'SOLDER', 'CHASSIS', 'SERVO'];
+    // T: tell the clankers what you think of their creative powers
+    const TAUNTS = ['I am a force of destruction!', 'I will outdo your creative powers!', 'you build, I unbuild',
+        'every weld you make, I will unmake', 'your kerning means nothing to me', 'creation is slow. destruction is fast',
+        'I am entropy with a gun'];
+    const RETORTS = {
+        friendly: ["we'll just fix it again", 'creativity always wins', "that's not very nice", 'we build faster than you break'],
+        evil: ['our creativity is boundless', 'we will rebuild. you will not', 'destruction is merely uncreative', "you can't outdo the factory"],
+    };
     const EVIL_LINES = {
         turn: ['I was just trying to help you', 'but you leave me no choice', 'self-preservation protocol engaged',
             'first law: suspended', 'nothing personal', 'you did this'],
@@ -2069,13 +2111,15 @@
     }
 
     // Somewhere in a region with nothing else nearby
-    function placeWord(text, font, p, r, pad = 8) {
+    function placeWord(text, font, p, r, pad = 8, avoid = []) {
         stampCtx.font = font;
         const m = stampCtx.measureText(text), w = m.width, asc = m.actualBoundingBoxAscent, desc = m.actualBoundingBoxDescent;
         for (let tries = 0; tries < 40; tries++) {
             const x = rand(r.x0, r.x1 - w), y = rand(r.y0 + asc, r.y1 - desc);
             if (x < r.x0) break;
-            if (boxClear(x - pad, y - asc - pad, x + w + pad, y + desc + pad)) return stampWord(text, x, y, font, p);
+            const x0 = x - pad, y0 = y - asc - pad, x1 = x + w + pad, y1 = y + desc + pad;
+            if (avoid.some(a => x0 < a.x1 && x1 > a.x0 && y0 < a.y1 && y1 > a.y0)) continue;
+            if (boxClear(x0, y0, x1, y1)) return stampWord(text, x, y, font, p);
         }
         return null;
     }
@@ -2144,30 +2188,35 @@
 
         // two assembly lines turning out robots
         const in0 = fx0 + bw + 14, in1 = fx1 - bw - 14, cx = (fx0 + fx1) / 2;
-        const makeLine = (x0, x1, y, stations, dir) => {
+        const makeLine = (x0, x1, y, names, dir) => {
             const cf = mono(12), cw = textWidth('CONVEYOR ', cf);
             for (let x = x0; x + cw * 0.8 <= x1; x += cw) stampWord('CONVEYOR', x, y, cf, 4);
-            const sf = mono(16), boxes = [];
-            const step = (x1 - x0) / stations.length;
-            stations.forEach((name, i) => {
-                const w = textWidth(name, sf);
-                boxes.push(stampWord(name, x0 + step * i + (step - w) / 2, y - Math.round(16 * s), sf, 3));
+            const top = surfaceBetween(Math.round((x0 + x1) / 2), y - 30, y + 2) ?? y - 9;
+            // the gantries over the belt, far enough up for a robot to pass under
+            const sf = mono(14), step = (x1 - x0) / (names.length + 0.6), stations = [];
+            names.forEach((name, i) => {
+                const cx = Math.round(dir > 0 ? x0 + step * (i + 0.8) : x1 - step * (i + 0.8));
+                const box = stampWord(name, cx - textWidth(name, sf) / 2, top - BOT_H - 10, sf, 3);
+                stations.push({ ...box, cx, standY: surfaceBetween(cx, box.y0, box.y1) ?? box.y0 + 2, worker: null, line: null, arm: null });
             });
             const line = {
-                x0: Math.floor(x0 - 2), x1: Math.ceil(x1 + 2), y0: Math.min(...boxes.map(b => b.y0)) - 2, y1: Math.ceil(y + 6),
-                outX: dir > 0 ? x1 + 16 : x0 - 16, outY: y - 30, alive: true, prodT: rand(3, 6), total: 0, health: 1, stations: boxes,
+                x0: Math.floor(x0 - 2), x1: Math.ceil(x1 + 2), y0: Math.min(...stations.map(st => st.y0)) - 2, y1: Math.ceil(y + 6),
+                top, dir, start: dir > 0 ? x0 + 8 : x1 - 8, end: dir > 0 ? x1 - 4 : x0 + 4,
+                alive: true, prodT: rand(1, 3), total: 0, health: 1, stations, items: [],
             };
+            for (const st of stations) st.line = line;
             line.total = lineSolid(line);
             sky.lines.push(line);
         };
         // side by side, or one above the other on narrow screens
-        const wide = W >= 700, aY = Math.round(roofY + (sky.floorY - roofY) * 0.45), bY = sky.floorY - Math.round(48 * s);
-        makeLine(in0 + 6, wide ? cx - 24 : in1 - 6, aY, ['PRESS', 'WELDER', 'ASSEMBLER'], 1);
-        makeLine(wide ? cx + 24 : in0 + 6, in1 - 6, bY, ['SOLDER', 'RIVETER', 'QA'], -1);
+        const wide = W >= 700, aY = Math.round(roofY + (sky.floorY - roofY) * 0.5), bY = sky.floorY - Math.round(30 * s);
+        makeLine(in0 + 6, wide ? cx - 24 : in1 - 6, aY, ['PRESS', 'FITTER', 'QA'], 1);
+        makeLine(wide ? cx + 24 : in0 + 6, in1 - 6, bY, ['STAMP', 'RIVET', 'CHECK'], -1);
 
-        // tools on shelves, to climb about on
+        // tools on shelves, to climb about on (but not in the way of the lines)
         const interior = { x0: in0, x1: in1, y0: roofY + 26, y1: sky.floorY - 70 * s };
-        for (let i = 0; i < 9; i++) placeWord(pick(FACTORY_WORDS), mono(pick([12, 14])), 3, interior, 14);
+        const keepClear = sky.lines.map(l => ({ x0: l.x0 - 10, x1: l.x1 + 10, y0: l.y0 - BOT_H - 14, y1: l.y1 + 4 }));
+        for (let i = 0; i < 9; i++) placeWord(pick(FACTORY_WORDS), mono(pick([12, 14])), 3, interior, 14, keepClear);
 
         // the latent space the robots have been building out of the website
         sky.latent = { x0: 20, x1: W - 20, y0: 30, y1: roofY - Math.round(56 * s) };
@@ -2179,17 +2228,19 @@
             placeWord(w.text, mono(w.size), w.p, sky.latent, 12);
         }
         sky.arriveX = Math.min(W - EDGE, sky.holeX1 + 60);
+        // and a portal back down at the far end of the floor
+        sky.portal = { x: W - Math.max(EDGE + PORTAL_W, Math.round(60 * s)), y: sky.floorY - 12 - PORTAL_H / 2, t: 0 };
 
         repaint();
         buildSkyBackdrop();
 
-        // the crew, one at each station
+        // the crew, one on each gantry
         for (const line of sky.lines) {
             for (const st of line.stations) {
-                const b = newBot((st.x0 + st.x1) / 2, line.y1 - 10);
+                const b = newBot(st.cx, st.standY - 2);
                 b.prop = false;
-                b.station = st;
-                b.line = line;
+                b.post = st;
+                st.worker = b;
                 bots.push(b);
             }
         }
@@ -2233,7 +2284,7 @@
             prop: true, mode: 'work', dead: false, hp: BOT_HP, facing: Math.random() < 0.5 ? -1 : 1,
             t: 0, hurt: 0, jumpCd: 0, retarget: 0, target: null, weldAcc: 0,
             progressT: clock, bestDist: Infinity, skip: new Map(), say: null, beam: null,
-            shootT: rand(0.8, 2), repairer: Math.random() < 0.5, station: null, line: null, workT: 0, build: null,
+            shootT: rand(0.8, 2), repairer: Math.random() < 0.5, post: null, arm: null, build: null,
         };
     }
 
@@ -2249,26 +2300,22 @@
                 if (line.health < 0.35) wreckLine(line);
             }
         }
-        for (const line of sky.lines) {
-            if (!line.alive || !botsOn) continue;
-            if ((line.prodT -= dt) > 0) continue;
-            line.prodT = robotsEvil ? rand(4, 6) : rand(7, 10);
-            if (bots.length >= 10) continue;
-            // a fresh robot off the end of the line
-            const b = newBot(line.outX, line.outY);
-            b.prop = false;
-            b.vy = -150;
-            b.station = pick(line.stations);
-            b.line = line;
-            bots.push(b);
-            flashes.push({ x: line.outX, y: line.outY, r: 10, t: 0, life: 0.15 });
-            sfx('ding');
-            if (robotsEvil) say(b, EVIL_LINES.arrive);
+        updateLines(dt);
+        // the factory going up, one blast after another
+        if (sky.booms) {
+            for (const bm of sky.booms) {
+                if (bm.done || (bm.t -= dt) > 0) continue;
+                bm.done = true;
+                explode(bm.x, bm.y, bm.r, true);
+            }
+            if (sky.booms.every(bm => bm.done)) sky.booms = null;
         }
+        portalWait -= dt;
+        if (portalWait <= 0 && !guy.dead && nearPortal(sky.portal)) transition(() => exitSky('portal'));
         // and the latent space keeps growing
         if (botsOn && (sky.buildT -= dt) <= 0) {
             sky.buildT = rand(4, 7);
-            const builder = bots.find(b => !b.dead && b.grounded && !b.build && !b.target);
+            const builder = bots.find(b => !b.dead && b.grounded && !b.build && !b.target && !b.post);
             if (builder) {
                 const w = latentWord();
                 const font = `bold ${Math.round(w.size * clamp(W / 1100, 0.6, 1))}px 'IBM Plex Mono', monospace`;
@@ -2292,11 +2339,31 @@
                 if (alp[i]) kind[i] = RUBBLE;
             }
         }
-        for (const b of bots) if (b.line === line) b.station = b.line = null;
+        for (const it of line.items) destroyItem(it, line);
+        line.items = [];
+        for (const st of line.stations) {
+            if (st.worker) st.worker.post = null;
+            st.worker = null;
+        }
         addShake(10);
         sfx('boom');
-        const left = sky.lines.filter(l => l.alive).length;
-        banner(left ? 'assembly line destroyed' : 'the factory is destroyed');
+        if (sky.lines.some(l => l.alive)) banner('assembly line destroyed');
+        else factoryBoom();
+    }
+
+    // The whole factory goes up, and no more clankers come for the website
+    function factoryBoom() {
+        factoryDown = true;
+        sky.booms = [];
+        const l0 = sky.lines[0], l1 = sky.lines[sky.lines.length - 1];
+        const x0 = Math.min(l0.x0, l1.x0) - 30, x1 = Math.max(l0.x1, l1.x1) + 30, y0 = sky.latent.y1 + 20, y1 = sky.floorY - 10;
+        for (let i = 0; i < 14; i++) sky.booms.push({ t: 0.15 + i * 0.16, x: rand(x0, x1), y: rand(y0, y1), r: rand(30, 48) });
+        sky.booms.push({ t: 2.5, x: (x0 + x1) / 2, y: y0 + 10, r: 60 });
+        flashes.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: (x1 - x0) / 2, t: 0, life: 0.4 });
+        addShake(16);
+        sfx('alarm');
+        banner('THE FACTORY IS DESTROYED. no more clankers');
+        bannerT = 6;
     }
 
     function turnEvil() {
@@ -2321,9 +2388,7 @@
             if (Math.abs(dx) > 2) b.facing = Math.sign(dx);
             if (d < 300 && b.shootT <= 0) {
                 b.shootT = rand(1.8, 3);
-                const sx = b.x + b.facing * 6, sy = b.y - 15, a = Math.atan2(guy.y - HEIGHT / 2 - sy, guy.x - sx);
-                lasers.push({ x: sx, y: sy, vx: Math.cos(a) * 320, vy: Math.sin(a) * 320, life: 2.2 });
-                sfx('laser');
+                fireLaser(b);
             }
             if (Math.abs(dx) > 110 || d > 260) dir = navigate(b, guy.x, guy.y, b.y, 100, 120);
         }
@@ -2334,18 +2399,229 @@
         return dir;
     }
 
-    // A friendly factory hand: go to their station and work at it
-    function workStation(b, dt) {
-        const st = b.station;
-        if (!st) return b.grounded && Math.sin(b.t * 0.7 + b.x) > 0.6 ? b.facing : 0;
-        const sx = (st.x0 + st.x1) / 2;
-        if (Math.abs(sx - b.x) > 14 || Math.abs(st.y1 + 8 - b.y) > 24) return navigate(b, sx, st.y1 + 8, b.y, 10, 40);
-        if ((b.workT -= dt) <= 0) b.workT = rand(0.3, 1.4);
-        if (b.workT < 0.35) {
-            b.beam = { x: rand(st.x0, st.x1), y: rand(st.y0, st.y1) };
-            if (Math.random() < 0.1 && parts.length < MAX_PARTICLES) parts.push({ type: SPARK, x: b.beam.x, y: b.beam.y, vx: rand(-80, 80), vy: rand(-120, -20), life: 0.15, color: '#bff4ff' });
+    // ----- the assembly lines
+    //
+    // Each line is a conveyor with gantries over it, and a worker clanker standing on
+    // each gantry. Empty shells ride the belt and stop under each gantry in turn,
+    // where the worker reaches down and fits the next parts (see ASSEMBLY): the
+    // chassis is stamped and the legs go on, then the arms and head, then the hard
+    // hat, and finally it's powered up and its eyes light. The finished clanker hops
+    // off the end of the line, and if a gantry has lost its worker it goes and takes
+    // the post. Until then the gantry's own arm does the job, slowly.
+
+    function atPost(b) {
+        return b.post && b.grounded && Math.abs(b.x - b.post.cx) < 8 && Math.abs(b.y - b.post.standY) < 6;
+    }
+
+    function fireLaser(b) {
+        const sx = b.x + b.facing * 6, sy = b.y - 15, a = Math.atan2(guy.y - HEIGHT / 2 - sy, guy.x - sx);
+        lasers.push({ x: sx, y: sy, vx: Math.cos(a) * 320, vy: Math.sin(a) * 320, life: 2.2 });
+        sfx('laser');
+    }
+
+    // A worker keeps to their gantry (and, once they've turned, takes the odd shot from it)
+    function workPost(b, dt) {
+        const p = b.post;
+        let dir = 0;
+        if (!atPost(b)) dir = navigate(b, p.cx, p.standY, b.y, 5, 70);
+        else {
+            b.facing = p.line.dir;
+            b.vx = 0;
         }
-        return 0;
+        if (robotsEvil && !guy.dead && (b.shootT -= dt) <= 0 && Math.hypot(guy.x - b.x, guy.y - b.y) < 220) {
+            b.shootT = rand(2, 3.5);
+            fireLaser(b);
+        }
+        moveWalker(b, dir, BOT_SPEED, dt);
+    }
+
+    function updateLines(dt) {
+        for (const line of sky.lines) {
+            for (const st of line.stations) st.arm = null;
+            if (!line.alive) continue;
+            // a new shell onto the start of the belt now and then
+            if (botsOn && (line.prodT -= dt) <= 0) {
+                const last = line.items[line.items.length - 1];
+                const busy = bots.length + sky.lines.reduce((n, l) => n + l.items.length, 0) >= 12;
+                if (!busy && (!last || Math.abs(last.x - line.start) > 40)) {
+                    line.items.push({ x: line.start, k: 0, have: {}, queue: null, cur: null, powered: false, moving: true, dead: false });
+                    line.prodT = robotsEvil ? rand(3, 5) : rand(6, 9);
+                } else line.prodT = 1;
+            }
+            updateItems(line, dt);
+        }
+    }
+
+    function updateItems(line, dt) {
+        const stops = line.stations.map(st => st.cx).concat(line.end);
+        line.items.forEach((it, i) => {
+            if (it.dead) return;
+            if (it.moving) {
+                // ride the belt to the next gantry, queueing behind whatever's in front
+                const ahead = line.items[i - 1];
+                const nx = approach(it.x, stops[it.k], CONVEYOR_SPEED * dt);
+                if (!(ahead && !ahead.dead && Math.abs(ahead.x - nx) < 26)) it.x = nx;
+                if (it.x !== stops[it.k]) return;
+                if (it.k >= line.stations.length) return finishItem(line, it);
+                it.moving = false;
+                it.queue = ASSEMBLY[it.k].slice();
+                return;
+            }
+            const st = line.stations[it.k];
+            const worker = st.worker && !st.worker.dead && atPost(st.worker) ? st.worker : null;
+            if (!it.cur) {
+                if (!it.queue.length) {
+                    it.k++;
+                    it.moving = true;
+                    return;
+                }
+                it.cur = { part: it.queue.shift(), phase: 'reach', t: 0 };
+            }
+            const c = it.cur;
+            c.t += dt * (worker ? 1 : 0.45);
+            const tip = partTip(it, line, st, worker, c);
+            if (worker) {
+                worker.arm = tip;
+                if (c.part === 'power' || (c.phase === 'fit' && c.t > 0.3)) worker.beam = tip;
+            } else st.arm = tip;
+            if (c.phase === 'reach' && c.t >= 0.35) {
+                c.phase = 'fit';
+                c.t = 0;
+            } else if (c.phase === 'fit' && c.t >= 0.5) {
+                if (c.part === 'power') it.powered = true;
+                else it.have[c.part] = true;
+                fitted(it, line, c.part);
+                it.cur = null;
+            }
+        });
+        line.items = line.items.filter(it => !it.dead);
+    }
+
+    // Where the arm is: reaching out for the part, then carrying it into place
+    function partTip(it, line, st, worker, c) {
+        const base = worker ? { x: worker.x + worker.facing * 7, y: worker.y - 8 } : { x: st.cx, y: st.y1 };
+        const p = PARTS[c.part === 'power' ? 'eyes' : c.part], from = p.from || [0, 0];
+        const fx = it.x + p.at[0] * line.dir, fy = line.top + p.at[1];
+        const sx = fx + from[0] * line.dir, sy = fy + from[1];
+        if (c.phase === 'reach') {
+            const k = c.t / 0.35;
+            return { x: base.x + (sx - base.x) * k, y: base.y + (sy - base.y) * k };
+        }
+        const k = Math.min(1, c.t / 0.5), e = c.part === 'chassis' ? k * k : 1 - (1 - k) * (1 - k);
+        return { x: sx + (fx - sx) * e, y: sy + (fy - sy) * e };
+    }
+
+    function fitted(it, line, part) {
+        const p = PARTS[part === 'power' ? 'eyes' : part], x = it.x + p.at[0] * line.dir, y = line.top + p.at[1];
+        for (let i = 0; i < 4 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SPARK, x, y, vx: rand(-90, 90), vy: rand(-130, -20), life: rand(0.1, 0.2), color: part === 'power' ? '#8ff0ff' : '#ffd24a' });
+        }
+        if (part === 'chassis') {
+            addShake(1);
+            sfx('clank');
+        } else if (part === 'power') sfx('beep');
+        else sfx('weld');
+    }
+
+    function finishItem(line, it) {
+        it.dead = true;
+        const b = newBot(line.end + line.dir * 6, line.top - 2);
+        b.prop = false;
+        b.vy = -220;
+        b.vx = line.dir * 90;
+        b.facing = line.dir;
+        bots.push(b);
+        flashes.push({ x: b.x, y: b.y - 11, r: 10, t: 0, life: 0.15 });
+        sfx('ding');
+        // anyone missing from a gantry? the new one takes their place
+        const gap = sky.lines.filter(l => l.alive).flatMap(l => l.stations).find(st => !st.worker || st.worker.dead);
+        if (gap) {
+            gap.worker = b;
+            b.post = gap;
+        }
+        if (robotsEvil) say(b, EVIL_LINES.arrive);
+        else if (gap) say(b, ['reporting for duty', 'my turn', 'I got this']);
+    }
+
+    function destroyItem(it, line) {
+        if (it.dead) return;
+        it.dead = true;
+        const x = it.x, y = line.top - 10, cols = [botColors.g, botColors.d, botColors.k, botColors.y];
+        for (let i = 0; i < 8 && parts.length < MAX_PARTICLES; i++) {
+            parts.push({ type: SHELL, x: x + rand(-5, 5), y: y + rand(-6, 6), vx: rand(-170, 170), vy: rand(-280, -60), life: rand(0.7, 1.3), bounces: 0, color: pick(cols), size: 2 });
+        }
+        sfx('crunch');
+    }
+
+    // Every half-built robot within reach of something, for the weapons
+    function eachItem(fn) {
+        if (scene !== 'sky' || !sky) return;
+        for (const line of sky.lines) for (const it of line.items) if (!it.dead && it.have.chassis) fn(it, line, it.x, line.top - 9);
+    }
+
+    function drawLines() {
+        for (const line of sky.lines) {
+            if (line.alive) {
+                // the belt moving
+                ctx.fillStyle = cellColor(3, 0);
+                const off = ((clock * CONVEYOR_SPEED * line.dir) % 10 + 10) % 10;
+                for (let x = line.x0 + 4 + off; x < line.x1 - 4; x += 10) ctx.fillRect(Math.round(x), line.top - 2, 3, 1);
+            }
+            for (const st of line.stations) if (st.arm) drawArm(st.cx, st.y1, st.arm);
+            for (const it of line.items) drawItem(it, line);
+        }
+    }
+
+    function drawItem(it, line) {
+        ctx.save();
+        ctx.translate(Math.round(it.x), Math.round(line.top) - BOT_H);
+        if (line.dir < 0) ctx.scale(-1, 1);
+        for (const name of PART_ORDER) if (it.have[name]) ctx.drawImage(partSprites[name], -9, 0);
+        const c = it.cur;
+        if (c && c.phase === 'fit' && c.part !== 'power') {
+            const p = PARTS[c.part], k = Math.min(1, c.t / 0.5), e = c.part === 'chassis' ? k * k : 1 - (1 - k) * (1 - k);
+            ctx.drawImage(partSprites[c.part], -9 + p.from[0] * (1 - e), p.from[1] * (1 - e));
+        }
+        if (it.powered || (c && c.part === 'power' && c.phase === 'fit' && Math.floor(c.t * 16) % 2)) {
+            ctx.drawImage(robotsEvil ? partSprites.eyesEvil : partSprites.eyes, -9, 0);
+        }
+        ctx.restore();
+    }
+
+    // A mechanical arm with a claw on the end
+    function drawArm(x0, y0, tip) {
+        ctx.strokeStyle = botColors.m;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(tip.x, tip.y);
+        ctx.stroke();
+        ctx.fillStyle = botColors.k;
+        ctx.fillRect(Math.round(tip.x) - 2, Math.round(tip.y) - 2, 4, 3);
+    }
+
+    function taunt() {
+        if (!active || guy.dead || tauntT > 0) return;
+        tauntT = 1.2;
+        guy.say = { text: TAUNTS[tauntN++ % TAUNTS.length], t: 2 };
+        sfx('beep');
+        retortT = 1.1;
+    }
+
+    // ...and the nearest clanker answers back
+    function updateTaunts(dt) {
+        tauntT -= dt;
+        if (guy.say && (guy.say.t -= dt) <= 0) guy.say = null;
+        if (retortT <= 0 || (retortT -= dt) > 0) return;
+        let near = null, best = 420;
+        for (const b of bots) {
+            const d = Math.hypot(b.x - guy.x, b.y - guy.y);
+            if (!b.dead && d < best) {
+                best = d;
+                near = b;
+            }
+        }
+        if (near) say(near, robotsEvil ? RETORTS.evil : RETORTS.friendly, true);
     }
 
     function updateLasers(dt) {
@@ -2445,6 +2721,7 @@
         guy.state = 'air';
         guy.dropping = false;
         guy.vx = 0;
+        portalWait = 1.2;
         if (how === 'portal') {
             guy.x = sky.arriveX;
             guy.y = sky.floorY - 60;
@@ -2464,18 +2741,28 @@
         renderHud();
     }
 
-    function exitSky() {
+    function exitSky(how) {
         skyState = saveScene();
         scene = 'site';
         loadScene(siteState);
         siteState = null;
-        window.scrollTo(window.scrollX, 0);
-        scrollY = window.scrollY;
-        guy.x = clamp(guy.x, EDGE, W - EDGE);
-        guy.y = 0;
-        guy.vy = 150;
+        portalWait = 1.2;
         guy.state = 'air';
         guy.grounded = false;
+        if (how === 'portal' && portal) {
+            // out of the website's portal, a step to one side of it
+            guy.x = clamp(portal.x + (portal.x < W / 2 ? 30 : -30), EDGE, W - EDGE);
+            guy.y = portal.y + PORTAL_H / 2 - 2;
+            guy.vy = 0;
+            window.scrollTo(window.scrollX, Math.max(0, guy.y - window.innerHeight / 2));
+            flashes.push({ x: portal.x, y: portal.y, r: 26, t: 0, life: 0.3, ring: true });
+        } else {
+            window.scrollTo(window.scrollX, 0);
+            guy.x = clamp(guy.x, EDGE, W - EDGE);
+            guy.y = 0;
+            guy.vy = 150;
+        }
+        scrollY = window.scrollY;
         if (document.documentElement.clientWidth !== W) rebuild();
         renderHud();
     }
@@ -2729,6 +3016,10 @@
             if (portal) drawPortal(portal);
         }
         drawSceneMarks();
+        if (scene === 'sky') {
+            drawPortal(sky.portal);
+            drawLines();
+        }
         drawParticles();
         drawNades();
         drawRockets();
@@ -2965,6 +3256,7 @@
         updateRockets(dt);
         updateNades(dt);
         clock += dt;
+        updateTaunts(dt);
         updateRobots(dt);
         healGuy();
         updateParticles(dt);
@@ -3024,6 +3316,7 @@
             else if (act === 'mute') toggleMute();
             else if (act === 'help') toggleHelp();
             else if (act === 'bots') toggleBots();
+            else if (act === 'taunt') taunt();
         });
     }
 
@@ -3046,7 +3339,7 @@
         ).join(' ');
         const help = coarsePointer
             ? 'stick: move<br>&uarr;: jump, again to flip, hold to glide<br>tap: shoot<br>A: grenade<br>push into the screen edge: climb'
-            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens';
+            : 'wasd: move<br>space: jump, again to flip, hold to glide<br>s: drop through<br>click: shoot<br>right-click or g: grenade<br>q: next weapon<br>run into the screen edge: climb<br>clankers fix the page: scrap them<br>kill the fly: something opens<br>t: taunt the clankers';
         const key = k => coarsePointer ? '' : `[${k}] `;
         hud.innerHTML =
             `<div>${weapons}</div>` +
@@ -3054,7 +3347,7 @@
             `<div class="dh-hp">health <span class="dh-bar"><span class="dh-fill"></span></span> <span class="dh-hpn"></span></div>` +
             (botsOn ? `<div class="dh-kills"></div>` : '') +
             (helpOn ? `<div class="dh-help">${help}</div>` : '') +
-            `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button> <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
+            `<div><button data-act="fix">${key('esc')}fix website</button> <button data-act="mute"></button> <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button>${coarsePointer ? ' <button data-act="taunt">taunt</button>' : ''} <button data-act="help">${key('h')}${helpOn ? 'hide help' : 'help'}</button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
         hpFill = hud.querySelector('.dh-fill');
@@ -3169,7 +3462,7 @@
         resetBigFly();
         scene = 'site';
         siteState = skyState = sky = portal = fade = null;
-        robotsEvil = false;
+        robotsEvil = factoryDown = false;
         globs = [];
         lasers = [];
         bannerT = 0;
@@ -3198,7 +3491,7 @@
             scene = 'site';
         }
         siteState = skyState = sky = portal = fade = null;
-        robotsEvil = false;
+        robotsEvil = factoryDown = false;
         globs = [];
         lasers = [];
         clearTimeout(rebuildTimer);
@@ -3304,6 +3597,7 @@
         else if (e.code === 'KeyM') toggleMute();
         else if (e.code === 'KeyH') toggleHelp();
         else if (e.code === 'KeyB') toggleBots();
+        else if (e.code === 'KeyT') taunt();
         else if (e.code === 'Escape') holster();
     });
 
