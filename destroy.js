@@ -5196,7 +5196,7 @@
         closeStream();
         allocWorld(document.documentElement.clientWidth, sceneHeight());
         repaint();
-        const me = net = { tree: null, z: 0.2, zTo: 0.2, zMin: 0.02, cx: 0, cy: 0, sx: 0, sy: 0, anchor: null, sel: null, zap: null, near: null, sparks: [], pulses: [], firing: [], grow: 0, armed: false, flash: 0, picked: false };
+        const me = net = { tree: null, z: 0.2, zTo: 0.2, zMin: 0.02, cx: 0, cy: 0, sx: 0, sy: 0, anchor: null, sel: null, zap: null, near: null, sparks: [], pulses: [], firing: [], feel: null, grow: 0, armed: false, flash: 0, picked: false };
         guy.x = guy.y = 0;
         guy.vx = guy.vy = 0;
         guy.grounded = false;
@@ -5348,53 +5348,249 @@
         else if (n) selectCam(n);
     }
 
-    // The current goes from him, into the neuron nearest him, and hop by hop (the
-    // fewest hops) through the network to the cam
+    // ----- the strike
+    //
+    // Picking a cam sends out feelers, the way lightning sends out leaders: three of
+    // them race from the neuron nearest him to the cam, each by its own way (the
+    // shortest, give or take), and side branches keep forking off them, crackling a
+    // few hops off into the network and fizzling out. The first leader to reach the
+    // cam strikes: its whole way flashes and flickers, softly, and the window opens.
+    // The others disappear.
+
+    const FEELER_CAP = 18;
+
+    function neuronNear(x, y) {
+        let best = 0, bd = Infinity;
+        net.tree.leaves.forEach((l, i) => {
+            const d = (l.x - x) ** 2 + (l.y - y) ** 2;
+            if (d < bd) {
+                bd = d;
+                best = i;
+            }
+        });
+        return best;
+    }
+
+    // The shortest way along the dendrites from one neuron to another, as the neurons
+    // on the way (or null if there's none)
+    function shortestWay(start, goal, wobble) {
+        const L = net.tree.leaves, E = net.tree.edges, weight = E.map(e => e.len * (wobble ? rand(1 - wobble, 1 + wobble * 2) : 1)), dist = new Float64Array(L.length).fill(Infinity), prev = new Int32Array(L.length).fill(-1), done = new Uint8Array(L.length);
+        const open = [start];
+        dist[start] = 0;
+        while (open.length) {
+            let bi = 0;
+            for (let k = 1; k < open.length; k++) if (dist[open[k]] < dist[open[bi]]) bi = k;
+            const i = open[bi];
+            open[bi] = open[open.length - 1];
+            open.pop();
+            if (done[i]) continue;
+            done[i] = 1;
+            if (i === goal) break;
+            for (const ei of L[i].nb) {
+                const j = E[ei].i === i ? E[ei].j : E[ei].i, d = dist[i] + weight[ei];
+                if (d < dist[j]) {
+                    dist[j] = d;
+                    prev[j] = i;
+                    open.push(j);
+                }
+            }
+        }
+        if (goal !== start && prev[goal] < 0) return null;
+        const path = [goal];
+        while (path[0] !== start) path.unshift(prev[path[0]]);
+        return path;
+    }
+
+    function edgeBetween(i, j) {
+        const E = net.tree.edges;
+        for (const ei of net.tree.leaves[i].nb) if (E[ei].i === j || E[ei].j === j) return ei;
+        return -1;
+    }
+
+    // A dendrite's points in the order it's run, from neuron `from`, not counting the first
+    function edgePoints(ei, from, out) {
+        const e = net.tree.edges[ei], p = e.pts, n = p.length / 2 - 1, fwd = e.i === from;
+        for (let k = 1; k <= n; k++) {
+            const m = fwd ? k : n - k;
+            out.push({ x: p[m * 2], y: p[m * 2 + 1] });
+        }
+    }
+
     function selectCam(leaf) {
         if (net.sel === leaf) return;
         closeStream();
         net.sel = leaf;
         net.picked = true;
-        const L = net.tree.leaves, E = net.tree.edges, goal = L.indexOf(leaf);
-        let start = 0, bd = Infinity;
-        L.forEach((l, i) => {
-            const d = (l.x - guy.x) ** 2 + (l.y - guy.y) ** 2;
-            if (d < bd) {
-                bd = d;
-                start = i;
-            }
-        });
-        const prev = new Int32Array(L.length).fill(-1), via = new Int32Array(L.length).fill(-1), queue = [start];
-        prev[start] = start;
-        for (let h = 0; h < queue.length && prev[goal] < 0; h++) {
-            const i = queue[h];
-            for (const ei of L[i].nb) {
-                const e = E[ei], j = e.i === i ? e.j : e.i;
-                if (prev[j] >= 0) continue;
-                prev[j] = i;
-                via[j] = ei;
-                queue.push(j);
-            }
+        net.zap = null;
+        const L = net.tree.leaves, goal = L.indexOf(leaf), start = neuronNear(guy.x, guy.y);
+        const head = [{ x: guy.x, y: guy.y - HEIGHT / 2 / net.z }, { x: L[start].x, y: L[start].y }];
+        const guide = start === goal ? null : shortestWay(start, goal);
+        const feel = net.feel = { goal, leaf, head, guide, tips: [], strike: null, t: 0, crackle: 0 };
+        if (!guide) {
+            // there already, or no way through: straight there
+            strikeAlong(head.concat({ x: leaf.x, y: leaf.y }));
+            return;
         }
-        const chain = [], pts = [{ x: guy.x, y: guy.y - HEIGHT / 2 / net.z }, { x: L[start].x, y: L[start].y }];
-        if (prev[goal] >= 0) for (let i = goal; i !== start; i = prev[i]) chain.unshift([via[i], prev[i]]);
-        for (const [ei, from] of chain) {
-            const p = E[ei].pts, n = p.length / 2, fwd = E[ei].i === from;
-            for (let k = 1; k < n; k++) {
-                const m = fwd ? k : n - 1 - k;
-                pts.push({ x: p[m * 2], y: p[m * 2 + 1] });
+        // fast enough that the shortest way takes a second or so; the leaders' own ways
+        // are longer or shorter, and they're none of them quite the same speed
+        let len = 0;
+        for (let k = 1; k < guide.length; k++) len += net.tree.edges[edgeBetween(guide[k - 1], guide[k])].len;
+        const speed = Math.max(320, len / 1.1);
+        feel.tips.push(newFeeler(start, head, speed * rand(0.9, 1.1), guide));
+        for (let k = 0; k < 2; k++) feel.tips.push(newFeeler(start, head, speed * rand(0.9, 1.2), shortestWay(start, goal, 0.5) || guide));
+        sfx('zap');
+    }
+
+    function newFeeler(at, pts, speed, guide, hops) {
+        const tip = { to: at, from: at, e: -1, t: 0, pts: pts.slice(), seen: new Set([at]), speed, guide, gi: 0, hops, dying: 0 };
+        if (!stepFeeler(tip)) tip.dying = 0.001;
+        return tip;
+    }
+
+    // Off down the next dendrite from the neuron it's reached: a leader along its way,
+    // a side branch anywhere it hasn't been; false if there's nowhere to go
+    function stepFeeler(tip) {
+        const L = net.tree.leaves, E = net.tree.edges, at = tip.to;
+        let via = -1, next = -1;
+        if (tip.guide) {
+            next = tip.guide[++tip.gi];
+            via = next === undefined ? -1 : edgeBetween(at, next);
+        } else {
+            const ways = [];
+            for (const ei of L[at].nb) {
+                const j = E[ei].i === at ? E[ei].j : E[ei].i;
+                if (!tip.seen.has(j) && !E[ei].axon) ways.push([ei, j]);
             }
+            if (!ways.length) return false;
+            [via, next] = pick(ways);
         }
-        if (prev[goal] < 0) pts.push({ x: leaf.x, y: leaf.y });   // no way through: straight there
+        if (via < 0) return false;
+        tip.e = via;
+        tip.from = at;
+        tip.to = next;
+        tip.seen.add(next);
+        return true;
+    }
+
+    // It got there: the flash, the window, and the current stays on along the way
+    function strikeAlong(pts) {
+        const feel = net.feel, leaf = feel.leaf;
+        feel.strike = { pts, t: 0 };
+        for (const tip of feel.tips) if (!tip.dying) tip.dying = 0.001;
         const lens = [0];
         for (let k = 1; k < pts.length; k++) lens.push(lens[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
-        net.zap = { leaf, pts, lens, total: lens[lens.length - 1] || 1, t: 0, dur: clamp(0.35 + chain.length * 0.045, 0.5, 1.8), done: false };
-        sfx('zap');
+        net.zap = { leaf, pts, lens, total: lens[lens.length - 1] || 1, t: 1, done: true };
+        net.flash = 0.4;
+        for (let k = 0; k < 24 && net.sparks.length < 240; k++) {
+            const a = rand(0, Math.PI * 2), v = rand(40, 160) / net.z;
+            net.sparks.push({ x: leaf.x, y: leaf.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(0.3, 0.6) });
+        }
+        openStream(leaf);
+        sfx('strike');
+    }
+
+    function updateFeel(dt) {
+        const feel = net.feel, E = net.tree.edges, L = net.tree.leaves;
+        feel.t += dt;
+        for (const tip of feel.tips) if (tip.dying) tip.dying += dt;
+        if (feel.strike) {
+            if ((feel.strike.t += dt) > 0.7) net.feel = null;
+            return;
+        }
+        for (const tip of feel.tips.slice()) {
+            if (tip.dying) continue;
+            tip.t += tip.speed * dt / Math.max(8, E[tip.e].len);
+            while (tip.t >= 1) {
+                // into the next neuron, which lights up as it goes through
+                edgePoints(tip.e, tip.from, tip.pts);
+                const at = tip.to;
+                if (L[at].fire <= 0) net.firing.push(L[at]);
+                L[at].fire = 0.7;
+                if (tip.guide && at === feel.goal) return strikeAlong(tip.pts);
+                tip.t -= 1;
+                // a side branch forks off now and then, and goes a few hops before it gives out
+                if (feel.tips.length < FEELER_CAP && Math.random() < (tip.guide ? 0.4 : 0.15)) {
+                    const fork = { ...tip, pts: tip.pts.slice(), seen: new Set(tip.seen), guide: null, hops: 2 + Math.floor(Math.random() * 4), speed: tip.speed * rand(0.6, 0.9) };
+                    if (stepFeeler(fork)) feel.tips.push(fork);
+                }
+                if ((!tip.guide && --tip.hops <= 0) || !stepFeeler(tip)) {
+                    tip.dying = 0.001;
+                    break;
+                }
+            }
+        }
+        feel.tips = feel.tips.filter(tip => !(tip.dying > 0.35));
+        if ((feel.crackle -= dt) <= 0) {
+            feel.crackle = 0.09;
+            sfx('weld2');
+        }
+        // nothing got there: it strikes along the shortest way anyway
+        if (feel.t > 4 || !feel.tips.some(tip => tip.guide && !tip.dying)) {
+            const pts = feel.head.slice();
+            for (let k = 1; k < feel.guide.length; k++) edgePoints(edgeBetween(feel.guide[k - 1], feel.guide[k]), feel.guide[k - 1], pts);
+            strikeAlong(pts);
+        }
+    }
+
+    // A feeler's trail, the dendrite it's on up to where it's got, jittering
+    function drawFeelers(z) {
+        const feel = net.feel;
+        if (!feel) return;
+        const E = net.tree.edges, jit = 1.6 / z;
+        for (const tip of feel.tips) {
+            const fade = tip.dying ? Math.max(0, 1 - tip.dying / 0.35) : 1;
+            if (fade <= 0) continue;
+            ctx.beginPath();
+            ctx.moveTo(tip.pts[0].x, tip.pts[0].y);
+            for (let k = 1; k < tip.pts.length; k++) ctx.lineTo(tip.pts[k].x + rand(-jit, jit), tip.pts[k].y + rand(-jit, jit));
+            let hx = tip.pts[tip.pts.length - 1].x, hy = tip.pts[tip.pts.length - 1].y;
+            if (tip.e >= 0 && !tip.dying) {
+                const e = E[tip.e], p = e.pts, n = p.length / 2 - 1, fwd = e.i === tip.from, s = clamp(tip.t, 0, 1) * n;
+                for (let k = 1; k <= Math.floor(s); k++) {
+                    const m = fwd ? k : n - k;
+                    ctx.lineTo(p[m * 2] + rand(-jit, jit), p[m * 2 + 1] + rand(-jit, jit));
+                }
+                const h = alongEdge(e, tip.t, fwd ? 1 : -1);
+                hx = h.x;
+                hy = h.y;
+                ctx.lineTo(hx, hy);
+            }
+            ctx.strokeStyle = '#9ad7ff';
+            ctx.globalAlpha = 0.2 * fade;
+            ctx.lineWidth = 6 / z;
+            ctx.stroke();
+            ctx.strokeStyle = '#e8ffff';
+            ctx.globalAlpha = (0.45 + Math.random() * 0.35) * fade;
+            ctx.lineWidth = 1.5 / z;
+            ctx.stroke();
+            if (!tip.dying) {
+                ctx.globalAlpha = 0.9;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(hx - 1.5 / z, hy - 1.5 / z, 3 / z, 3 / z);
+            }
+        }
+        const st = feel.strike;
+        if (st) {
+            // the stroke: bright, a flicker, bright again, then fading (never blinding)
+            const t = st.t, k = t < 0.06 ? 1 : t < 0.11 ? 0.35 : t < 0.17 ? 0.85 : Math.max(0, 0.85 * (1 - (t - 0.17) / 0.45));
+            ctx.beginPath();
+            ctx.moveTo(st.pts[0].x, st.pts[0].y);
+            for (let i = 1; i < st.pts.length; i++) ctx.lineTo(st.pts[i].x + rand(-jit, jit), st.pts[i].y + rand(-jit, jit));
+            ctx.strokeStyle = '#bfefff';
+            ctx.globalAlpha = 0.28 * k;
+            ctx.lineWidth = 10 / z;
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 0.9 * k;
+            ctx.lineWidth = 2.4 / z;
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
     }
 
     function unplugCam() {
         if (!net.sel) return;
-        net.sel = net.zap = null;
+        net.sel = net.zap = net.feel = null;
         closeStream();
         sfx('decloak');
     }
@@ -5421,23 +5617,7 @@
                 leaveEther(near.exit);
             }
         } else net.armed = true;
-        // the current running down to the cam picked, sparking as it goes
-        const zap = net.zap;
-        if (zap && !zap.done) {
-            zap.t += dt / zap.dur;
-            const head = pointAlong(zap, Math.min(1, zap.t));
-            if (net.sparks.length < 240) net.sparks.push({ x: head.x, y: head.y, vx: rand(-90, 90) / net.z, vy: rand(-90, 90) / net.z, life: rand(0.2, 0.45) });
-            if (zap.t >= 1) {
-                zap.done = true;
-                net.flash = 0.4;
-                for (let k = 0; k < 24 && net.sparks.length < 240; k++) {
-                    const a = rand(0, Math.PI * 2), v = rand(40, 160) / net.z;
-                    net.sparks.push({ x: zap.leaf.x, y: zap.leaf.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(0.3, 0.6) });
-                }
-                openStream(zap.leaf);
-                sfx('plug');
-            }
-        }
+        if (net.feel) updateFeel(dt);
         // pulses wander the network, and each neuron flashes as one reaches it
         const E = net.tree.edges, L = net.tree.leaves;
         for (const p of net.pulses) {
@@ -5896,6 +6076,7 @@
             ctx.fillRect(a.x - 1.2 / z, a.y - 1.2 / z, 2.4 / z, 2.4 / z);
         }
         ctx.globalAlpha = 1;
+        drawFeelers(z);
         if (zap) {
             const f = zap.done ? 1 : Math.min(1, zap.t), upto = f * zap.total, jit = 2.5 / z, head = pointAlong(zap, f);
             ctx.beginPath();
@@ -5929,6 +6110,10 @@
         for (const q of net.sparks) ctx.fillRect(q.x - 1 / z, q.y - 1 / z, 2 / z, 2 / z);
 
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (net.feel && net.feel.strike && net.feel.strike.t < 0.25) {
+            ctx.fillStyle = `rgba(220,240,255,${0.07 * (1 - net.feel.strike.t / 0.25)})`;
+            ctx.fillRect(0, 0, vw, vh);
+        }
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.font = "9px 'IBM Plex Mono', monospace";
@@ -6079,6 +6264,7 @@
         cloak: t => { tone(t, 0.4, 'sine', 1100, 180, 0.07); noise(t, 0.35, 'highpass', 6000, 2000, 0.05); },
         decloak: t => { tone(t, 0.25, 'sine', 180, 900, 0.05); noise(t, 0.15, 'highpass', 3000, 6000, 0.04); },
         bubble: t => tone(t, 0.06, 'sine', 500, 1400, 0.04),
+        strike: t => { noise(t, 0.3, 'highpass', 2600, 700, 0.2); noise(t + 0.02, 0.6, 'lowpass', 900, 80, 0.25); tone(t, 0.5, 'sine', 95, 40, 0.14); },
         zap: t => { noise(t, 0.5, 'bandpass', 1500, 5000, 0.14, 4); tone(t, 0.45, 'sawtooth', 110, 1800, 0.035); },
         weld2: t => { noise(t, 0.09, 'highpass', 4500, 3000, 0.07); tone(t, 0.05, 'square', 2400, 1800, 0.015); },
     };
@@ -6832,7 +7018,7 @@
             if (net && net.tree && net.tree.portrait !== (window.innerHeight > window.innerWidth)) {
                 const me = net;
                 closeStream();
-                me.sel = me.zap = me.near = null;
+                me.sel = me.zap = me.near = me.feel = null;
                 me.tree = null;
                 loadEther().then(tree => {
                     if (net === me) etherReady(me, tree);
