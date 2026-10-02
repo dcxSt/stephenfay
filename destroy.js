@@ -183,6 +183,7 @@
     let view = null, ctx = null, dpr = 1;
     let hud = null, pctEl = null, muteEl = null, killsEl = null, hpFill = null, hpNum = null, shownPct = -1, shownKills = '', shownHp = -1;
     let camoFill = null, camoNum = null, shownCamo = '';
+    let awayShown = false;
     let raf = 0, lastTime = 0, acc = 0, rebuildTimer = 0, startToken = 0, camHold = 0;
     let helpOn = false;   // the controls, folded away until asked for; the levels have hints of their own
     let guy = null;
@@ -1762,7 +1763,7 @@
 
     function restoreBigFly() {
         if (!fly) return;
-        fly.setAttribute('src', bigFly.startSrc);
+        fly.setAttribute('src', flyDead ? 'assets/squashed-fly.webp' : bigFly.startSrc);
         fly.style.scale = '';
         fly.classList.remove('fly-dead');
     }
@@ -1810,6 +1811,8 @@
 
     function killBigFly(oldAge) {
         bigFly.alive = false;
+        flyDead = true;
+        saveProgress();
         bigFly.hp = 0;
         bigFly.deathT = 0;
         fly.src = 'assets/squashed-fly.webp';
@@ -4840,23 +4843,25 @@
     // been all the way through stay put: through fixing the website, dying, and
     // coming back another day. Once he's finished he comes back with the jetpack and
     // the portal open.
-    let savedWeapon = 0;
+    let savedWeapon = 0, flyDead = false;
 
     function loadProgress() {
         owned = new Set([0]);
         savedWeapon = 0;
+        flyDead = false;
         hasJetpack = merged = false;
         try {
             const p = JSON.parse(localStorage.getItem('destroyProgress') || '{}');
             merged = !!p.merged;
             hasJetpack = !!p.jetpack || merged;   // he can't have finished without it
+            flyDead = !!p.flyDead || merged;   // nor got past the fly
             for (const i of p.guns || []) if (i > 0 && i < WEAPONS.length) owned.add(i);
             savedWeapon = owned.has(p.weapon) ? p.weapon : 0;
         } catch (_) { /* storage unavailable */ }
     }
 
     function saveProgress() {
-        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned], merged, weapon })); } catch (_) { /* storage unavailable */ }
+        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned], merged, weapon, flyDead })); } catch (_) { /* storage unavailable */ }
     }
 
     // The factory and the shell fill the screen (above the thumbs on a phone held upright)
@@ -7546,6 +7551,10 @@
         scrollX = scene === 'net' && net ? net.sx : inSky ? 0 : window.scrollX;
         scrollY = scene === 'net' && net ? net.sy : inSky ? 0 : window.scrollY;
         flyRect = !inSky && bigFly.alive && fly ? fly.getBoundingClientRect() : null;
+        if (inSky !== awayShown) {
+            awayShown = inSky;
+            document.documentElement.classList.toggle('destroy-away', inSky);   // index.css hides the fly up there
+        }
         toggleRect = !inSky && toggle ? toggle.getBoundingClientRect() : null;
         toggleCd -= dt;
         if (dialog) {
@@ -7796,9 +7805,10 @@
         stack = null;
         deaths = 0;
         regen = 0;
+        loadProgress();
+        showFlyState();
         resetBigFly();
         toggle = document.getElementById('theme-toggle');
-        loadProgress();
         weapon = savedWeapon;
         menuOpen = false;
         placeGuns();
@@ -7816,10 +7826,10 @@
         globs = [];
         lasers = [];
         bannerT = 0;
-        if (merged) {
-            // he's been all the way through before: the portal's open from the start
+        if (merged || !bigFly.alive) {
+            // the fly's dead already (or he's been all the way through): the portal's open from the start
             openPortal();
-            banner('welcome back. the portal is open');
+            banner(merged || flyDead ? 'welcome back. the portal is open' : 'the fly is squashed. a portal is open');
         }
         releaseAll();
         active = true;
@@ -7858,7 +7868,8 @@
         clearTimeout(rebuildTimer);
         // bring the text straight back rather than fading it in from transparent
         document.body.style.transition = 'none';
-        document.documentElement.classList.remove('destroying');
+        document.documentElement.classList.remove('destroying', 'destroy-away');
+        awayShown = false;
         getComputedStyle(document.body).color;
         requestAnimationFrame(() => { document.body.style.transition = ''; });
         view.style.display = 'none';
@@ -8189,6 +8200,14 @@
         repaint();
         buildSkyBackdrop();
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // The fly on the page: squashed for good once it's been killed in here
+    function showFlyState() {
+        const el = document.getElementById('fly-image');
+        if (el && flyDead && el.src.includes('fly.png')) el.setAttribute('src', 'assets/squashed-fly.webp');
+    }
+    loadProgress();
+    showFlyState();
 
     window.destroyGame = {
         start,

@@ -1211,3 +1211,8 @@ html.destroy-cine #virtual-joystick {
 html.destroy-cine #destroy-stick {
     display: none;
 }
+
+/* The fly lives on the website: up in the factory, the shell and the ether it's not there */
+html.destroy-away #fly-image {
+    visibility: hidden;
+}
