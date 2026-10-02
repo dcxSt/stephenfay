@@ -693,11 +693,11 @@
             // no up or down in here: he just floats wherever he's pushed
             const ax = (k.right ? 1 : 0) - (k.left ? 1 : 0), ay = (k.down ? 1 : 0) - (k.up || k.space ? 1 : 0);
             // (in world units, as fast across the screen whatever the zoom)
-            const z = net ? net.z : 1, lim = net && net.tree ? net.tree.R + 300 : 0;
+            const z = net ? net.z : 1;
             g.vx = approach(g.vx, ax * 230, 900 * dt);
             g.vy = approach(g.vy, ay * 230, 900 * dt);
-            g.x = clamp(g.x + g.vx * dt / z, -lim, lim);
-            g.y = clamp(g.y + g.vy * dt / z, -lim, lim);
+            g.x += g.vx * dt / z;
+            g.y += g.vy * dt / z;
             g.grounded = false;
             g.state = 'air';
             if (Math.hypot(g.vx, g.vy) > 20) g.walk += dt;
@@ -5701,6 +5701,7 @@
             const sub = l.ki * 2.399963, subRadius = Math.sqrt(l.ki) * 35;
             l.x = Math.cos(a) * radius + Math.cos(sub) * subRadius + Math.cos(index * 2.399963) * Math.sqrt(index) * 12;
             l.y = Math.sin(a) * radius * 0.68 + Math.sin(sub) * subRadius + Math.sin(index * 2.399963) * Math.sqrt(index) * 12;
+            l.x *= 0.66; l.y *= 0.66;
             l.semantic = { x: l.x, y: l.y };
         });
         const locations = new Map();
@@ -5776,7 +5777,7 @@
             { exit: 'site', label: 'home', x: portrait ? -S * 0.36 : 0, y: portrait ? 0 : -S * 0.36 },
             { exit: 'shell', label: 'unplug', x: portrait ? S * 0.36 : 0, y: portrait ? 0 : S * 0.36 },
         ];
-        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits, land };
+        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits, land, density: buildEtherDensity(leaves, S) };
     }
 
     // A dendrite from one neuron to another: the straight line between them split in
@@ -5805,7 +5806,7 @@
             twigs.push(out);
         }
         return {
-            i, j, axon, pts, twigs, len,
+            i, j, axon, pts, rest: pts.slice(), twigs, len,
             bx0: Math.min(a.x, b.x) - len * 0.2, bx1: Math.max(a.x, b.x) + len * 0.2, by0: Math.min(a.y, b.y) - len * 0.2, by1: Math.max(a.y, b.y) + len * 0.2,
             color: a.color === b.color ? a.color : '#bff8ff',
         };
@@ -5872,8 +5873,13 @@
         }
         etherFit();
         me.z = me.zTo = me.zMin * 1.04;
+        if (!me.arrived) {
+            guy.x = -tree.S * 0.17; guy.y = -tree.S * 0.16;
+            me.arrived = true;
+        }
         me.cx = guy.x;
         me.cy = guy.y;
+        prepareEtherProjection();
         me.grow = 0;
         me.cacheKey = me.lastKey = '';
     }
@@ -5897,13 +5903,101 @@
         net.anchor = { px, py };
     }
 
-    function etherScreen(x, y) {
-        const dx = (x - net.cx) * net.z, dy = (y - net.cy) * net.z;
-        // A radial lens keeps distant information on the horizon while opening
-        // room around the traveller. It is continuous and strictly monotonic.
-        const horizon = Math.max(window.innerWidth, window.innerHeight) * 0.85;
-        const lens = 1.35 / (1 + Math.hypot(dx, dy) / horizon);
-        return { x: window.innerWidth / 2 + dx * lens, y: window.innerHeight / 2 + dy * lens };
+    // Periodic coordinates let information re-enter across the opposite horizon.
+    const etherWrap = (v, period) => ((v + period / 2) % period + period) % period - period / 2;
+
+    // A sampled cartogram field expands crowded places, including their land and
+    // meridians. Sampling once avoids a density search for every pixel every frame.
+    function buildEtherDensity(leaves, S) {
+        const bins = new Map(), w = 96, h = 49;
+        for (const l of leaves) if (l.cam.ll) {
+            const [lat, lon] = l.cam.ll, key = Math.round(lon / 12) + ',' + Math.round(lat / 12);
+            if (!bins.has(key)) bins.set(key, { x: lon / 180 * Math.PI, y: lat / 180 * Math.PI, n: 0 });
+            bins.get(key).n++;
+        }
+        const field = new Float32Array((w + 1) * h * 3);
+        for (let r = 0; r < h; r++) for (let c = 0; c <= w; c++) {
+            const lon = c / w * Math.PI * 2 - Math.PI, lat = (r / (h - 1) - 0.5) * Math.PI;
+            let dx = 0, dy = 0, mass = 0;
+            for (const b of bins.values()) {
+                const x = etherWrap(lon - b.x, Math.PI * 2), y = lat - b.y;
+                const f = Math.log1p(b.n) * 0.27 * Math.exp(-(x * x * Math.cos(lat) ** 2 + y * y) / 0.055);
+                dx += x * f; dy += y * f; mass += f;
+            }
+            const i = (r * (w + 1) + c) * 3;
+            field[i] = clamp(dx, -0.32, 0.32);
+            field[i + 1] = clamp(dy, -0.24, 0.24);
+            field[i + 2] = Math.min(2.4, mass);
+        }
+        return { field, w, h };
+    }
+
+    function earthWarp(x, y) {
+        const S = net.tree.S, d = net.tree.density;
+        const rawLat = -y / S * Math.PI;
+        const lon = etherWrap(x / S * Math.PI + (Math.cos(rawLat) < 0 ? Math.PI : 0), Math.PI * 2), lat = Math.asin(Math.sin(rawLat));
+        const u = (lon / (Math.PI * 2) + 0.5) * d.w, v = (lat / Math.PI + 0.5) * (d.h - 1);
+        const c = Math.min(d.w - 1, Math.floor(u)), r = Math.min(d.h - 2, Math.floor(v)), fx = u - c, fy = v - r;
+        const sample = k => {
+            const i = (r * (d.w + 1) + c) * 3 + k, stride = (d.w + 1) * 3, a = d.field;
+            return (a[i] * (1 - fx) + a[i + 3] * fx) * (1 - fy) + (a[i + stride] * (1 - fx) + a[i + stride + 3] * fx) * fy;
+        };
+        return { lon: lon + sample(0), lat: clamp(lat + sample(1), -Math.PI / 2, Math.PI / 2), mass: sample(2) };
+    }
+
+    function prepareEtherProjection() {
+        if (!net.tree) return;
+        const focus = earthWarp(net.cx, net.cy);
+        net.projection = {
+            lon: focus.lon, sin: Math.sin(focus.lat), cos: Math.cos(focus.lat),
+            radius: Math.min(window.innerWidth * 0.40, window.innerHeight * 0.37) * (1 + Math.log(Math.max(1, net.z / net.zMin)) * 0.24),
+            zoom: Math.max(0.7, net.z / net.zMin),
+        };
+    }
+
+    function earthScreen(x, y, orbital = false) {
+        const p = net.projection, S = net.tree.S, vw = window.innerWidth, vh = window.innerHeight;
+        // Unlocated feeds inhabit a visibly separate orbital belt, not false coordinates.
+        if (orbital) {
+            const a = x / S * Math.PI * 2 - net.cx / S * Math.PI;
+            return { x: vw / 2 + Math.sin(a) * p.radius * 1.28, y: vh / 2 + p.radius * (0.97 + Math.cos(a) * 0.12), visibility: 0.8, depth: 0, mass: 0 };
+        }
+        const f = earthWarp(x, y), lon = f.lon - p.lon, cl = Math.cos(f.lat), sl = Math.sin(f.lat);
+        let X = cl * Math.sin(lon), Y = sl * p.cos - cl * Math.cos(lon) * p.sin;
+        const depth = sl * p.sin + cl * Math.cos(lon) * p.cos;
+        // The spherical surface swells at data cities and shears near the horizon.
+        const twist = 0.24 * (1 - depth) * Math.sin(lon * 2 + f.lat * 3 + p.lon);
+        const xx = X * Math.cos(twist) - Y * Math.sin(twist);
+        Y = X * Math.sin(twist) + Y * Math.cos(twist); X = xx;
+        const lens = (1 + f.mass * 0.13) * 1.65 / (1 + 0.65 * Math.hypot(X, Y));
+        return { x: vw / 2 + X * p.radius * lens, y: vh / 2 - Y * p.radius * lens,
+            visibility: clamp((depth + 0.035) / 0.16, 0, 1), depth, mass: f.mass };
+    }
+
+    function semanticScreen(x, y) {
+        const S = net.tree.S, period = S * 1.6, z = net.projection.zoom;
+        const dx = etherWrap(x - net.cx, period) / (period / 2), dy = etherWrap(y - net.cy, period) / (period / 2);
+        // Hyperbolic-looking focus: the interior blooms, the boundary compresses.
+        const strength = 1.7 + Math.log(z) * 0.8, denom = Math.tanh(strength);
+        let u = Math.tanh(dx * strength) / denom, v = Math.tanh(dy * strength) / denom;
+        const ripple = Math.sin(Math.PI * u) * Math.sin(Math.PI * v);
+        u += 0.13 * ripple * Math.sin(net.cy / period * Math.PI * 2 + v * 3);
+        v += 0.13 * ripple * Math.cos(net.cx / period * Math.PI * 2 + u * 3);
+        const visibility = clamp((1 - Math.max(Math.abs(dx), Math.abs(dy))) / 0.07, 0, 1);
+        return { x: window.innerWidth * (0.5 + u * 0.49), y: window.innerHeight * (0.5 + v * 0.47), visibility, depth: 1, mass: 0 };
+    }
+
+    function etherScreen(x, y, orbital = false) {
+        if (!net.tree || !net.projection) return { x: window.innerWidth / 2, y: window.innerHeight / 2, visibility: 1 };
+        const m = net.blend;
+        if (m === 0) return earthScreen(x, y, orbital);
+        if (m === 1) return semanticScreen(x, y);
+        const a = earthScreen(x, y, orbital), b = semanticScreen(x, y);
+        return { x: a.x * (1 - m) + b.x * m, y: a.y * (1 - m) + b.y * m, visibility: a.visibility * (1 - m) + b.visibility * m };
+    }
+
+    function etherNode(leaf) {
+        return etherScreen(leaf.x, leaf.y, !leaf.cam.ll);
     }
 
     function toggleEtherSpace() {
@@ -5927,8 +6021,10 @@
             const a = t.leaves[e.i], b = t.leaves[e.j];
             for (let k = 0; k < e.pts.length; k += 2) {
                 const u = k / (e.pts.length - 2);
-                e.pts[k] = a.x + (b.x - a.x) * u;
-                e.pts[k + 1] = a.y + (b.y - a.y) * u;
+                const jx = e.rest[k] - (a.semantic.x + (b.semantic.x - a.semantic.x) * u);
+                const jy = e.rest[k + 1] - (a.semantic.y + (b.semantic.y - a.semantic.y) * u);
+                e.pts[k] = a.x + (b.x - a.x) * u + jx;
+                e.pts[k + 1] = a.y + (b.y - a.y) * u + jy;
             }
             e.len = Math.hypot(b.x - a.x, b.y - a.y);
         }
@@ -5945,6 +6041,7 @@
         net.anchor = null;
         net.cx = guy.x;
         net.cy = guy.y;
+        prepareEtherProjection();
         net.sx = guy.x - window.innerWidth / 2;
         net.sy = guy.y - window.innerHeight / 2;
     }
@@ -5956,7 +6053,7 @@
         let best = null, bd = 22 * 22;
         for (const e of t.exits) {
             const s = etherScreen(e.x, e.y), d = (s.x - px) ** 2 + (s.y - py) ** 2;
-            if (d < bd) {
+            if (s.visibility > 0.3 && d < bd) {
                 bd = d;
                 best = e;
             }
@@ -5965,8 +6062,8 @@
         bd = reach * reach;
         for (const leaf of t.leaves) {
             if (leaf.r > etherGrown()) continue;
-            const p = etherScreen(leaf.x, leaf.y), dx = p.x - px, dy = p.y - py, d = dx * dx + dy * dy;
-            if (d < bd) {
+            const p = etherNode(leaf), dx = p.x - px, dy = p.y - py, d = dx * dx + dy * dy;
+            if (p.visibility > 0.3 && d < bd) {
                 bd = d;
                 best = leaf;
             }
@@ -6004,7 +6101,8 @@
     function neuronNear(x, y) {
         let best = 0, bd = Infinity;
         net.tree.leaves.forEach((l, i) => {
-            const d = (l.x - x) ** 2 + (l.y - y) ** 2;
+            const p = etherNode(l), origin = etherScreen(x, y);
+            const d = p.visibility > 0.3 ? (p.x - origin.x) ** 2 + (p.y - origin.y) ** 2 : Infinity;
             if (d < bd) {
                 bd = d;
                 best = i;
@@ -6186,7 +6284,7 @@
         net.grow = Math.min(1, net.grow + dt / 2.2);
         net.flash -= dt;
         // what he's floating over: drifting onto a way out takes it (once he's been clear of them)
-        const g = etherScreen(guy.x, guy.y), near = etherAt(g.x, g.y - HEIGHT / 2, 20);
+        const g = { x: innerWidth / 2, y: innerHeight / 2 }, near = etherAt(g.x, g.y - HEIGHT / 2, 20);
         net.near = near;
         // (flying into it himself, that is, not carried over it by a zoom)
         if (near && near.exit) {
@@ -6403,7 +6501,7 @@
     // It stays put once it's open (moved only when the screen changes size)
     function placeStream(opening) {
         if (!stream || !net) return;
-        const el = stream.el, s = etherScreen(stream.leaf.x, stream.leaf.y);
+        const el = stream.el, s = etherNode(stream.leaf);
         if (!stream.rect) {
             const r = stream.rect = feedRect(s.x, s.y);
             Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
@@ -6428,27 +6526,96 @@
 
     // ----- drawing it
 
-    // A slow celestial field, without the old rushing rectangular tunnel.
+    // A printed-space-poster palette: dusty nebulae, pinprick stars, copper orbits.
+    // Painted once per viewport; only the foreground stars drift with the traveller.
+    let etherSky = null;
     function drawTunnel() {
         const vw = window.innerWidth, vh = window.innerHeight;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.fillStyle = '#030611';
-        ctx.fillRect(0, 0, vw, vh);
-        const glow = ctx.createRadialGradient(vw * 0.5, vh * 0.48, 0, vw * 0.5, vh * 0.48, vw * 0.65);
-        glow.addColorStop(0, '#102030');
-        glow.addColorStop(0.45, '#0b1125');
-        glow.addColorStop(1, '#030611');
-        ctx.fillStyle = glow;
-        ctx.fillRect(0, 0, vw, vh);
-        const rnd = seeded(927);
-        for (let i = 0; i < 180; i++) {
-            const x = rnd() * vw, y = rnd() * vh, r = rnd();
-            ctx.globalAlpha = 0.15 + r * 0.45 + (reducedMotion ? 0 : Math.sin(clock * 0.4 + i) * 0.08);
-            ctx.fillStyle = i % 5 ? '#afcadb' : '#dfbffa';
-            ctx.beginPath();
-            ctx.arc(x, y, 0.35 + r * 0.7, 0, Math.PI * 2);
-            ctx.fill();
+        if (!etherSky || etherSky.width !== vw || etherSky.height !== vh) {
+            etherSky = document.createElement('canvas');
+            etherSky.width = vw; etherSky.height = vh;
+            const c = etherSky.getContext('2d'), rnd = seeded(1981);
+            c.fillStyle = '#05040e'; c.fillRect(0, 0, vw, vh);
+            for (let i = 0; i < 42; i++) {
+                const u = i / 41, x = u * vw, y = vh * (0.78 - u * 0.63 + Math.sin(u * 7) * 0.10);
+                const r = Math.min(vw, vh) * (0.14 + rnd() * 0.18), g = c.createRadialGradient(x, y, 0, x, y, r);
+                g.addColorStop(0, i % 3 === 0 ? '#ac4b7125' : i % 3 === 1 ? '#454a9728' : '#598e9720');
+                g.addColorStop(1, '#05040e00'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+            }
+            for (let i = 0; i < 6200; i++) {
+                const x = rnd() * vw, y = rnd() * vh, band = vh * (0.78 - x / vw * 0.63 + Math.sin(x / vw * 7) * 0.1);
+                const cloud = Math.exp(-(((y - band) / (vh * 0.09)) ** 2));
+                c.fillStyle = i % 3 ? '#9e9fae' : '#e8af87';
+                c.globalAlpha = 0.03 + rnd() * cloud * 0.22;
+                c.fillRect(x, y, 0.6 + rnd() * 0.7, 0.6 + rnd() * 0.7);
+            }
+            c.globalAlpha = 1;
+            for (let i = 0; i < 460; i++) {
+                const x = rnd() * vw, y = rnd() * vh, bright = rnd();
+                c.fillStyle = i % 4 ? '#c4c1d1' : '#f1c89d'; c.globalAlpha = 0.15 + bright * 0.65;
+                const r = bright > 0.96 ? 1.5 : 0.4 + bright * 0.5;
+                c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+                if (bright > 0.977) {
+                    c.strokeStyle = '#dbd6f1'; c.lineWidth = 0.5; c.globalAlpha = 0.45;
+                    c.beginPath(); c.moveTo(x - 6, y); c.lineTo(x + 6, y); c.moveTo(x, y - 6); c.lineTo(x, y + 6); c.stroke();
+                }
+            }
+            // A small ringed world, far away, gives the foreground Earth its scale.
+            const px = vw * 0.86, py = vh * 0.17, pr = Math.min(vw, vh) * 0.027;
+            c.globalAlpha = 0.75;
+            c.strokeStyle = '#cd9876'; c.lineWidth = 2;
+            c.beginPath(); c.ellipse(px, py, pr * 2.2, pr * 0.52, -0.35, 0, Math.PI * 2); c.stroke();
+            const planet = c.createRadialGradient(px - pr * 0.4, py - pr * 0.45, 0, px, py, pr);
+            planet.addColorStop(0, '#ce9d7d'); planet.addColorStop(0.65, '#755963'); planet.addColorStop(1, '#171221');
+            c.fillStyle = planet; c.beginPath(); c.arc(px, py, pr, 0, Math.PI * 2); c.fill();
+            c.globalAlpha = 0.12; c.lineWidth = 0.7; c.strokeStyle = '#b98186';
+            for (let i = 0; i < 3; i++) {
+                c.beginPath(); c.ellipse(vw * 0.5, vh * 0.51, vw * (0.47 + i * 0.035), vh * (0.28 + i * 0.025), -0.30, 0, Math.PI * 2); c.stroke();
+            }
+            c.fillStyle = '#03020b'; c.globalAlpha = 0.10;
+            for (let y = 0; y < vh; y += 3) c.fillRect(0, y, vw, 1);
+            c.globalAlpha = 1;
         }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.globalAlpha = 1; ctx.drawImage(etherSky, 0, 0);
+        const rnd = seeded(1947);
+        for (let i = 0; i < 45; i++) {
+            const parallax = 0.005 + rnd() * 0.012;
+            const x = ((rnd() * vw - (net ? net.cx : 0) * parallax) % vw + vw) % vw;
+            const y = ((rnd() * vh - (net ? net.cy : 0) * parallax) % vh + vh) % vh;
+            ctx.globalAlpha = 0.3 + (reducedMotion ? 0.1 : Math.sin(clock * 0.5 + i) * 0.17);
+            ctx.fillStyle = '#fff1d4'; ctx.fillRect(x, y, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawEtherGlobe(vw, vh) {
+        const r = net.projection.radius, cx = vw / 2, cy = vh / 2;
+        const alpha = (1 - net.blend) * Math.min(1, net.grow * 2);
+        ctx.globalAlpha = alpha;
+        const aura = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.38);
+        aura.addColorStop(0, '#517da200'); aura.addColorStop(0.48, '#58979e20'); aura.addColorStop(1, '#ae84d600');
+        ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(cx, cy, r * 1.38, 0, Math.PI * 2); ctx.fill();
+        const body = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.05, cx, cy, r * 1.08);
+        body.addColorStop(0, '#193641'); body.addColorStop(0.58, '#101d2e'); body.addColorStop(1, '#070913');
+        // Follow the silhouette of the density-warped sphere, including its bulges.
+        const rim = new Float32Array(96).fill(r * 0.97);
+        const S = net.tree.S;
+        for (let lat = -87; lat <= 87; lat += 6) for (let lon = -180; lon < 180; lon += 6) {
+            const q = earthScreen(lon / 180 * S, -lat / 180 * S);
+            if (q.depth < -0.025) continue;
+            const dx = q.x - cx, dy = q.y - cy, a = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+            const k = Math.floor(a / (Math.PI * 2) * rim.length);
+            rim[k] = Math.max(rim[k], Math.hypot(dx, dy));
+        }
+        ctx.beginPath();
+        for (let k = 0; k <= rim.length; k++) {
+            const i = k % rim.length, rr = (rim[(i + 95) % 96] + rim[i] * 2 + rim[(i + 1) % 96]) / 4;
+            const a = k / rim.length * Math.PI * 2, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+            if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.closePath(); ctx.fillStyle = body; ctx.fill();
+        ctx.strokeStyle = '#84b5b7'; ctx.globalAlpha = alpha * 0.4; ctx.lineWidth = 1; ctx.stroke();
         ctx.globalAlpha = 1;
     }
 
@@ -6489,11 +6656,14 @@
     // Project every sample through the same lens, including the geographic grid.
     function etherLine(points) {
         ctx.beginPath();
-        points.forEach((p, i) => {
+        let prev = null;
+        for (const p of points) {
             const q = etherScreen(p.x, p.y);
-            if (i) ctx.lineTo(q.x, q.y);
-            else ctx.moveTo(q.x, q.y);
-        });
+            if (q.visibility < 0.08) { prev = null; continue; }
+            if (!prev || Math.abs(q.x - prev.x) > innerWidth * 0.45 || Math.abs(q.y - prev.y) > innerHeight * 0.45) ctx.moveTo(q.x, q.y);
+            else ctx.lineTo(q.x, q.y);
+            prev = q;
+        }
         ctx.stroke();
     }
 
@@ -6502,6 +6672,7 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         const earth = (1 - m) * Math.min(1, net.grow * 2);
         if (earth > 0.005) {
+            drawEtherGlobe(vw, vh);
             ctx.strokeStyle = '#609ba8';
             ctx.globalAlpha = earth * 0.16;
             ctx.lineWidth = 0.6;
@@ -6519,6 +6690,8 @@
             ctx.globalAlpha = earth * 0.48;
             for (const p of t.land) {
                 const q = etherScreen(p.x, p.y);
+                if (q.visibility < 0.04) continue;
+                ctx.globalAlpha = earth * q.visibility * (0.32 + Math.max(0, q.depth || 0) * 0.34);
                 const r = clamp(net.z * S / 480, coarsePointer ? 0.35 : 0.6, 1.9);
                 ctx.beginPath();
                 ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
@@ -6530,25 +6703,24 @@
         ctx.lineWidth = 0.65;
         for (const e of t.edges) {
             const a = t.leaves[e.i], b = t.leaves[e.j];
+            if (m < 0.5 && (!a.cam.ll || !b.cam.ll)) continue;
             const distant = Math.hypot(a.geo.x - b.geo.x, a.geo.y - b.geo.y) > S * 0.2;
             if (distant && m < 0.01 && !e.axon) continue;
             ctx.globalAlpha = (distant ? 0.025 + m * 0.11 : 0.16) * net.grow;
             ctx.strokeStyle = e.color;
             const pts = [];
-            for (let k = 0; k <= 8; k++) {
-                const u = k / 8, bow = Math.sin(u * Math.PI) * Math.min(40, e.len * 0.14);
-                pts.push({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u - bow });
-            }
+            for (let k = 0; k < e.pts.length; k += 2) pts.push({ x: e.pts[k], y: e.pts[k + 1] });
             etherLine(pts);
         }
         const grown = etherGrown();
         for (const l of t.leaves) {
             if (l.r > grown) continue;
-            const q = etherScreen(l.x, l.y), r = clamp(net.z * 2, coarsePointer ? 0.65 : 1.2, 3);
+            const q = etherNode(l), r = clamp(net.z * 2, coarsePointer ? 0.65 : 1.2, 3);
+            if (q.visibility < 0.04) continue;
             ctx.fillStyle = l.color;
-            ctx.globalAlpha = 0.055;
+            ctx.globalAlpha = 0.055 * q.visibility;
             ctx.beginPath(); ctx.arc(q.x, q.y, r * 4.5, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 0.8;
+            ctx.globalAlpha = 0.8 * q.visibility;
             ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1;
@@ -6564,11 +6736,12 @@
             { label: 'AFRICA', x: 0.12 * S, y: 0.01 * S },
             { label: 'ASIA', x: 0.57 * S, y: -0.26 * S },
             { label: 'OCEANIA', x: 0.76 * S, y: 0.19 * S },
-            { label: 'UNLOCATED SIGNALS', x: 0, y: S * 0.70 },
+            { label: 'UNLOCATED SIGNALS', x: 0, y: S * 0.70, orbital: true },
         ];
         const taken = [];
         for (const n of labels) {
-            const q = etherScreen(n.x, n.y), width = ctx.measureText(n.label).width;
+            const q = etherScreen(n.x, n.y, n.orbital), width = ctx.measureText(n.label).width;
+            if (q.visibility < 0.4) continue;
             if (taken.some(r => Math.abs(r.x - q.x) < (r.w + width) / 2 + 10 && Math.abs(r.y - q.y) < 22)) continue;
             taken.push({ ...q, w: width });
             ctx.globalAlpha = Math.abs(m - 0.5) * 1.1;
@@ -6579,23 +6752,77 @@
         ctx.textAlign = 'left';
     }
 
+    function alongEdge(e, t, dir) {
+        const p = e.pts, n = p.length / 2 - 1, s = clamp(dir > 0 ? t : 1 - t, 0, 1) * n, k = Math.min(n - 1, Math.floor(s)), f = s - k;
+        return { x: p[k * 2] + (p[k * 2 + 2] - p[k * 2]) * f, y: p[k * 2 + 1] + (p[k * 2 + 3] - p[k * 2 + 1]) * f };
+    }
+
+    // The original leader / fork / return-stroke animation, projected through the
+    // curved surface. The bright path remains live after the video opens.
+    function drawEtherLightning() {
+        const feel = net.feel;
+        const bolt = (points, alpha, wide = false) => {
+            if (points.length < 2) return;
+            const jitter = reducedMotion ? 0 : 1.8;
+            ctx.beginPath();
+            let last = null;
+            for (const p of points) {
+                const q = etherScreen(p.x, p.y, p.y > net.tree.S * 0.55 && p !== points[0]);
+                if (q.visibility < 0.08) { last = null; continue; }
+                const x = q.x + rand(-jitter, jitter), y = q.y + rand(-jitter, jitter);
+                if (!last || Math.abs(q.x - last.x) > innerWidth * 0.45 || Math.abs(q.y - last.y) > innerHeight * 0.45) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                last = q;
+            }
+            ctx.strokeStyle = '#678cff'; ctx.globalAlpha = alpha * 0.18; ctx.lineWidth = wide ? 13 : 7; ctx.stroke();
+            ctx.strokeStyle = '#8be8ff'; ctx.globalAlpha = alpha * 0.5; ctx.lineWidth = wide ? 5 : 3; ctx.stroke();
+            ctx.strokeStyle = '#f2ffff'; ctx.globalAlpha = alpha; ctx.lineWidth = wide ? 2 : 1.2; ctx.stroke();
+        };
+        if (net.zap && net.zap.done) bolt(net.zap.pts, 0.32 + (reducedMotion ? 0 : Math.sin(clock * 9) * 0.12));
+        if (feel) {
+            for (const tip of feel.tips) {
+                const fade = tip.dying ? Math.max(0, 1 - tip.dying / 0.35) : 1;
+                if (!fade) continue;
+                const pts = tip.pts.slice();
+                if (tip.e >= 0 && !tip.dying) {
+                    const e = net.tree.edges[tip.e], n = e.pts.length / 2 - 1, forward = e.i === tip.from;
+                    for (let k = 1; k <= Math.floor(clamp(tip.t, 0, 1) * n); k++) {
+                        const i = forward ? k : n - k;
+                        pts.push({ x: e.pts[i * 2], y: e.pts[i * 2 + 1] });
+                    }
+                    pts.push(alongEdge(e, tip.t, forward ? 1 : -1));
+                }
+                bolt(pts, fade * 0.85);
+            }
+            if (feel.strike) {
+                const age = feel.strike.t;
+                const alpha = reducedMotion ? Math.max(0, 1 - age * 2) : age < 0.06 ? 1 : age < 0.11 ? 0.3 : age < 0.17 ? 0.85 : Math.max(0, 1 - (age - 0.17) / 0.45);
+                bolt(feel.strike.pts, alpha, true);
+            }
+        }
+        ctx.globalAlpha = 1;
+    }
+
     // Travelling light and a permanent, living connection to the graph.
     function drawEtherMoving(vw, vh) {
         const t = net.tree;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         for (const p of net.pulses) {
             const e = t.edges[p.e], a = t.leaves[e.i], b = t.leaves[e.j];
+            if (net.blend < 0.5 && (!a.cam.ll || !b.cam.ll)) continue;
             const u = p.dir > 0 ? p.t : 1 - p.t;
-            const q = etherScreen(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u - Math.sin(u * Math.PI) * Math.min(40, e.len * 0.14));
+            const along = alongEdge(e, u, 1), q = etherScreen(along.x, along.y);
+            if (q.visibility < 0.05) continue;
             ctx.fillStyle = p.color;
             ctx.globalAlpha = 0.65;
             ctx.beginPath(); ctx.arc(q.x, q.y, 1.5, 0, Math.PI * 2); ctx.fill();
         }
-        const center = etherScreen(guy.x, guy.y);
-        const neighbours = t.leaves.map(l => ({ l, d: (l.x - guy.x) ** 2 + (l.y - guy.y) ** 2 })).sort((a, b) => a.d - b.d).slice(0, 4).map(n => n.l);
+        const center = { x: vw / 2, y: vh / 2 };
+        const neighbours = t.leaves.map(l => { const p = etherNode(l); return { l, d: p.visibility > 0.3 ? (p.x - center.x) ** 2 + (p.y - center.y) ** 2 : Infinity }; }).sort((a, b) => a.d - b.d).slice(0, 4).map(n => n.l);
         if (net.sel && !neighbours.includes(net.sel)) neighbours.push(net.sel);
         for (const l of neighbours) {
-            const q = etherScreen(l.x, l.y), selected = l === net.sel;
+            const q = etherNode(l), selected = l === net.sel;
+            if (q.visibility < 0.3) continue;
             ctx.strokeStyle = selected ? '#ecf9df' : l.color;
             ctx.globalAlpha = selected ? 0.65 : 0.28;
             ctx.lineWidth = selected ? 1.3 : 0.8;
@@ -6603,6 +6830,7 @@
             ctx.bezierCurveTo(center.x + (q.x - center.x) * 0.25, center.y - 45, q.x, q.y - 30, q.x, q.y);
             ctx.stroke();
         }
+        drawEtherLightning();
         ctx.globalAlpha = 0.18;
         ctx.strokeStyle = '#bbdcde';
         ctx.lineWidth = 0.7;
@@ -6612,6 +6840,7 @@
         ctx.font = "10px 'IBM Plex Mono', monospace";
         for (const e of t.exits) {
             const q = etherScreen(e.x, e.y);
+            if (q.visibility < 0.3) continue;
             ctx.strokeStyle = '#e7d9a5';
             ctx.lineWidth = 1;
             ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, Math.PI * 2); ctx.stroke();
@@ -6622,7 +6851,8 @@
         for (const n of [net.sel, hover, net.near]) {
             if (!n || n.exit || shown.has(n)) continue;
             shown.add(n);
-            const q = etherScreen(n.x, n.y);
+            const q = etherNode(n);
+            if (q.visibility < 0.3) continue;
             ctx.strokeStyle = n === net.sel ? '#ffffff' : '#bfeadf';
             ctx.lineWidth = 1;
             ctx.beginPath(); ctx.arc(q.x, q.y, 8, 0, Math.PI * 2); ctx.stroke();
@@ -6644,7 +6874,7 @@
         const vw = window.innerWidth, vh = window.innerHeight;
         if (stream && stream.rect && net.sel) {
             placeStream(false);
-            const s = etherScreen(net.sel.x, net.sel.y), r = stream.rect;
+            const s = etherNode(net.sel), r = stream.rect;
             const tx = clamp(s.x, r.x + 8, r.x + r.w - 8), ty = s.y < r.y ? r.y : r.y + r.h;
             ctx.strokeStyle = '#f6ffb0';
             ctx.globalAlpha = 0.7;

@@ -2,3 +2,7 @@ node_modules/
 .cache/
 public
 .DS_Store
+
+# Generated Python caches
+__pycache__/
+*.py[cod]

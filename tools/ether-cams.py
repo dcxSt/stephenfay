@@ -253,6 +253,12 @@ def main():
     spec.loader.exec_module(geo)
     placed, unknown = geo.geolocate(data)
     print(f'placed {placed} cams on the map, {unknown} somewhere unknown')
+    # Keep the regional expansion when rebuilding the full catalogue.
+    spec = importlib.util.spec_from_file_location('ether_regions', Path(__file__).with_name('ether-regions.py'))
+    regions = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(regions)
+    regions.extend(data)
+    total = sum(len(k['kids']) for g in data['groups'] for k in g['kids'])
     OUT.write_text(json.dumps(data, ensure_ascii=True, separators=(',', ':')))
     print(f'wrote {OUT} with {total} cams in {len(groups)} groups')
 
