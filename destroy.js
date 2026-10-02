@@ -5975,7 +5975,7 @@
     }
 
     function semanticScreen(x, y) {
-        const S = net.tree.S, period = S * 1.6, z = net.projection.zoom;
+        const S = net.tree.S, period = S * 1.25, z = net.projection.zoom;
         const dx = etherWrap(x - net.cx, period) / (period / 2), dy = etherWrap(y - net.cy, period) / (period / 2);
         // Hyperbolic-looking focus: the interior blooms, the boundary compresses.
         const strength = 1.7 + Math.log(z) * 0.8, denom = Math.tanh(strength);
@@ -6803,6 +6803,49 @@
         ctx.globalAlpha = 1;
     }
 
+    // Luminous accretion spirals around a dark throat. Both exits use the same
+    // projected position and picking radius as before, in either space.
+    function drawEtherWormhole(exit, q) {
+        const on = net.near === exit || (pointer.has && !coarsePointer && Math.hypot(pointer.x - q.x, pointer.y - q.y) < 22);
+        const home = exit.exit === 'site', color = home ? '#edb878' : '#a895ee';
+        const phase = reducedMotion ? 0 : clock * (home ? 0.7 : -0.6);
+        const radius = on ? 26 : 22;
+        ctx.save();
+        ctx.translate(q.x, q.y);
+        ctx.globalAlpha = q.visibility;
+        const halo = ctx.createRadialGradient(0, 0, 5, 0, 0, radius * 2.1);
+        halo.addColorStop(0, home ? '#ffc78666' : '#b09cff66');
+        halo.addColorStop(0.45, home ? '#de764f28' : '#7155c738');
+        halo.addColorStop(1, '#00000000');
+        ctx.fillStyle = halo;
+        ctx.fillRect(-radius * 2.1, -radius * 2.1, radius * 4.2, radius * 4.2);
+        ctx.rotate(home ? -0.38 : 0.38);
+        // Rings bend inward instead of reading as a flat button outline.
+        for (let arm = 0; arm < 3; arm++) {
+            ctx.beginPath();
+            for (let k = 0; k <= 64; k++) {
+                const u = k / 64, a = phase + arm * Math.PI * 2 / 3 + u * Math.PI * 3.4;
+                const r = 5 + (1 - u) ** 1.3 * radius;
+                const x = Math.cos(a) * r, y = Math.sin(a) * r * (0.48 + u * 0.28);
+                if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+            }
+            ctx.strokeStyle = color; ctx.globalAlpha = q.visibility * 0.18; ctx.lineWidth = 4; ctx.stroke();
+            ctx.strokeStyle = arm === 0 ? '#fff0d9' : color; ctx.globalAlpha = q.visibility * (on ? 0.95 : 0.7); ctx.lineWidth = 1; ctx.stroke();
+        }
+        ctx.globalAlpha = q.visibility;
+        ctx.fillStyle = '#02020a';
+        ctx.beginPath(); ctx.ellipse(0, 0, 8, 5.7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.1; ctx.stroke();
+        // A narrow light arc crosses in front of the throat like a lensed disk.
+        ctx.strokeStyle = '#fff0db'; ctx.globalAlpha = q.visibility * 0.85;
+        ctx.beginPath(); ctx.ellipse(0, 0, 12, 6.5, 0, 0.08, Math.PI - 0.08); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = q.visibility;
+        ctx.fillText(exit.label, q.x, q.y + (on ? 39 : 35));
+        ctx.globalAlpha = 1;
+    }
+
     // Travelling light and a permanent, living connection to the graph.
     function drawEtherMoving(vw, vh) {
         const t = net.tree;
@@ -6841,10 +6884,7 @@
         for (const e of t.exits) {
             const q = etherScreen(e.x, e.y);
             if (q.visibility < 0.3) continue;
-            ctx.strokeStyle = '#e7d9a5';
-            ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = '#e7d9a5'; ctx.fillText(e.label, q.x, q.y + 23);
+            drawEtherWormhole(e, q);
         }
         const hover = pointer.has && !coarsePointer ? etherAt(pointer.x, pointer.y, 14) : null;
         const shown = new Set();
