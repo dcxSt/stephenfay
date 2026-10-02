@@ -843,7 +843,7 @@
                 else if (g.y < 0) {
                     g.y = 0;
                     g.vy = Math.max(0, g.vy);
-                    if (scene === 'sky' && !factoryDown) sealZap();
+                    if (scene === 'sky' && !factoryDown && !merged) sealZap();
                 }
                 if (scene !== 'site' && g.y > H + 30) transition(() => (scene === 'sky' ? exitSky('fall') : exitShell()));
             }
@@ -855,7 +855,7 @@
     // factory level until the factory's been blown up (and it's out of reach
     // without the jetpack anyway)
     function canRiseOut() {
-        return scene === 'site' ? !bigFly.alive : scene === 'sky' && hasJetpack && factoryDown;
+        return scene === 'site' ? !bigFly.alive : scene === 'sky' && hasJetpack && (factoryDown || merged);
     }
 
     function riseOut() {
@@ -1267,6 +1267,7 @@
     function selectWeapon(i) {
         if (i === weapon || i < 0 || i >= WEAPONS.length || !owned.has(i)) return;
         weapon = i;
+        saveProgress();
         cooldown = Math.max(cooldown, 0.12);
         if (merged) {
             deployT = DEPLOY;
@@ -3245,7 +3246,7 @@
         }
         if (!sky.visited) {
             sky.visited = true;
-            banner(factoryDown ? 'the space above the website' : 'the robot factory. goal: blow it up');
+            banner(factoryDown || merged ? 'the robot factory' : 'the robot factory. goal: blow it up');
             bannerT = 5;
         }
         renderHud();
@@ -3370,7 +3371,7 @@
                 ctx.fillRect(L.x1 - 2, L.top + 6, 2, L.bottom - L.top - 10);
                 ctx.globalAlpha = 1;
             }
-            if (!factoryDown) drawSeal();
+            if (!factoryDown && !merged) drawSeal();
             else if (sky.sealT > 0) {
                 // the seal coming down in pieces
                 ctx.lineWidth = 2;
@@ -3438,7 +3439,7 @@
         }
         if (scene === 'sky' && sky) {
             const L = sky.ladder;
-            if (!factoryDown) {
+            if (!factoryDown && !merged) {
                 let best = null, bd = Infinity;
                 for (const line of sky.lines) {
                     const d = line.alive ? Math.hypot((line.x0 + line.x1) / 2 - gx, line.y0 - gy) : Infinity;
@@ -4169,7 +4170,7 @@
     // and halfway down it calls in more puppets. When it blows, 2501 appears. Once
     // he's merged, the odd puppet still turns up.
 
-    const FOE_HP = 5, FOE_SPEED = 70, FOE_WAVES = [3, 4, 6], TANK_HP = 240, TANK_S = 1.6, TANK_R = 26 * TANK_S, HACK_TIME = 2.5;
+    const FOE_HP = 9, FOE_SPEED = 95, FOE_WAVES = [4, 5, 7], TANK_HP = 240, TANK_S = 1.6, TANK_R = 26 * TANK_S, HACK_TIME = 2.5;
     const FOE_COLORS = { h: '#262433', f: '#d9c2b0', v: '#ff3fa4', c: '#5a4f72', l: '#3a3548' };
     // a coat and a glowing visor, 4px a character like him
     const FOE_BODY = ['.hhhh.', '.fvvf.', '..ff..', '.cccc.', 'cccccc', 'c.cc.c', '..cc..', '.cccc.'];
@@ -4197,7 +4198,7 @@
     }
 
     function spawnFoe(x) {
-        const f = { foe: true, x: clamp(x, 30, W - 30), y: -10, vx: 0, vy: 0, grounded: false, dropping: false, prop: true, hp: FOE_HP, t: rand(0, 3), hurt: 0, facing: 1, jumpCd: 0, shootT: rand(1.5, 3), hackT: 0, hackCd: rand(2, 4), say: null, dead: false, deadT: 0, gone: false };
+        const f = { foe: true, x: clamp(x, 30, W - 30), y: -10, vx: 0, vy: 0, grounded: false, dropping: false, prop: true, hp: FOE_HP, t: rand(0, 3), hurt: 0, facing: 1, jumpCd: 0, shootT: rand(1, 2.2), hackT: 0, hackCd: rand(1.5, 3), say: null, dead: false, deadT: 0, gone: false };
         if (f.x > shell.holeX0 - 12 && f.x < shell.holeX1 + 12) f.x = shell.holeX1 + 30;
         shell.foes.push(f);
         if (Math.random() < 0.4) say(f, FOE_LINES.arrive, true);
@@ -4258,22 +4259,25 @@
             if (f.hackT > 0) {
                 // reaching into his ghost: it holds still, and he can break it off by getting away
                 f.hackT -= dt;
-                if (d > 110) {
+                if (d > 125) {
                     f.hackT = 0;
-                    f.hackCd = 3;
+                    f.hackCd = 2.5;
                 } else if (f.hackT <= 0) {
                     ghostHack();
-                    f.hackCd = rand(6, 9);
+                    f.hackCd = rand(4.5, 7);
                 }
             } else {
-                if ((f.shootT -= dt) <= 0 && d < 340) {
-                    f.shootT = rand(1.8, 3.2);
+                if ((f.shootT -= dt) <= 0 && d < 380) {
+                    // a bolt, or now and then three in a fan
+                    f.shootT = rand(1.2, 2.2);
                     const sx = f.x + f.facing * 8, sy = f.y - 28, a = Math.atan2(guy.y - HEIGHT / 2 - sy, guy.x - sx);
-                    lasers.push({ x: sx, y: sy, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, life: 2.5, color: '#ff3fa4', dmg: 5 });
+                    for (const da of Math.random() < 0.35 ? [-0.18, 0, 0.18] : [0]) {
+                        lasers.push({ x: sx, y: sy, vx: Math.cos(a + da) * 320, vy: Math.sin(a + da) * 320, life: 2.5, color: '#ff3fa4', dmg: 6 });
+                    }
                     sfx('laser');
                 }
-                if ((f.hackCd -= dt) <= 0 && d < 70 && !(guy.hackT > 0) && f.grounded) {
-                    f.hackT = 0.9;
+                if ((f.hackCd -= dt) <= 0 && d < 85 && !(guy.hackT > 0) && f.grounded) {
+                    f.hackT = 0.75;
                     sfx('glitch');
                     say(f, FOE_LINES.hack, true);
                 } else if (Math.abs(dx) > 90 || d > 200) dir = navigate(f, guy.x, guy.y, f.y, 60, 90);
@@ -4295,7 +4299,7 @@
         if (f.dead) return;
         f.hp -= dmg;
         f.hurt = 0.1;
-        f.vx += kx || 0;
+        f.vx += (kx || 0) * 0.5;   // heavy: they hardly budge
         f.hackT = 0;   // shooting it breaks the hack
         if (f.hp > 0) {
             sfx('hurt');
@@ -4834,19 +4838,23 @@
 
     // The guns he's found and the jetpack stay found: through fixing the website,
     // dying, and coming back another day
+    let savedWeapon = 0;
+
     function loadProgress() {
         owned = new Set([0]);
+        savedWeapon = 0;
         hasJetpack = merged = false;
         try {
             const p = JSON.parse(localStorage.getItem('destroyProgress') || '{}');
             hasJetpack = !!p.jetpack;
             merged = !!p.merged;
             for (const i of p.guns || []) if (i > 0 && i < WEAPONS.length) owned.add(i);
+            savedWeapon = owned.has(p.weapon) ? p.weapon : 0;
         } catch (_) { /* storage unavailable */ }
     }
 
     function saveProgress() {
-        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned], merged })); } catch (_) { /* storage unavailable */ }
+        try { localStorage.setItem('destroyProgress', JSON.stringify({ jetpack: hasJetpack, guns: [...owned], merged, weapon })); } catch (_) { /* storage unavailable */ }
     }
 
     // The factory and the shell fill the screen (above the thumbs on a phone held upright)
@@ -7711,7 +7719,7 @@
         }
         if (scene === 'sky') {
             const left = sky.lines.filter(l => l.alive).length;
-            const text = left && !factoryDown ? `goal: blow up the factory (${left} line${left > 1 ? 's' : ''} left)` : hasJetpack ? 'the factory is destroyed: fly up' : 'the factory is destroyed: get the jetpack, fly up';
+            const text = left && !factoryDown ? (merged ? `the factory: ${left} line${left > 1 ? 's' : ''} left \u00b7 the way up is open` : `goal: blow up the factory (${left} line${left > 1 ? 's' : ''} left)`) : hasJetpack ? 'the factory is destroyed: fly up' : 'the factory is destroyed: get the jetpack, fly up';
             if (pctEl.textContent !== text) pctEl.textContent = text;
             return;
         }
@@ -7789,7 +7797,7 @@
         resetBigFly();
         toggle = document.getElementById('theme-toggle');
         loadProgress();
-        weapon = 0;
+        weapon = savedWeapon;
         menuOpen = false;
         placeGuns();
         if (coarsePointer && !pad) buildPad();
@@ -7806,6 +7814,11 @@
         globs = [];
         lasers = [];
         bannerT = 0;
+        if (merged) {
+            // he's been all the way through before: the portal's open from the start
+            openPortal();
+            banner('welcome back. the portal is open');
+        }
         releaseAll();
         active = true;
         startMusic();
