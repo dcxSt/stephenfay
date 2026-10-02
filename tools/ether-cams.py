@@ -245,7 +245,15 @@ def main():
         {'k': 'tw', 'id': 'emptyveetv', 'n': 'empty tv', 't': 'empty tv', 'by': 'twitch.tv/emptyveetv'},
     ]}]})
     total = sum(len(k['kids']) for g in groups for k in g['kids'])
-    OUT.write_text(json.dumps({'made': time.strftime('%Y-%m-%d'), 'groups': groups}, ensure_ascii=True, separators=(',', ':')))
+    data = {'made': time.strftime('%Y-%m-%d'), 'groups': groups}
+    # and where in the world each of them is (tools/ether-geo.py)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('ether_geo', Path(__file__).with_name('ether-geo.py'))
+    geo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(geo)
+    placed, unknown = geo.geolocate(data)
+    print(f'placed {placed} cams on the map, {unknown} somewhere unknown')
+    OUT.write_text(json.dumps(data, ensure_ascii=True, separators=(',', ':')))
     print(f'wrote {OUT} with {total} cams in {len(groups)} groups')
 
 

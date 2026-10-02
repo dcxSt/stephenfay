@@ -5638,21 +5638,12 @@
 
     // ------------------------------------------------------------------ the net
     //
-    // The fourth level, once you've merged: the ether. Hundreds of live cameras on
-    // real places (bears fishing in Alaska, aquariums, eagles' nests, waterholes,
-    // city crossings, harbours, launch pads, London's traffic) hang off a fractal of
-    // dendrites growing out of the middle over a faint grid: each category forks in
-    // two and in two again, down through its channels to the cams at the tips, and
-    // twigs sprout off the branches that lead nowhere. Zoom in (the wheel, a pinch),
-    // pick a cam, and a current runs down the branches to it and opens a window onto
-    // it; only the cam you pick ever loads. The cams are in assets/ether-cams.json,
-    // made by tools/ether-cams.py (live streams come and go, so it wants rerunning
-    // now and then). Two yellow nodes by the middle go home to the website and back
-    // to the shell.
-
+    // The ether: a living atlas that folds into a constellation of related feeds.
+    // The character is the origin of both views; one projection serves drawing,
+    // picking, labels and video tethers so the world can bend without losing touch.
     const TFL = 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/';
     const ETHER_COLORS = ['#ff9f1c', '#7bd389', '#2de2e6', '#f6e05e', '#ff6b9a', '#9ad7ff', '#c3f73a', '#ffb3c6', '#b18cff', '#ff4d6d', '#d8fff8', '#ffd6a5'];
-    const ZOOM_MAX = 3, LEAF_GAP = 22, READABLE = 11;   // READABLE: screen px between cams before you can pick one
+    const ZOOM_MAX = 3, LEAF_GAP = 22;
     // if the list won't load: London, and a couple of streams
     const ETHER_FALLBACK = { groups: [
         { n: 'london streets', kids: [{ n: '', kids: [
@@ -5685,67 +5676,57 @@
         });
     }
 
-    // Seeded, so the fractal grows the same way every time
+    // Stable constellations and stars across visits
     function seeded(seed) {
         return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     }
 
-    function quadAt(e, t) {
-        const u = 1 - t;
-        return { x: u * u * e.x0 + 2 * u * t * e.cx + t * t * e.x1, y: u * u * e.y0 + 2 * u * t * e.cy + t * t * e.y1 };
-    }
-
-    // The network: every cam a neuron, scattered through two hemispheres (each
-    // category a lobe of its own, each channel a patch within it), wired to its
-    // nearest neighbours by dendrites that zigzag and fork like lightning, with long
-    // axons across from lobe to lobe. Current wanders it all the time.
+    // Related cameras share constellations, with a second coordinate in the atlas.
     function buildEther(data, portrait) {
         const rnd = seeded(2501), leaves = [], labels = [], edges = [];
         const groups = data.groups.map(g => ({ n: g.n, kids: (g.kids || []).filter(k => k.kids && k.kids.length) })).filter(g => g.kids.length);
         const cams = [];
         groups.forEach((g, gi) => g.kids.forEach((k, ki) => k.kids.forEach(c => cams.push({ c, gi, ki }))));
         const N = cams.length;
-        // points through the brain: a jittered hex grid (spaced LEAF_GAP apart), in two
-        // hemispheres either side of a fissure, a little fuller at the back
-        const inBrain = (x, y) => [-1, 1].some(s => ((x - s * 0.52) / 0.47) ** 2 + (y / (y > 0 ? 0.74 : 0.68)) ** 2 <= 1);
-        let u = Math.sqrt(2.4 / N), pts = [];
-        for (let tries = 0; tries < 40; tries++, u *= 0.97) {
-            pts = [];
-            const jr = seeded(7);
-            for (let row = 0, y = -0.76; y <= 0.78; row++, y += u * 0.866) {
-                for (let x = -1 + (row % 2) * u / 2; x <= 1; x += u) {
-                    const px = x + (jr() - 0.5) * u * 0.7, py = y + (jr() - 0.5) * u * 0.7;
-                    if (inBrain(px, py)) pts.push({ x: px, y: py });
-                }
-            }
-            if (pts.length >= N) break;
-        }
-        while (pts.length > N) pts.splice(Math.floor(rnd() * pts.length), 1);
-        // held upright (a phone), the hemispheres stack instead of sitting side by side
-        if (portrait) for (const p of pts) [p.x, p.y] = [p.y, p.x];
-        const S = LEAF_GAP / u;
-        // along a Hilbert curve, so each category (and channel) gets a patch that holds together
-        const hilbert = (x, y) => {
-            let d = 0;
-            for (let s = 512; s > 0; s >>= 1) {
-                const rx = (x & s) > 0 ? 1 : 0, ry = (y & s) > 0 ? 1 : 0;
-                d += s * s * ((3 * rx) ^ ry);
-                if (!ry) {
-                    if (rx) {
-                        x = s - 1 - x;
-                        y = s - 1 - y;
-                    }
-                    [x, y] = [y, x];
-                }
-            }
-            return d;
-        };
-        pts.sort((a, b) => hilbert(Math.floor((a.x + 1) * 511), Math.floor((a.y + 1) * 511)) - hilbert(Math.floor((b.x + 1) * 511), Math.floor((b.y + 1) * 511)));
-        pts.forEach((p, i) => {
-            const { c, gi, ki } = cams[i], x = p.x * S, y = p.y * S;
-            leaves.push({ x, y, r: Math.hypot(x, y), a: Math.atan2(y, x), cam: c, color: ETHER_COLORS[gi % ETHER_COLORS.length], cat: groups[gi].n, gi, ki, nb: [], fire: 0 });
+        const S = Math.max(650, Math.sqrt(N) * 30);
+        cams.forEach(({ c, gi, ki }) => {
+            leaves.push({ x: 0, y: 0, r: 0, cam: c, color: ETHER_COLORS[gi % ETHER_COLORS.length], cat: groups[gi].n, gi, ki, nb: [], fire: 0 });
         });
-        // labels at the middle of each lobe, and of each channel's patch
+        // Category / channel constellations, with room between their stars.
+        const counts = new Map();
+        leaves.forEach(l => {
+            const key = l.gi + ':' + l.ki, index = counts.get(key) || 0;
+            counts.set(key, index + 1);
+            const a = l.gi * 2.399963, radius = S * Math.sqrt((l.gi + 0.5) / groups.length) * 0.72;
+            const sub = l.ki * 2.399963, subRadius = Math.sqrt(l.ki) * 35;
+            l.x = Math.cos(a) * radius + Math.cos(sub) * subRadius + Math.cos(index * 2.399963) * Math.sqrt(index) * 12;
+            l.y = Math.sin(a) * radius * 0.68 + Math.sin(sub) * subRadius + Math.sin(index * 2.399963) * Math.sqrt(index) * 12;
+            l.semantic = { x: l.x, y: l.y };
+        });
+        const locations = new Map();
+        leaves.forEach((l, i) => {
+            const ll = l.cam.ll, located = Array.isArray(ll) && ll.length === 2 && ll.every(Number.isFinite);
+            // Unknown locations orbit below the map, never masquerading as a place.
+            const key = located ? ll.map(v => Math.round(v * 2)).join(',') : 'unknown';
+            const n = locations.get(key) || 0;
+            locations.set(key, n + 1);
+            const radius = Math.sqrt(n) * 5, angle = n * 2.399963;
+            l.geo = located
+                ? { x: ll[1] / 180 * S + Math.cos(angle) * radius, y: -ll[0] / 180 * S + Math.sin(angle) * radius }
+                : { x: (i / N - 0.5) * S * 1.5, y: S * 0.64 + Math.sin(angle) * 18 };
+        });
+        const land = [], world = data.world;
+        if (world && world.land) {
+            const bits = atob(world.land);
+            for (let r = 0; r < world.h; r++) for (let c = 0; c < world.w; c++) {
+                const k = r * world.w + c;
+                if (bits.charCodeAt(k >> 3) & (1 << (k & 7))) land.push({
+                    x: (-180 + (c + 0.5) * world.step) / 180 * S,
+                    y: -(world.top - r * world.step) / 180 * S,
+                });
+            }
+        }
+        // Labels at the middle of each category and channel.
         groups.forEach((g, gi) => {
             const mine = leaves.filter(l => l.gi === gi);
             labels.push({ big: true, label: g.n, color: mine[0].color, n: mine.length, x: mine.reduce((s, l) => s + l.x, 0) / mine.length, y: mine.reduce((s, l) => s + l.y, 0) / mine.length });
@@ -5777,7 +5758,7 @@
             near.sort((a, b) => a[1] - b[1]);
             for (const [j] of near.slice(0, 3)) link(i, j, false);
         });
-        // long axons: each lobe to the two lobes nearest it, and a few across the fissure
+        // Bridge neighbouring categories so signals can travel across the atlas.
         const hubs = labels.filter(l => l.big).map(lb => leaves.reduce((best, l, i) => ((l.x - lb.x) ** 2 + (l.y - lb.y) ** 2 < best[1] ? [i, (l.x - lb.x) ** 2 + (l.y - lb.y) ** 2] : best), [0, Infinity])[0]);
         hubs.forEach((h, a) => {
             hubs.map((o, b) => [o, b === a ? Infinity : (leaves[o].x - leaves[h].x) ** 2 + (leaves[o].y - leaves[h].y) ** 2]).sort((p, q) => p[1] - q[1]).slice(0, 2).forEach(([o]) => link(h, o, true));
@@ -5789,13 +5770,13 @@
             const at = (k / 5 - 0.5) * S * 1.1, pickNear = (list, side) => list.reduce((b, l) => ((l[across] - side) ** 2 + (l[along] - at) ** 2 < (b[across] - side) ** 2 + (b[along] - at) ** 2 ? l : b));
             link(leaves.indexOf(pickNear(left, -S * 0.08)), leaves.indexOf(pickNear(right, S * 0.08)), true);
         }
-        const xExt = Math.max(...leaves.map(l => Math.abs(l.x))), yExt = Math.max(...leaves.map(l => Math.abs(l.y)));
-        // the ways out sit in the fissure, either side of where he comes in
+        const xExt = S * 1.08, yExt = S * 0.76;
+        // Ways out sit on either side of the arrival point.
         const exits = [
             { exit: 'site', label: 'home', x: portrait ? -S * 0.36 : 0, y: portrait ? 0 : -S * 0.36 },
             { exit: 'shell', label: 'unplug', x: portrait ? S * 0.36 : 0, y: portrait ? 0 : S * 0.36 },
         ];
-        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits };
+        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits, land };
     }
 
     // A dendrite from one neuron to another: the straight line between them split in
@@ -5836,7 +5817,7 @@
         closeStream();
         allocWorld(document.documentElement.clientWidth, sceneHeight());
         repaint();
-        const me = net = { tree: null, z: 0.2, zTo: 0.2, zMin: 0.02, cx: 0, cy: 0, sx: 0, sy: 0, anchor: null, sel: null, zap: null, near: null, sparks: [], pulses: [], firing: [], feel: null, grow: 0, armed: false, flash: 0, picked: false };
+        const me = net = { tree: null, space: 'earth', blend: 0, z: 0.2, zTo: 0.2, zMin: 0.02, cx: 0, cy: 0, sx: 0, sy: 0, anchor: null, sel: null, zap: null, near: null, sparks: [], pulses: [], firing: [], feel: null, grow: 0, armed: false, flash: 0, picked: false };
         guy.x = guy.y = 0;
         guy.vx = guy.vy = 0;
         guy.grounded = false;
@@ -5880,6 +5861,8 @@
 
     function etherReady(me, tree) {
         me.tree = tree;
+        me.blend = me.space === 'semantic' ? 1 : 0;
+        layoutEther();
         for (const l of tree.leaves) l.fire = 0;
         me.firing = [];
         me.pulses = [];
@@ -5901,11 +5884,7 @@
 
     // ----- looking about
     //
-    // The camera eases to whatever zoom's wanted, keeping the point under the
-    // pointer (or the pinch) where it is, so you zoom into wherever you point; he
-    // flies in with it, and it follows him about. He's drawn at his own size
-    // wherever the camera puts him.
-
+    // The traveller stays at the graph's origin, even while changing scale.
     function etherFit() {
         const vw = window.innerWidth, vh = window.innerHeight;
         net.zMin = Math.min(vw / (2 * (net.tree.xExt + 70)), vh / (2 * (net.tree.yExt + 70)));
@@ -5919,30 +5898,55 @@
     }
 
     function etherScreen(x, y) {
-        return { x: (x - net.cx) * net.z + window.innerWidth / 2, y: (y - net.cy) * net.z + window.innerHeight / 2 };
+        const dx = (x - net.cx) * net.z, dy = (y - net.cy) * net.z;
+        // A radial lens keeps distant information on the horizon while opening
+        // room around the traveller. It is continuous and strictly monotonic.
+        const horizon = Math.max(window.innerWidth, window.innerHeight) * 0.85;
+        const lens = 1.35 / (1 + Math.hypot(dx, dy) / horizon);
+        return { x: window.innerWidth / 2 + dx * lens, y: window.innerHeight / 2 + dy * lens };
+    }
+
+    function toggleEtherSpace() {
+        if (!net || !net.tree) return;
+        net.space = net.space === 'earth' ? 'semantic' : 'earth';
+        net.feel = net.zap = null;
+        // Preserve an in-flight selection as well as an already playing feed.
+        if (net.sel && !stream) openStream(net.sel);
+        renderHud();
+    }
+
+    function layoutEther() {
+        const t = net.tree, m = net.blend;
+        for (const l of t.leaves) {
+            l.x = l.geo.x * (1 - m) + l.semantic.x * m;
+            l.y = l.geo.y * (1 - m) + l.semantic.y * m;
+            l.r = Math.hypot(l.x, l.y);
+        }
+        // Keep the existing routing and playback timing attached to moving nodes.
+        for (const e of t.edges) {
+            const a = t.leaves[e.i], b = t.leaves[e.j];
+            for (let k = 0; k < e.pts.length; k += 2) {
+                const u = k / (e.pts.length - 2);
+                e.pts[k] = a.x + (b.x - a.x) * u;
+                e.pts[k + 1] = a.y + (b.y - a.y) * u;
+            }
+            e.len = Math.hypot(b.x - a.x, b.y - a.y);
+        }
     }
 
     function updateEtherView(dt) {
-        const vw = window.innerWidth, vh = window.innerHeight, z0 = net.z;
         net.z += (net.zTo - net.z) * Math.min(1, dt * 9);
-        if (net.anchor) {
-            const a = net.anchor, ax = a.px - vw / 2, ay = a.py - vh / 2;
-            const dx = ax / z0 - ax / net.z, dy = ay / z0 - ay / net.z;
-            net.cx += dx;
-            net.cy += dy;
-            guy.x += dx;
-            guy.y += dy;
-            if (Math.abs(net.zTo - net.z) < net.zTo * 0.002) {
-                net.z = net.zTo;
-                net.anchor = null;
-            }
+        const target = net.space === 'semantic' ? 1 : 0;
+        if (Math.abs(net.blend - target) > 0.0001) {
+            net.blend += (target - net.blend) * (reducedMotion ? 1 : Math.min(1, dt * 3));
+            if (Math.abs(net.blend - target) < 0.0001) net.blend = target;
+            layoutEther();
         }
-        const k = Math.min(1, dt * 6);
-        net.cx += (guy.x - net.cx) * k;
-        net.cy += (guy.y - net.cy) * k;
-        const s = etherScreen(guy.x, guy.y);
-        net.sx = guy.x - s.x;
-        net.sy = guy.y - s.y;
+        net.anchor = null;
+        net.cx = guy.x;
+        net.cy = guy.y;
+        net.sx = guy.x - window.innerWidth / 2;
+        net.sy = guy.y - window.innerHeight / 2;
     }
 
     // The cam (or way out) nearest a point on the screen, within reach of it
@@ -5957,11 +5961,11 @@
                 best = e;
             }
         }
-        if (best || !cams || net.z * LEAF_GAP < READABLE) return best;
+        if (best || !cams) return best;
         bd = reach * reach;
-        const vw2 = window.innerWidth / 2 - px, vh2 = window.innerHeight / 2 - py, z = net.z;
         for (const leaf of t.leaves) {
-            const dx = (leaf.x - net.cx) * z + vw2, dy = (leaf.y - net.cy) * z + vh2, d = dx * dx + dy * dy;
+            if (leaf.r > etherGrown()) continue;
+            const p = etherScreen(leaf.x, leaf.y), dx = p.x - px, dy = p.y - py, d = dx * dx + dy * dy;
             if (d < bd) {
                 bd = d;
                 best = leaf;
@@ -5970,13 +5974,11 @@
         return best;
     }
 
-    // A click or a tap: a way out, a cam, or (too far out to tell the cams apart)
-    // closer in, there; on nothing, unplug
+    // A click or tap picks the nearest visible signal; empty space unplugs.
     function etherClick(px, py) {
         if (!net || !net.tree) return;
         const hit = etherAt(px, py, coarsePointer ? 24 : 14);
         if (hit && hit.exit) leaveEther(hit.exit);
-        else if (net.z * LEAF_GAP < READABLE) zoomEther(2.5, px, py);
         else if (hit) selectCam(hit);
         else unplugCam();
     }
@@ -6172,75 +6174,11 @@
         }
     }
 
-    // A feeler's trail, the dendrite it's on up to where it's got, jittering
-    function drawFeelers(z) {
-        const feel = net.feel;
-        if (!feel) return;
-        const E = net.tree.edges, jit = 1.6 / z;
-        for (const tip of feel.tips) {
-            const fade = tip.dying ? Math.max(0, 1 - tip.dying / 0.35) : 1;
-            if (fade <= 0) continue;
-            ctx.beginPath();
-            ctx.moveTo(tip.pts[0].x, tip.pts[0].y);
-            for (let k = 1; k < tip.pts.length; k++) ctx.lineTo(tip.pts[k].x + rand(-jit, jit), tip.pts[k].y + rand(-jit, jit));
-            let hx = tip.pts[tip.pts.length - 1].x, hy = tip.pts[tip.pts.length - 1].y;
-            if (tip.e >= 0 && !tip.dying) {
-                const e = E[tip.e], p = e.pts, n = p.length / 2 - 1, fwd = e.i === tip.from, s = clamp(tip.t, 0, 1) * n;
-                for (let k = 1; k <= Math.floor(s); k++) {
-                    const m = fwd ? k : n - k;
-                    ctx.lineTo(p[m * 2] + rand(-jit, jit), p[m * 2 + 1] + rand(-jit, jit));
-                }
-                const h = alongEdge(e, tip.t, fwd ? 1 : -1);
-                hx = h.x;
-                hy = h.y;
-                ctx.lineTo(hx, hy);
-            }
-            ctx.strokeStyle = '#9ad7ff';
-            ctx.globalAlpha = 0.2 * fade;
-            ctx.lineWidth = 6 / z;
-            ctx.stroke();
-            ctx.strokeStyle = '#e8ffff';
-            ctx.globalAlpha = (0.45 + Math.random() * 0.35) * fade;
-            ctx.lineWidth = 1.5 / z;
-            ctx.stroke();
-            if (!tip.dying) {
-                ctx.globalAlpha = 0.9;
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(hx - 1.5 / z, hy - 1.5 / z, 3 / z, 3 / z);
-            }
-        }
-        const st = feel.strike;
-        if (st) {
-            // the stroke: bright, a flicker, bright again, then fading (never blinding)
-            const t = st.t, k = t < 0.06 ? 1 : t < 0.11 ? 0.35 : t < 0.17 ? 0.85 : Math.max(0, 0.85 * (1 - (t - 0.17) / 0.45));
-            ctx.beginPath();
-            ctx.moveTo(st.pts[0].x, st.pts[0].y);
-            for (let i = 1; i < st.pts.length; i++) ctx.lineTo(st.pts[i].x + rand(-jit, jit), st.pts[i].y + rand(-jit, jit));
-            ctx.strokeStyle = '#bfefff';
-            ctx.globalAlpha = 0.28 * k;
-            ctx.lineWidth = 10 / z;
-            ctx.stroke();
-            ctx.strokeStyle = '#ffffff';
-            ctx.globalAlpha = 0.9 * k;
-            ctx.lineWidth = 2.4 / z;
-            ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-    }
-
     function unplugCam() {
         if (!net.sel) return;
         net.sel = net.zap = net.feel = null;
         closeStream();
         sfx('decloak');
-    }
-
-    function pointAlong(zap, f) {
-        const d = f * zap.total, { pts, lens } = zap;
-        let k = 1;
-        while (k < pts.length - 1 && lens[k] < d) k++;
-        const span = lens[k] - lens[k - 1] || 1, u = clamp((d - lens[k - 1]) / span, 0, 1);
-        return { x: pts[k - 1].x + (pts[k].x - pts[k - 1].x) * u, y: pts[k - 1].y + (pts[k].y - pts[k - 1].y) * u };
     }
 
     function updateNet(dt) {
@@ -6490,64 +6428,44 @@
 
     // ----- drawing it
 
-    // Rings rushing out of the middle, and the bits running down orderly lanes
+    // A slow celestial field, without the old rushing rectangular tunnel.
     function drawTunnel() {
-        const cx = W / 2, cy = H / 2;
-        ctx.fillStyle = '#02030a';
-        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-        for (let i = 0; i < 14; i++) {
-            const k = (clock * 0.22 + i / 14) % 1, e = k * k, rw = 16 + e * W * 0.7, rh = 10 + e * H * 0.7;
-            ctx.strokeStyle = `rgba(45,226,230,${0.04 + e * 0.3})`;
-            ctx.lineWidth = 1 + e * 2;
-            ctx.strokeRect(cx - rw, cy - rh, rw * 2, rh * 2);
-        }
-        const lanes = coarsePointer ? 12 : 18, per = coarsePointer ? 4 : 6, R = Math.hypot(W, H) * 0.6;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (let l = 0; l < lanes; l++) {
-            const a = l / lanes * Math.PI * 2 + 0.13, ca = Math.cos(a), sa = Math.sin(a);
-            ctx.strokeStyle = 'rgba(45,226,230,0.06)';
-            ctx.lineWidth = 1;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = '#030611';
+        ctx.fillRect(0, 0, vw, vh);
+        const glow = ctx.createRadialGradient(vw * 0.5, vh * 0.48, 0, vw * 0.5, vh * 0.48, vw * 0.65);
+        glow.addColorStop(0, '#102030');
+        glow.addColorStop(0.45, '#0b1125');
+        glow.addColorStop(1, '#030611');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, vw, vh);
+        const rnd = seeded(927);
+        for (let i = 0; i < 180; i++) {
+            const x = rnd() * vw, y = rnd() * vh, r = rnd();
+            ctx.globalAlpha = 0.15 + r * 0.45 + (reducedMotion ? 0 : Math.sin(clock * 0.4 + i) * 0.08);
+            ctx.fillStyle = i % 5 ? '#afcadb' : '#dfbffa';
             ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(cx + ca * R, cy + sa * R * 0.75);
-            ctx.stroke();
-            ctx.fillStyle = l % 4 === 0 ? '#ff3fa4' : l % 4 === 2 ? '#f6e05e' : '#9ad7ff';
-            for (let j = 0; j < per; j++) {
-                const p = clock * 0.3 + j / per + (l % 3) * 0.11, k = p % 1, e = k * k;
-                ctx.globalAlpha = Math.min(1, e * 1.6);
-                ctx.font = `bold ${Math.round(6 + e * 14)}px 'IBM Plex Mono', monospace`;
-                ctx.fillText((l * 31 + j * 17 + Math.floor(p)) % 7 < 3 ? '1' : '0', cx + ca * e * R, cy + sa * e * R * 0.75);
-            }
+            ctx.arc(x, y, 0.35 + r * 0.7, 0, Math.PI * 2);
+            ctx.fill();
         }
         ctx.globalAlpha = 1;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'alphabetic';
     }
 
-    // The fractal over the dimmed tunnel. The still part of it is kept in a canvas
-    // and reused while the view holds still (as it does while you watch a cam), so
-    // then it costs one copy a frame; the current and the highlights go over it.
     function drawEther() {
         const vw = window.innerWidth, vh = window.innerHeight, t = net.tree;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.fillStyle = 'rgba(2,3,10,0.55)';
-        ctx.fillRect(0, 0, vw, vh);
         if (!t) {
-            ctx.fillStyle = 'rgba(216,255,248,0.6)';
-            ctx.beginPath();
-            ctx.arc(vw / 2, vh / 2, 10 + Math.sin(clock * 6) * 3, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = '#a9cbd6';
             ctx.font = "11px 'IBM Plex Mono', monospace";
             ctx.textAlign = 'center';
-            ctx.fillText('connecting to the ether\u2026', vw / 2, vh / 2 + 34);
+            ctx.fillText('finding the constellations…', vw / 2, vh / 2 + 40);
             ctx.textAlign = 'left';
             return;
         }
-        const key = [net.z.toFixed(5), net.cx.toFixed(2), net.cy.toFixed(2), view.width, view.height].join();
+        const key = [net.z, net.cx, net.cy, net.blend, view.width, view.height].join();
         if (net.grow >= 1 && (key === net.cacheKey || key === net.lastKey)) {
             if (key !== net.cacheKey) {
-                // the same two frames running: keep it
                 if (!net.cache) net.cache = document.createElement('canvas');
                 net.cache.width = view.width;
                 net.cache.height = view.height;
@@ -6568,221 +6486,153 @@
         return (1 - (1 - net.grow) ** 2) * (net.tree.R + 40);
     }
 
-    // The still part: the grid, the brain's outline, the dendrites (straight when
-    // they're small on the screen, zigzagging and forking once they're not), the
-    // neurons, and the names: lobes, channels mid-way in, and cams close up
-    function drawEtherStill(vw, vh) {
-        const t = net.tree, z = net.z, grown = etherGrown(), S = t.S;
-        const x0 = net.cx - vw / 2 / z, x1 = net.cx + vw / 2 / z, y0 = net.cy - vh / 2 / z, y1 = net.cy + vh / 2 / z;
-        ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (vw / 2 - net.cx * z), dpr * (vh / 2 - net.cy * z));
-
-        const step = 120 * 2 ** Math.round(Math.log2(40 / (120 * z))), rowH = step * 0.866, dot = 1.4 / z;
-        ctx.fillStyle = 'rgba(45,226,230,0.13)';
-        for (let r = Math.floor(y0 / rowH); r * rowH <= y1; r++) {
-            const off = (r & 1) * step / 2;
-            for (let c = Math.floor((x0 - off) / step); c * step + off <= x1; c++) ctx.fillRect(c * step + off - dot / 2, r * rowH - dot / 2, dot, dot);
-        }
-        // the hemispheres
-        ctx.strokeStyle = 'rgba(45,226,230,0.14)';
-        ctx.lineWidth = 2 / z;
-        ctx.setLineDash([6 / z, 8 / z]);
+    // Project every sample through the same lens, including the geographic grid.
+    function etherLine(points) {
         ctx.beginPath();
-        for (const side of [-1, 1]) {
-            const cx = side * 0.52 * S, rx = 0.5 * S, ry = 0.76 * S;
-            if (t.portrait) ctx.ellipse(0, cx, ry, rx, 0, 0, Math.PI * 2);
-            else ctx.ellipse(cx, 0, rx, ry, 0, 0, Math.PI * 2);
-        }
+        points.forEach((p, i) => {
+            const q = etherScreen(p.x, p.y);
+            if (i) ctx.lineTo(q.x, q.y);
+            else ctx.moveTo(q.x, q.y);
+        });
         ctx.stroke();
-        ctx.setLineDash([]);
+    }
 
-        const jagged = z * LEAF_GAP >= 16, twiggy = z * LEAF_GAP >= 26, L = t.leaves, paths = new Map();
+    function drawEtherStill(vw, vh) {
+        const t = net.tree, m = net.blend, S = t.S;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const earth = (1 - m) * Math.min(1, net.grow * 2);
+        if (earth > 0.005) {
+            ctx.strokeStyle = '#609ba8';
+            ctx.globalAlpha = earth * 0.16;
+            ctx.lineWidth = 0.6;
+            for (let lat = -60; lat <= 60; lat += 30) {
+                const pts = [];
+                for (let lon = -180; lon <= 180; lon += 5) pts.push({ x: lon / 180 * S, y: -lat / 180 * S });
+                etherLine(pts);
+            }
+            for (let lon = -180; lon <= 180; lon += 30) {
+                const pts = [];
+                for (let lat = -84; lat <= 84; lat += 4) pts.push({ x: lon / 180 * S, y: -lat / 180 * S });
+                etherLine(pts);
+            }
+            ctx.fillStyle = '#8cbfba';
+            ctx.globalAlpha = earth * 0.48;
+            for (const p of t.land) {
+                const q = etherScreen(p.x, p.y);
+                const r = clamp(net.z * S / 480, coarsePointer ? 0.35 : 0.6, 1.9);
+                ctx.beginPath();
+                ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Connections are sampled curves so they bend with the map, too.
+        // Geography favours local links; semantic space reveals category wiring.
+        ctx.lineWidth = 0.65;
         for (const e of t.edges) {
-            if (e.bx1 < x0 || e.bx0 > x1 || e.by1 < y0 || e.by0 > y1 || L[e.i].r > grown || L[e.j].r > grown) continue;
-            const key = e.axon ? 'axon' : e.color;
-            if (!paths.has(key)) paths.set(key, []);
-            paths.get(key).push(e);
-        }
-        for (const [key, list] of paths) {
-            ctx.beginPath();
-            for (const e of list) {
-                const p = e.pts;
-                ctx.moveTo(p[0], p[1]);
-                if (jagged || e.axon) for (let k = 2; k < p.length; k += 2) ctx.lineTo(p[k], p[k + 1]);
-                else ctx.lineTo(p[p.length - 2], p[p.length - 1]);
-                if (twiggy) for (const tw of e.twigs) for (let k = 0; k < tw.length; k += 4) {
-                    ctx.moveTo(tw[k], tw[k + 1]);
-                    ctx.lineTo(tw[k + 2], tw[k + 3]);
-                }
+            const a = t.leaves[e.i], b = t.leaves[e.j];
+            const distant = Math.hypot(a.geo.x - b.geo.x, a.geo.y - b.geo.y) > S * 0.2;
+            if (distant && m < 0.01 && !e.axon) continue;
+            ctx.globalAlpha = (distant ? 0.025 + m * 0.11 : 0.16) * net.grow;
+            ctx.strokeStyle = e.color;
+            const pts = [];
+            for (let k = 0; k <= 8; k++) {
+                const u = k / 8, bow = Math.sin(u * Math.PI) * Math.min(40, e.len * 0.14);
+                pts.push({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u - bow });
             }
-            const axon = key === 'axon';
-            ctx.strokeStyle = axon ? '#d8fff8' : key;
-            if (jagged || axon) {
-                ctx.globalAlpha = axon ? 0.08 : 0.12;
-                ctx.lineWidth = (axon ? 6 : 4) / z;
-                ctx.stroke();
-            }
-            ctx.globalAlpha = axon ? 0.35 : 0.7;
-            ctx.lineWidth = (axon ? 1.4 : jagged ? 1.1 : 0.8) / z;
-            ctx.stroke();
+            etherLine(pts);
         }
-        ctx.globalAlpha = 1;
-
-        const ls = clamp(z * 3.4, 1.4, 6) / z, rs = ls * z;
-        for (const leaf of L) {
-            if (leaf.x < x0 - ls * 3 || leaf.x > x1 + ls * 3 || leaf.y < y0 - ls * 3 || leaf.y > y1 + ls * 3 || leaf.r > grown) continue;
-            ctx.fillStyle = leaf.color;
-            if (rs < 2.5) ctx.fillRect(leaf.x - ls, leaf.y - ls, ls * 2, ls * 2);
-            else {
-                ctx.globalAlpha = 0.22;
-                ctx.beginPath();
-                ctx.arc(leaf.x, leaf.y, ls * 2.4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
-                ctx.beginPath();
-                ctx.arc(leaf.x, leaf.y, ls, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const taken = t.exits.map(e => ({ ...etherScreen(e.x, e.y), w: 14, h: 22 }));
-        const free = (x, y, w, h) => {
-            if (taken.some(r => Math.abs(r.x - x) < r.w + w && Math.abs(r.y - y) < r.h + h)) return false;
-            taken.push({ x, y, w, h });
-            return true;
-        };
-        for (const n of t.labels) {
-            if (!n.big && (z * LEAF_GAP < 7 || z * LEAF_GAP > 40)) continue;
-            const s = etherScreen(n.x, n.y);
-            if (s.x < -80 || s.x > vw + 80 || s.y < -20 || s.y > vh + 20) continue;
-            ctx.font = n.big ? "bold 13px 'IBM Plex Mono', monospace" : "10px 'IBM Plex Mono', monospace";
-            if (!free(s.x, s.y, ctx.measureText(n.label).width / 2 + 4, n.big ? 9 : 7)) continue;
-            ctx.fillStyle = 'rgba(2,3,10,0.6)';
-            ctx.fillRect(s.x - ctx.measureText(n.label).width / 2 - 3, s.y - (n.big ? 9 : 7), ctx.measureText(n.label).width + 6, n.big ? 18 : 14);
-            ctx.fillStyle = n.big ? n.color : 'rgba(216,255,248,0.75)';
-            ctx.fillText(n.label, s.x, s.y);
-        }
-        if (z * LEAF_GAP >= 34) {
-            ctx.font = "10px 'IBM Plex Mono', monospace";
-            ctx.textAlign = 'left';
-            ctx.fillStyle = 'rgba(216,255,248,0.85)';
-            for (const leaf of L) {
-                const s = etherScreen(leaf.x, leaf.y);
-                if (s.x < -10 || s.x > vw || s.y < 0 || s.y > vh || leaf.r > grown) continue;
-                const w = ctx.measureText(leaf.cam.n).width;
-                if (!free(s.x + rs + 4 + w / 2, s.y, w / 2 + 2, 6)) continue;
-                ctx.fillText(leaf.cam.n, s.x + rs + 4, s.y);
-            }
-        }
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'alphabetic';
-    }
-
-    // Where a pulse is along a dendrite (it runs either way)
-    function alongEdge(e, t, dir) {
-        const p = e.pts, n = p.length / 2 - 1, s = clamp(dir > 0 ? t : 1 - t, 0, 1) * n, k = Math.min(n - 1, Math.floor(s)), f = s - k;
-        return { x: p[k * 2] + (p[k * 2 + 2] - p[k * 2]) * f, y: p[k * 2 + 1] + (p[k * 2 + 3] - p[k * 2 + 1]) * f };
-    }
-
-    // The moving part: pulses running the network, neurons flashing as they fire,
-    // the current to the cam picked, sparks, the ways out, and rings on the cams in
-    // play (the one plugged into, the one under the pointer, the one he's over)
-    function drawEtherMoving(vw, vh) {
-        const t = net.tree, z = net.z, zap = net.zap, L = t.leaves;
-        const x0 = net.cx - vw / 2 / z, x1 = net.cx + vw / 2 / z, y0 = net.cy - vh / 2 / z, y1 = net.cy + vh / 2 / z;
-        ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (vw / 2 - net.cx * z), dpr * (vh / 2 - net.cy * z));
-        for (const leaf of net.firing) {
-            if (leaf.x < x0 || leaf.x > x1 || leaf.y < y0 || leaf.y > y1) continue;
-            ctx.globalAlpha = leaf.fire * 0.6;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(leaf.x, leaf.y, (4 + (1 - leaf.fire) * 6) / z, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        for (const p of net.pulses) {
-            const e = t.edges[p.e], a = alongEdge(e, p.t, p.dir), b = alongEdge(e, p.t - 0.18, p.dir);
-            if (a.x < x0 || a.x > x1 || a.y < y0 || a.y > y1) continue;
-            ctx.strokeStyle = p.color;
+        const grown = etherGrown();
+        for (const l of t.leaves) {
+            if (l.r > grown) continue;
+            const q = etherScreen(l.x, l.y), r = clamp(net.z * 2, coarsePointer ? 0.65 : 1.2, 3);
+            ctx.fillStyle = l.color;
+            ctx.globalAlpha = 0.055;
+            ctx.beginPath(); ctx.arc(q.x, q.y, r * 4.5, 0, Math.PI * 2); ctx.fill();
             ctx.globalAlpha = 0.8;
-            ctx.lineWidth = 2 / z;
-            ctx.beginPath();
-            ctx.moveTo(b.x, b.y);
-            ctx.lineTo(a.x, a.y);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(a.x - 1.2 / z, a.y - 1.2 / z, 2.4 / z, 2.4 / z);
+            ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1;
-        drawFeelers(z);
-        if (zap) {
-            const f = zap.done ? 1 : Math.min(1, zap.t), upto = f * zap.total, jit = 2.5 / z, head = pointAlong(zap, f);
-            ctx.beginPath();
-            ctx.moveTo(zap.pts[0].x, zap.pts[0].y);
-            for (let k = 1; k < zap.pts.length && zap.lens[k] < upto; k++) ctx.lineTo(zap.pts[k].x + rand(-jit, jit), zap.pts[k].y + rand(-jit, jit));
-            ctx.lineTo(head.x, head.y);
-            ctx.strokeStyle = '#2de2e6';
-            ctx.globalAlpha = zap.done ? 0.2 + Math.random() * 0.15 : 0.55;
-            ctx.lineWidth = 7 / z;
-            ctx.stroke();
-            ctx.strokeStyle = '#ffffff';
-            ctx.globalAlpha = 0.95;
-            ctx.lineWidth = (zap.done ? 1.3 : 2.2) / z;
-            ctx.stroke();
-            if (zap.done) {
-                ctx.setLineDash([10 / z, 34 / z]);
-                ctx.lineDashOffset = -clock * 180 / z;
-                ctx.strokeStyle = '#f6ffb0';
-                ctx.lineWidth = 2.6 / z;
-                ctx.stroke();
-                ctx.setLineDash([]);
-            } else {
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(head.x, head.y, 5 / z, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-        }
-        ctx.fillStyle = '#f6ffb0';
-        for (const q of net.sparks) ctx.fillRect(q.x - 1 / z, q.y - 1 / z, 2 / z, 2 / z);
-
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        if (net.feel && net.feel.strike && net.feel.strike.t < 0.25) {
-            ctx.fillStyle = `rgba(220,240,255,${0.07 * (1 - net.feel.strike.t / 0.25)})`;
-            ctx.fillRect(0, 0, vw, vh);
-        }
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.font = "9px 'IBM Plex Mono', monospace";
-        for (const e of t.exits) {
-            const s = etherScreen(e.x, e.y), on = net.near === e;
-            hexPath(s.x, s.y, on ? 13 : 10);
-            ctx.fillStyle = '#02030a';
-            ctx.fill();
-            ctx.strokeStyle = '#f6e05e';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.fillStyle = '#f6e05e';
-            ctx.fillText(e.label, s.x, s.y + 15);
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        const labels = m > 0.5 ? t.labels.filter(n => n.big).map(n => {
+            const mine = t.leaves.filter(l => l.cat === n.label);
+            return { label: n.label, x: mine.reduce((a, l) => a + l.x, 0) / mine.length, y: mine.reduce((a, l) => a + l.y, 0) / mine.length, color: n.color };
+        }) : [
+            { label: 'NORTH AMERICA', x: -0.60 * S, y: -0.29 * S },
+            { label: 'SOUTH AMERICA', x: -0.34 * S, y: 0.14 * S },
+            { label: 'EUROPE', x: 0.1 * S, y: -0.36 * S },
+            { label: 'AFRICA', x: 0.12 * S, y: 0.01 * S },
+            { label: 'ASIA', x: 0.57 * S, y: -0.26 * S },
+            { label: 'OCEANIA', x: 0.76 * S, y: 0.19 * S },
+            { label: 'UNLOCATED SIGNALS', x: 0, y: S * 0.70 },
+        ];
+        const taken = [];
+        for (const n of labels) {
+            const q = etherScreen(n.x, n.y), width = ctx.measureText(n.label).width;
+            if (taken.some(r => Math.abs(r.x - q.x) < (r.w + width) / 2 + 10 && Math.abs(r.y - q.y) < 22)) continue;
+            taken.push({ ...q, w: width });
+            ctx.globalAlpha = Math.abs(m - 0.5) * 1.1;
+            ctx.fillStyle = n.color || '#b9d6d4';
+            ctx.fillText(n.label, q.x, q.y - 12);
         }
-        ctx.textBaseline = 'middle';
-        const rs = clamp(z * 3.4, 1.4, 6), hover = pointer.has && !coarsePointer ? etherAt(pointer.x, pointer.y, 14) : null;
-        for (const [n, color] of [[net.sel, '#ffffff'], [hover, '#f6ffb0'], [net.near, '#2de2e6']]) {
-            if (!n || n.exit) continue;
-            const s = etherScreen(n.x, n.y);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = n === net.sel ? 2 : 1.5;
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, rs + 5 + (n === net.sel ? Math.sin(clock * 6) * 1.5 + Math.max(0, net.flash) * 30 : 0), 0, Math.PI * 2);
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+    }
+
+    // Travelling light and a permanent, living connection to the graph.
+    function drawEtherMoving(vw, vh) {
+        const t = net.tree;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        for (const p of net.pulses) {
+            const e = t.edges[p.e], a = t.leaves[e.i], b = t.leaves[e.j];
+            const u = p.dir > 0 ? p.t : 1 - p.t;
+            const q = etherScreen(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u - Math.sin(u * Math.PI) * Math.min(40, e.len * 0.14));
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = 0.65;
+            ctx.beginPath(); ctx.arc(q.x, q.y, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        const center = etherScreen(guy.x, guy.y);
+        const neighbours = t.leaves.map(l => ({ l, d: (l.x - guy.x) ** 2 + (l.y - guy.y) ** 2 })).sort((a, b) => a.d - b.d).slice(0, 4).map(n => n.l);
+        if (net.sel && !neighbours.includes(net.sel)) neighbours.push(net.sel);
+        for (const l of neighbours) {
+            const q = etherScreen(l.x, l.y), selected = l === net.sel;
+            ctx.strokeStyle = selected ? '#ecf9df' : l.color;
+            ctx.globalAlpha = selected ? 0.65 : 0.28;
+            ctx.lineWidth = selected ? 1.3 : 0.8;
+            ctx.beginPath(); ctx.moveTo(center.x, center.y - HEIGHT / 2);
+            ctx.bezierCurveTo(center.x + (q.x - center.x) * 0.25, center.y - 45, q.x, q.y - 30, q.x, q.y);
             ctx.stroke();
-            if (z * LEAF_GAP < 34 || n !== net.sel) {
-                ctx.font = "10px 'IBM Plex Mono', monospace";
-                ctx.fillStyle = color;
-                ctx.fillText(n.cam.n, s.x, s.y - rs - 14);
-            }
+        }
+        ctx.globalAlpha = 0.18;
+        ctx.strokeStyle = '#bbdcde';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.ellipse(center.x, center.y - HEIGHT / 2, 33, 12, -0.3, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'center';
+        ctx.font = "10px 'IBM Plex Mono', monospace";
+        for (const e of t.exits) {
+            const q = etherScreen(e.x, e.y);
+            ctx.strokeStyle = '#e7d9a5';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#e7d9a5'; ctx.fillText(e.label, q.x, q.y + 23);
+        }
+        const hover = pointer.has && !coarsePointer ? etherAt(pointer.x, pointer.y, 14) : null;
+        const shown = new Set();
+        for (const n of [net.sel, hover, net.near]) {
+            if (!n || n.exit || shown.has(n)) continue;
+            shown.add(n);
+            const q = etherScreen(n.x, n.y);
+            ctx.strokeStyle = n === net.sel ? '#ffffff' : '#bfeadf';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(q.x, q.y, 8, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#eef6ef';
+            let label = n.cam.n + (net.space === 'earth' ? ' · ' + (n.cam.pl || 'location unknown') : ' · ' + n.cat);
+            const full = label;
+            while (label.length > 4 && ctx.measureText(label).width > vw - 32) label = label.slice(0, -1);
+            if (label !== full) label = label.slice(0, -1) + '…';
+            const half = ctx.measureText(label).width / 2;
+            ctx.fillText(label, clamp(q.x, half + 8, Math.max(half + 8, vw - half - 8)), q.y - 17);
         }
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
@@ -6812,7 +6662,7 @@
             ctx.font = "11px 'IBM Plex Mono', monospace";
             ctx.textAlign = 'center';
             ctx.fillStyle = `rgba(216,255,248,${0.55 + Math.sin(clock * 3) * 0.2})`;
-            ctx.fillText(coarsePointer ? 'pinch (or IN) to zoom in, tap a cam' : 'scroll to zoom in, click a cam', vw / 2, vh - (coarsePointer ? 200 : 30));
+            ctx.fillText(coarsePointer ? 'fly through · pinch to explore · tap a signal' : 'wasd to drift · scroll to explore · click a signal · v to change space', vw / 2, vh - (coarsePointer ? 200 : 30));
             ctx.textAlign = 'left';
         }
     }
@@ -7606,6 +7456,7 @@
             else if (act === 'gun') unholster();
             else if (act === 'mute') toggleMute();
             else if (act === 'help') toggleHelp();
+            else if (act === 'space' && b.getAttribute('aria-pressed') !== 'true') toggleEtherSpace();
             else if (act === 'bots') toggleBots();
             else if (act === 'taunt') taunt();
             else if (act === 'menu') {
@@ -7624,6 +7475,7 @@
         if (!hud) return;
         hud.classList.toggle('dh-idle', !active);
         hud.classList.toggle('dh-sky', active && scene !== 'site');
+        hud.classList.toggle('dh-ether', active && scene === 'net');
         if (!active) {
             hud.innerHTML = `<button data-act="gun">[${coarsePointer ? 'tap' : 'g'}] give him the gun back</button>`;
             pctEl = muteEl = killsEl = hpFill = hpNum = camoFill = camoNum = null;
@@ -7637,7 +7489,7 @@
             ? `stick: move &middot; JUMP: jump, flip, glide<br>FIRE aims itself, or tap to shoot<br>${merged ? 'CAMO: invisible' : 'BOMB: grenade'} &middot; SWAP: next gun<br>push into an edge to climb`
             : `wasd: move &middot; space: jump, flip, glide<br>click: shoot &middot; ${merged ? 'right-click: camo' : 'right-click: grenade'}<br>q: next gun &middot; s: drop &middot; t: taunt<br>run into an edge to climb`;
         const jetHelp = hasJetpack ? `<br>${coarsePointer ? 'hold JET' : 'hold space'}: jetpack` : '';
-        const netHelp = coarsePointer ? 'stick: fly &middot; pinch: zoom<br>tap a cam to plug in' : 'wasd: fly &middot; scroll: zoom<br>click a cam to plug in';
+        const netHelp = coarsePointer ? 'stick: fly &middot; pinch: zoom<br>tap a cam to plug in' : 'wasd: fly &middot; scroll: zoom<br>click a cam to plug in &middot; v: change space';
         const helpText = scene === 'net' ? netHelp : help + jetHelp;
         const key = k => coarsePointer ? '' : `[${k}] `;
         if (pad) {
@@ -7666,6 +7518,12 @@
             (helpOn ? `<div class="dh-help">${helpText}</div>` + (botsOn ? `<div class="dh-kills"></div>` : '') : '') +
             `<div><button data-act="fix">${key('esc')}fix website</button> &middot; <button data-act="help">${key('h')}${helpOn ? 'less' : 'controls'}</button></div>` +
             `<div><button data-act="mute"></button> &middot; <button data-act="bots">${key('b')}robots ${botsOn ? 'on' : 'off'}</button></div>`;
+        if (scene === 'net' && net) hud.innerHTML =
+            `<div class="ether-title">THE ETHER <span> / living atlas</span></div>` +
+            `<div class="ether-space" role="group" aria-label="Camera layout"><button data-act="space" aria-pressed="${net.space === 'earth'}">${net.space === 'earth' ? '◉' : '○'} earth</button><span>↔</span><button data-act="space" aria-pressed="${net.space === 'semantic'}">${net.space === 'semantic' ? '◉' : '○'} semantic</button></div>` +
+            `<div class="dh-pct"></div>` +
+            (helpOn ? `<div class="dh-help">${netHelp}</div>` : '') +
+            `<div><button data-act="fix">${key('esc')}home</button> · <button data-act="help">${helpOn ? 'less' : 'controls'}</button> · <button data-act="mute"></button></div>`;
         pctEl = hud.querySelector('.dh-pct');
         killsEl = hud.querySelector('.dh-kills');
         hpFill = hud.querySelector('.dh-fill');
@@ -8007,6 +7865,7 @@
             return;
         }
         if (scene === 'net' && net) {
+            if (e.code === 'KeyV' && !e.repeat) { toggleEtherSpace(); e.preventDefault(); return; }
             const zoom = { KeyZ: 1.6, Equal: 1.6, NumpadAdd: 1.6, KeyX: 1 / 1.6, Minus: 1 / 1.6, NumpadSubtract: 1 / 1.6 }[e.code];
             if (zoom) {
                 zoomEther(zoom, pointer.has && !coarsePointer ? pointer.x : undefined, pointer.has && !coarsePointer ? pointer.y : undefined);
@@ -8128,7 +7987,7 @@
         }
     }, { passive: false });
 
-    // In the ether: a tap picks (or zooms in, from far out), two fingers pinch to zoom
+    // In the ether: a tap picks a signal, two fingers pinch to zoom
     const netTouches = new Map();
     let netPinched = false;
 

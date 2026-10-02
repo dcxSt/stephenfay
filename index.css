@@ -1165,7 +1165,7 @@ html.destroying #pixelated-person {
 
 @keyframes ds-open {
     from {
-        transform: scale(0.04);
+        transform: translateY(6px);
         opacity: 0.2;
     }
 }
@@ -1216,3 +1216,16 @@ html.destroy-cine #destroy-stick {
 html.destroy-away #fly-image {
     visibility: hidden;
 }
+
+/* The atlas / constellation switch stays available on touch screens, too. */
+#destroy-hud .ether-space { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+#destroy-hud .ether-space button { border: 1px solid #6c929866; border-radius: 20px; padding: 7px 12px; min-height: 36px; }
+#destroy-hud .ether-space button[aria-pressed="true"] { color: #e1f6ec; background: #23464a88; border-color: #a1d7cc; }
+#destroy-hud .ether-space button:focus-visible { outline: 2px solid #e1f6ec; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { #destroy-stream { animation: none; } }
+
+#destroy-hud.dh-ether { background: rgba(4, 12, 24, 0.86); color: #a9c9cc; border: 1px solid #89b9bd33; border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 40px #0003; }
+#destroy-hud.dh-ether button { color: inherit; }
+#destroy-hud .ether-title { color: #e1f6ec; letter-spacing: 2px; margin-bottom: 10px; }
+#destroy-hud .ether-title span { color: #79999f; font-size: 9px; letter-spacing: 0; }
+#destroy-hud.dh-ether .dh-pct { margin-bottom: 8px; color: #79999f; }
