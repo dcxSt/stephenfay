@@ -4836,8 +4836,10 @@
         if (coarsePointer && !audio.muted && navigator.vibrate) navigator.vibrate(pattern);
     }
 
-    // The guns he's found and the jetpack stay found: through fixing the website,
-    // dying, and coming back another day
+    // The guns he's found (and the one in his hand), the jetpack, and whether he's
+    // been all the way through stay put: through fixing the website, dying, and
+    // coming back another day. Once he's finished he comes back with the jetpack and
+    // the portal open.
     let savedWeapon = 0;
 
     function loadProgress() {
@@ -4846,8 +4848,8 @@
         hasJetpack = merged = false;
         try {
             const p = JSON.parse(localStorage.getItem('destroyProgress') || '{}');
-            hasJetpack = !!p.jetpack;
             merged = !!p.merged;
+            hasJetpack = !!p.jetpack || merged;   // he can't have finished without it
             for (const i of p.guns || []) if (i > 0 && i < WEAPONS.length) owned.add(i);
             savedWeapon = owned.has(p.weapon) ? p.weapon : 0;
         } catch (_) { /* storage unavailable */ }
