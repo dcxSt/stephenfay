@@ -5777,7 +5777,9 @@
             { exit: 'site', label: 'home', x: portrait ? -S * 0.36 : 0, y: portrait ? 0 : -S * 0.36 },
             { exit: 'shell', label: 'unplug', x: portrait ? S * 0.36 : 0, y: portrait ? 0 : S * 0.36 },
         ];
-        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits, land, density: buildEtherDensity(leaves, S) };
+        return { R: Math.max(xExt, yExt) + 40, xExt, yExt, S, portrait, leaves, edges, labels, exits, land, density: buildEtherDensity(leaves, S),
+            periodX: Math.max(...leaves.map(l => l.semantic.x)) - Math.min(...leaves.map(l => l.semantic.x)) + LEAF_GAP,
+            periodY: Math.max(...leaves.map(l => l.semantic.y)) - Math.min(...leaves.map(l => l.semantic.y)) + LEAF_GAP };
     }
 
     // A dendrite from one neuron to another: the straight line between them split in
@@ -5953,6 +5955,7 @@
             radius: Math.min(window.innerWidth * 0.40, window.innerHeight * 0.37) * (1 + Math.log(Math.max(1, net.z / net.zMin)) * 0.24),
             zoom: Math.max(0.7, net.z / net.zMin),
         };
+        net.projection.portals = net.tree.exits.map(e => etherRawScreen(e.x, e.y));
     }
 
     function earthScreen(x, y, orbital = false) {
@@ -5975,25 +5978,78 @@
     }
 
     function semanticScreen(x, y) {
-        const S = net.tree.S, period = S * 1.25, z = net.projection.zoom;
-        const dx = etherWrap(x - net.cx, period) / (period / 2), dy = etherWrap(y - net.cy, period) / (period / 2);
+        const { periodX, periodY } = net.tree, z = net.projection.zoom;
+        const dx = etherWrap(x - net.cx, periodX) / (periodX / 2), dy = etherWrap(y - net.cy, periodY) / (periodY / 2);
         // Hyperbolic-looking focus: the interior blooms, the boundary compresses.
         const strength = 1.7 + Math.log(z) * 0.8, denom = Math.tanh(strength);
         let u = Math.tanh(dx * strength) / denom, v = Math.tanh(dy * strength) / denom;
         const ripple = Math.sin(Math.PI * u) * Math.sin(Math.PI * v);
-        u += 0.13 * ripple * Math.sin(net.cy / period * Math.PI * 2 + v * 3);
-        v += 0.13 * ripple * Math.cos(net.cx / period * Math.PI * 2 + u * 3);
-        const visibility = clamp((1 - Math.max(Math.abs(dx), Math.abs(dy))) / 0.07, 0, 1);
-        return { x: window.innerWidth * (0.5 + u * 0.49), y: window.innerHeight * (0.5 + v * 0.47), visibility, depth: 1, mass: 0 };
+        u += 0.13 * ripple * Math.sin(net.cy / periodY * Math.PI * 2 + v * 3);
+        v += 0.13 * ripple * Math.cos(net.cx / periodX * Math.PI * 2 + u * 3);
+        return { x: window.innerWidth * (0.5 + u * 0.5), y: window.innerHeight * (0.5 + v * 0.5), visibility: 1, depth: 1, mass: 0 };
     }
 
-    function etherScreen(x, y, orbital = false) {
+    function etherRawScreen(x, y, orbital = false) {
         if (!net.tree || !net.projection) return { x: window.innerWidth / 2, y: window.innerHeight / 2, visibility: 1 };
         const m = net.blend;
         if (m === 0) return earthScreen(x, y, orbital);
         if (m === 1) return semanticScreen(x, y);
         const a = earthScreen(x, y, orbital), b = semanticScreen(x, y);
         return { x: a.x * (1 - m) + b.x * m, y: a.y * (1 - m) + b.y * m, visibility: a.visibility * (1 - m) + b.visibility * m };
+    }
+
+    // One lens for land, wires, signals and hit-testing. It vanishes at the
+    // semantic seam and at the traveller, preserving both wrap and centering.
+    function etherScreen(x, y, orbital = false) {
+        const q = etherRawScreen(x, y, orbital), vw = innerWidth, vh = innerHeight;
+        const pin = Math.min(1, Math.hypot(q.x - vw / 2, q.y - vh / 2) / 65);
+        const seam = net.blend > 0.99 ? Math.max(0, Math.sin(Math.PI * q.x / vw) * Math.sin(Math.PI * q.y / vh)) : 1;
+        let dx = 0, dy = 0;
+        for (const p of net.projection?.portals || []) {
+            if (p.visibility < 0.3) continue;
+            const x = q.x - p.x, y = q.y - p.y;
+            const lens = 0.32 * Math.exp(-(x * x + y * y) / 3600) * pin * seam;
+            dx += x * lens; dy += y * lens;
+        }
+        return { ...q, x: q.x + dx, y: q.y + dy };
+    }
+
+    // Continue a line beyond one edge and immediately from its opposite edge.
+    function etherSegment(a, b) {
+        const w = innerWidth, h = innerHeight;
+        if (net.blend < 0.999) {
+            if (Math.abs(b.x - a.x) > w * 0.45 || Math.abs(b.y - a.y) > h * 0.45) ctx.moveTo(b.x, b.y);
+            else ctx.lineTo(b.x, b.y);
+            return;
+        }
+        const x = a.x + etherWrap(b.x - a.x, w), y = a.y + etherWrap(b.y - a.y, h);
+        ctx.moveTo(a.x, a.y); ctx.lineTo(x, y);
+        if (Math.abs(b.x - a.x) > w / 2 || Math.abs(b.y - a.y) > h / 2) {
+            for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) {
+                if (!ox && !oy) continue;
+                if (Math.max(a.x + ox, x + ox) < 0 || Math.min(a.x + ox, x + ox) > w || Math.max(a.y + oy, y + oy) < 0 || Math.min(a.y + oy, y + oy) > h) continue;
+                ctx.moveTo(a.x + ox, a.y + oy); ctx.lineTo(x + ox, y + oy);
+            }
+        }
+        ctx.moveTo(b.x, b.y);
+    }
+
+    function etherCopies(q, radius) {
+        const copies = [q];
+        if (net.blend < 0.999) return copies;
+        const xs = [0], ys = [0];
+        if (q.x < radius) xs.push(innerWidth);
+        if (q.x > innerWidth - radius) xs.push(-innerWidth);
+        if (q.y < radius) ys.push(innerHeight);
+        if (q.y > innerHeight - radius) ys.push(-innerHeight);
+        for (const x of xs) for (const y of ys) if (x || y) copies.push({ ...q, x: q.x + x, y: q.y + y });
+        return copies;
+    }
+
+    function etherHitDistance(p, x, y) {
+        let dx = p.x - x, dy = p.y - y;
+        if (net.blend > 0.999) { dx = etherWrap(dx, innerWidth); dy = etherWrap(dy, innerHeight); }
+        return dx * dx + dy * dy;
     }
 
     function etherNode(leaf) {
@@ -6052,7 +6108,7 @@
         if (!t) return null;
         let best = null, bd = 22 * 22;
         for (const e of t.exits) {
-            const s = etherScreen(e.x, e.y), d = (s.x - px) ** 2 + (s.y - py) ** 2;
+            const s = etherScreen(e.x, e.y), d = etherHitDistance(s, px, py);
             if (s.visibility > 0.3 && d < bd) {
                 bd = d;
                 best = e;
@@ -6062,7 +6118,7 @@
         bd = reach * reach;
         for (const leaf of t.leaves) {
             if (leaf.r > etherGrown()) continue;
-            const p = etherNode(leaf), dx = p.x - px, dy = p.y - py, d = dx * dx + dy * dy;
+            const p = etherNode(leaf), d = etherHitDistance(p, px, py);
             if (p.visibility > 0.3 && d < bd) {
                 bd = d;
                 best = leaf;
@@ -6660,8 +6716,8 @@
         for (const p of points) {
             const q = etherScreen(p.x, p.y);
             if (q.visibility < 0.08) { prev = null; continue; }
-            if (!prev || Math.abs(q.x - prev.x) > innerWidth * 0.45 || Math.abs(q.y - prev.y) > innerHeight * 0.45) ctx.moveTo(q.x, q.y);
-            else ctx.lineTo(q.x, q.y);
+            if (!prev) ctx.moveTo(q.x, q.y);
+            else etherSegment(prev, q);
             prev = q;
         }
         ctx.stroke();
@@ -6718,10 +6774,12 @@
             const q = etherNode(l), r = clamp(net.z * 2, coarsePointer ? 0.65 : 1.2, 3);
             if (q.visibility < 0.04) continue;
             ctx.fillStyle = l.color;
-            ctx.globalAlpha = 0.055 * q.visibility;
-            ctx.beginPath(); ctx.arc(q.x, q.y, r * 4.5, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 0.8 * q.visibility;
-            ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fill();
+            for (const p of etherCopies(q, r * 4.5)) {
+                ctx.globalAlpha = 0.055 * q.visibility;
+                ctx.beginPath(); ctx.arc(p.x, p.y, r * 4.5, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 0.8 * q.visibility;
+                ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+            }
         }
         ctx.globalAlpha = 1;
         ctx.textAlign = 'center';
@@ -6770,9 +6828,10 @@
                 const q = etherScreen(p.x, p.y, p.y > net.tree.S * 0.55 && p !== points[0]);
                 if (q.visibility < 0.08) { last = null; continue; }
                 const x = q.x + rand(-jitter, jitter), y = q.y + rand(-jitter, jitter);
-                if (!last || Math.abs(q.x - last.x) > innerWidth * 0.45 || Math.abs(q.y - last.y) > innerHeight * 0.45) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-                last = q;
+                const jittered = { x, y };
+                if (!last) ctx.moveTo(x, y);
+                else etherSegment(last, jittered);
+                last = jittered;
             }
             ctx.strokeStyle = '#678cff'; ctx.globalAlpha = alpha * 0.18; ctx.lineWidth = wide ? 13 : 7; ctx.stroke();
             ctx.strokeStyle = '#8be8ff'; ctx.globalAlpha = alpha * 0.5; ctx.lineWidth = wide ? 5 : 3; ctx.stroke();
@@ -6809,7 +6868,7 @@
         const on = net.near === exit || (pointer.has && !coarsePointer && Math.hypot(pointer.x - q.x, pointer.y - q.y) < 22);
         const home = exit.exit === 'site', color = home ? '#edb878' : '#a895ee';
         const phase = reducedMotion ? 0 : clock * (home ? 0.7 : -0.6);
-        const radius = on ? 26 : 22;
+        const radius = on ? 30 : 26;
         ctx.save();
         ctx.translate(q.x, q.y);
         ctx.globalAlpha = q.visibility;
@@ -6820,6 +6879,14 @@
         ctx.fillStyle = halo;
         ctx.fillRect(-radius * 2.1, -radius * 2.1, radius * 4.2, radius * 4.2);
         ctx.rotate(home ? -0.38 : 0.38);
+        // Nested, offset rings recede into a throat: a tunnel rather than a disk.
+        for (let i = 0; i < 7; i++) {
+            const t = ((reducedMotion ? 0 : clock * 0.18) + i / 7) % 1;
+            const r = 7 + (1 - t) ** 2 * radius;
+            ctx.strokeStyle = color; ctx.globalAlpha = q.visibility * (1 - t) * 0.38;
+            ctx.lineWidth = 0.7;
+            ctx.beginPath(); ctx.ellipse(Math.sin(phase + t * 4) * t * 3, -t * 3, r, r * 0.64, t * 0.45, 0, Math.PI * 2); ctx.stroke();
+        }
         // Rings bend inward instead of reading as a flat button outline.
         for (let arm = 0; arm < 3; arm++) {
             ctx.beginPath();
@@ -6842,7 +6909,7 @@
         ctx.restore();
         ctx.fillStyle = color;
         ctx.globalAlpha = q.visibility;
-        ctx.fillText(exit.label, q.x, q.y + (on ? 39 : 35));
+        ctx.fillText(exit.label, q.x, q.y + (on ? 44 : 40));
         ctx.globalAlpha = 1;
     }
 
@@ -6884,7 +6951,7 @@
         for (const e of t.exits) {
             const q = etherScreen(e.x, e.y);
             if (q.visibility < 0.3) continue;
-            drawEtherWormhole(e, q);
+            for (const p of etherCopies(q, 65)) drawEtherWormhole(e, p);
         }
         const hover = pointer.has && !coarsePointer ? etherAt(pointer.x, pointer.y, 14) : null;
         const shown = new Set();
